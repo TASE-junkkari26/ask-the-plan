@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["jsonschema>=4.18,<5", "pytest>=8,<10"]
+experiments = ["Pillow>=12,<13"]
 
 [project.scripts]
 ifc-query = "ifc_engine.cli:main"

@@ -1,0 +1,133 @@
+{
+  "experiment": "door-labeling.full-image.v1",
+  "run_id": "20261113T234605960384Z",
+  "code_revision": "ab470cf880c7087ed5b9a51563564614452454d0",
+  "code_dirty": true,
+  "runner_sha256": "c99a99794fd56efcec2cdbb3994d01a5b0614d7e2181bac0e664d871c7c019da",
+  "source": "dataset/junction-dataset/data/cubicasa5k/colorful-10052.png",
+  "source_sha256": "7827869a473a59bfbbc6560bf00ed3849de6b9dc59eab7b9f8dd005069f63375",
+  "image_width": 2730,
+  "image_height": 2048,
+  "attribution": "CubiCasa5K (c) 2019 CubiCasa; Kalervo et al., SCIA 2019. CC BY-NC-SA 4.0.",
+  "coordinate_frame": "bbox_1000 xyxy over the complete unmodified input image; top-left origin",
+  "settings": {
+    "base_url": "https://containers.datacrunch.io/nemotron-3-5-super-vl-b300/v1",
+    "model": "nemotron-3.5-super-vl",
+    "timeout_seconds": 120.0,
+    "max_retries": 0,
+    "max_tokens": 2048,
+    "temperature": 0.2,
+    "enable_thinking": false
+  },
+  "request_overrides": {
+    "temperature": 0,
+    "max_tokens": 4096,
+    "response_format": {
+      "type": "json_object"
+    }
+  },
+  "messages_without_image_payload": [
+    {
+      "role": "system",
+      "content": "You propose localized annotations for construction drawings. Preserve uncertainty. Return only one JSON object matching this schema:\n{\"$defs\": {\"Door\": {\"additionalProperties\": false, \"properties\": {\"id\": {\"minLength\": 1, \"title\": \"Id\", \"type\": \"string\"}, \"bbox_1000\": {\"maxItems\": 4, \"minItems\": 4, \"prefixItems\": [{\"maximum\": 1000, \"minimum\": 0, \"type\": \"number\"}, {\"maximum\": 1000, \"minimum\": 0, \"type\": \"number\"}, {\"maximum\": 1000, \"minimum\": 0, \"type\": \"number\"}, {\"maximum\": 1000, \"minimum\": 0, \"type\": \"number\"}], \"title\": \"Bbox 1000\", \"type\": \"array\"}, \"kind\": {\"enum\": [\"single_swing\", \"double_swing\", \"sliding\", \"folding\", \"unknown\"], \"title\": \"Kind\", \"type\": \"string\"}, \"uncertain\": {\"title\": \"Uncertain\", \"type\": \"boolean\"}, \"visual_cue\": {\"title\": \"Visual Cue\", \"type\": \"string\"}}, \"required\": [\"id\", \"bbox_1000\", \"kind\", \"uncertain\", \"visual_cue\"], \"title\": \"Door\", \"type\": \"object\"}}, \"additionalProperties\": false, \"properties\": {\"doors\": {\"items\": {\"$ref\": \"#/$defs/Door\"}, \"maxItems\": 100, \"title\": \"Doors\", \"type\": \"array\"}, \"limitations\": {\"items\": {\"type\": \"string\"}, \"title\": \"Limitations\", \"type\": \"array\"}}, \"required\": [\"doors\", \"limitations\"], \"title\": \"DoorLabels\", \"type\": \"object\"}"
+    },
+    {
+      "role": "user",
+      "content": "Locate every doorway fitted with a door in the attached floor plan.\n\nCounting rule:\n- One physical doorway is one door instance, including a double-leaf door.\n- Include interior and exterior doors, and sliding/folding doors if depicted.\n- Exclude open passages without a door leaf, windows, furniture, cabinet doors,\n  plumbing fixtures, and symbols outside the actual floor plan.\n- Do not infer an invisible door from a wall gap alone.\n\nThe input image is 2730 pixels wide and 2048 pixels high.\nReturn one bounding box per door instance, tightly enclosing its visible door\nleaf/leaves and swing arc when present. Use bbox_1000 = [xmin, ymin, xmax, ymax]\nwith both axes normalized from 0 to 1000 over the ENTIRE attached image. The\norigin is the image's top-left corner. Do not use a cropped plan's coordinate\nframe. Box edges must satisfy 0 <= xmin < xmax <= 1000 and\n0 <= ymin < ymax <= 1000.\n\nGive each door a unique ID such as D1, its door kind, an uncertainty flag, and a\nshort observable visual cue. List image limitations separately. Use the image\nalone. Do not guess an expected total. The application will count the instances.\n"
+    }
+  ],
+  "response_schema": {
+    "$defs": {
+      "Door": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "bbox_1000": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "maximum": 1000,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "maximum": 1000,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "maximum": 1000,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "maximum": 1000,
+                "minimum": 0,
+                "type": "number"
+              }
+            ],
+            "title": "Bbox 1000",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "single_swing",
+              "double_swing",
+              "sliding",
+              "folding",
+              "unknown"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "uncertain": {
+            "title": "Uncertain",
+            "type": "boolean"
+          },
+          "visual_cue": {
+            "title": "Visual Cue",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "bbox_1000",
+          "kind",
+          "uncertain",
+          "visual_cue"
+        ],
+        "title": "Door",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "doors": {
+        "items": {
+          "$ref": "#/$defs/Door"
+        },
+        "maxItems": 100,
+        "title": "Doors",
+        "type": "array"
+      },
+      "limitations": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Limitations",
+        "type": "array"
+      }
+    },
+    "required": [
+      "doors",
+      "limitations"
+    ],
+    "title": "DoorLabels",
+    "type": "object"
+  }
+}

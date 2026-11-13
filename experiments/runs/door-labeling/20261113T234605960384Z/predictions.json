@@ -1,0 +1,100 @@
+{
+  "doors": [
+    {
+      "id": "D1",
+      "bbox_1000": [
+        88.0,
+        438.0,
+        206.0,
+        518.0
+      ],
+      "kind": "single_swing",
+      "uncertain": false,
+      "visual_cue": "Swing arc and door leaf at left wall opening",
+      "bbox_pixels_xyxy": [
+        240.24,
+        897.024,
+        562.38,
+        1060.864
+      ]
+    },
+    {
+      "id": "D2",
+      "bbox_1000": [
+        644.0,
+        273.0,
+        690.0,
+        333.0
+      ],
+      "kind": "single_swing",
+      "uncertain": false,
+      "visual_cue": "Swing arc at bathroom entry",
+      "bbox_pixels_xyxy": [
+        1758.12,
+        559.104,
+        1883.7,
+        681.984
+      ]
+    },
+    {
+      "id": "D3",
+      "bbox_1000": [
+        516.0,
+        428.0,
+        584.0,
+        478.0
+      ],
+      "kind": "single_swing",
+      "uncertain": false,
+      "visual_cue": "Swing arc near toilet area",
+      "bbox_pixels_xyxy": [
+        1408.68,
+        876.544,
+        1594.32,
+        978.944
+      ]
+    },
+    {
+      "id": "D4",
+      "bbox_1000": [
+        644.0,
+        562.0,
+        690.0,
+        622.0
+      ],
+      "kind": "single_swing",
+      "uncertain": false,
+      "visual_cue": "Swing arc at lower right room entry",
+      "bbox_pixels_xyxy": [
+        1758.12,
+        1150.976,
+        1883.7,
+        1273.856
+      ]
+    },
+    {
+      "id": "D5",
+      "bbox_1000": [
+        618.0,
+        662.0,
+        682.0,
+        722.0
+      ],
+      "kind": "single_swing",
+      "uncertain": false,
+      "visual_cue": "Swing arc at bottom corridor door",
+      "bbox_pixels_xyxy": [
+        1687.14,
+        1355.776,
+        1861.86,
+        1478.656
+      ]
+    }
+  ],
+  "limitations": [
+    "Image resolution limits precise leaf thickness and hinge side confirmation.",
+    "Some wall gaps may represent openings without visible door leaves and are excluded per instructions.",
+    "Cabinet and fixture doors are not included as building doors."
+  ],
+  "count": 5
+}

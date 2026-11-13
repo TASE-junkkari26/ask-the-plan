@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "currency": "USD",
+  "reference_provider": "Together via OpenRouter",
+  "reference_model_id": "nvidia/nemotron-3.5-super-vl",
+  "source_url": "https://openrouter.ai/nvidia/nemotron-3.5-super-vl",
+  "source_checked_on": "2026-11-14",
+  "source_selection": "Together provider row, listed uncached input and output prices; not the cheapest-provider headline or weighted average.",
+  "input_usd_per_million_tokens": "0.15",
+  "output_usd_per_million_tokens": "0.50",
+  "basis": "API-equivalent estimate for the same named model at another provider; not a Verda tariff or GPU hardware cost.",
+  "verda_public_token_tariff": null,
+  "verda_tariff_note": "No published per-token rate was found for the supplied custom Junction deployment during this check.",
+  "effective_project_cost_usd": "0.00000000",
+  "effective_cost_basis": "Project owner reports effectively free access. No billing account was queried.",
+  "assumptions": [
+    "All reported prompt tokens, including image tokens, use the uncached input rate.",
+    "Completion tokens include any billed reasoning tokens; do not add reasoning tokens again.",
+    "Caching discounts, separate image charges, taxes and provider-specific adjustments are excluded.",
+    "The estimate covers the saved successful response's usage, not unknown failed-attempt charges or local preprocessing."
+  ]
+}

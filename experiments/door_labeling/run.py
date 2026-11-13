@@ -1,0 +1,206 @@
+"""One-image door grounding experiment; no reference answers enter inference."""
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import shutil
+import subprocess
+from time import perf_counter
+from typing import Annotated, Literal
+
+from PIL import Image, ImageDraw, ImageFont
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+
+from nemotron import NemotronClient, NemotronError, NemotronSettings, completion_text
+from .reporting import price_snapshot, write_report
+
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_IMAGE = ROOT / "dataset/junction-dataset/data/cubicasa5k/colorful-10052.png"
+PROMPT_FILE = Path(__file__).with_name("prompt.txt")
+Coordinate = Annotated[float, Field(ge=0, le=1000, allow_inf_nan=False)]
+ATTRIBUTION = "CubiCasa5K (c) 2019 CubiCasa; Kalervo et al., SCIA 2019. CC BY-NC-SA 4.0."
+
+
+class Door(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=1)
+    bbox_1000: tuple[Coordinate, Coordinate, Coordinate, Coordinate]
+    kind: Literal["single_swing", "double_swing", "sliding", "folding", "unknown"]
+    uncertain: bool
+    visual_cue: str
+
+    @model_validator(mode="after")
+    def ordered_box(self):
+        x1, y1, x2, y2 = self.bbox_1000
+        if x1 >= x2 or y1 >= y2:
+            raise ValueError("box edges must be ordered and have positive area")
+        return self
+
+
+class DoorLabels(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    doors: list[Door] = Field(max_length=100)
+    limitations: list[str]
+
+    @model_validator(mode="after")
+    def unique_ids(self):
+        if len({door.id for door in self.doors}) != len(self.doors):
+            raise ValueError("door IDs must be unique")
+        return self
+
+
+def write_json(path: Path, data) -> None:
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def pixel_box(door: Door, width: int, height: int) -> tuple[float, float, float, float]:
+    x1, y1, x2, y2 = door.bbox_1000
+    return x1 * width / 1000, y1 * height / 1000, x2 * width / 1000, y2 * height / 1000
+
+
+def render(input_path: Path, labels: DoorLabels, output: Path) -> None:
+    with Image.open(input_path) as source:
+        image = source.convert("RGB")
+    width, height = image.size
+    footer = max(110, height // 14)
+    canvas = Image.new("RGB", (width, height + footer), "white")
+    canvas.paste(image, (0, 0))
+    draw = ImageDraw.Draw(canvas)
+    font = ImageFont.load_default(size=max(22, width // 85))
+    small = ImageFont.load_default(size=max(18, width // 110))
+    cells = []
+    for door in labels.doors:
+        box = pixel_box(door, width, height)
+        color = "#d97706" if door.uncertain else "#185adb"
+        draw.rectangle(box, outline=color, width=max(3, width // 550))
+        x, y = box[:2]
+        label_y = max(0, y - font.size - 10)
+        bounds = draw.textbbox((x, label_y), door.id, font=font)
+        draw.rectangle((bounds[0] - 5, bounds[1] - 4, bounds[2] + 5, bounds[3] + 4), fill=color)
+        draw.text((x, label_y), door.id, font=font, fill="white")
+        padding = max(35, int(max(box[2] - box[0], box[3] - box[1]) * 0.35))
+        crop_box = (max(0, int(box[0]) - padding), max(0, int(box[1]) - padding),
+                    min(width, int(box[2]) + padding), min(height, int(box[3]) + padding))
+        crop = image.crop(crop_box)
+        crop_draw = ImageDraw.Draw(crop)
+        crop_draw.rectangle((box[0] - crop_box[0], box[1] - crop_box[1],
+                             box[2] - crop_box[0], box[3] - crop_box[1]), outline=color, width=3)
+        crop.thumbnail((430, 380))
+        cell = Image.new("RGB", (470, 460), "#f3f4f6")
+        cell.paste(crop, ((470 - crop.width) // 2, 55 + (380 - crop.height) // 2))
+        ImageDraw.Draw(cell).text((15, 15), f"{door.id}: {door.kind}" + (" ?" if door.uncertain else ""), font=small, fill=color)
+        cells.append(cell)
+    draw.text((20, height + 12), f"Nemotron: {len(labels.doors)} door proposals | UNREVIEWED | Blue: no uncertainty flagged; amber: uncertain", font=small, fill="#111827")
+    draw.text((20, height + 48), ATTRIBUTION, font=small, fill="#374151")
+    draw.text((20, height + 80), "Overlay added for this non-commercial experiment. Source image unchanged in input.png.", font=small, fill="#374151")
+    canvas.save(output / "annotated.png")
+    if cells:
+        columns = min(3, len(cells))
+        sheet = Image.new("RGB", (columns * 470, ((len(cells) + columns - 1) // columns) * 460), "white")
+        for index, cell in enumerate(cells):
+            sheet.paste(cell, ((index % columns) * 470, (index // columns) * 460))
+        sheet.save(output / "proposal-crops.jpg", quality=95)
+
+
+def compare_reference(source: Path, predicted: int) -> dict:
+    # Called only after the response and predictions have been persisted.
+    dataset = ROOT / "dataset/junction-dataset"
+    try:
+        relative = source.relative_to(dataset).as_posix()
+    except ValueError:
+        return {"status": "no_matching_dataset_path"}
+    with (dataset / "questions.jsonl").open(encoding="utf-8") as stream:
+        for line_number, line in enumerate(stream, 1):
+            row = json.loads(line)
+            if row["path"] == relative and row["question"].startswith("How many doors are shown"):
+                return {"status": "compared_after_inference", "question_line": line_number,
+                        "reference_count": row["answer"], "predicted_count": predicted,
+                        "count_matches": predicted == row["answer"],
+                        "localization_verified": False,
+                        "note": "Count agreement alone does not validate instance locations."}
+    return {"status": "no_door_count_reference"}
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--image", type=Path, default=DEFAULT_IMAGE)
+    parser.add_argument("--evaluate-reference", action="store_true", help="Compare the door count AFTER saving model output.")
+    args = parser.parse_args(argv)
+    source = args.image.resolve()
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    output = ROOT / "experiments/runs/door-labeling" / run_id
+    output.mkdir(parents=True, exist_ok=False)
+    with Image.open(source) as image:
+        width, height = image.size
+        if image.format != "PNG":
+            raise ValueError("This first experiment expects an unmodified PNG source.")
+    shutil.copyfile(source, output / "input.png")
+    shutil.copyfile(Path(__file__), output / "runner-source.py.txt")
+    is_cubicasa = source.is_relative_to(ROOT / "dataset/junction-dataset/data/cubicasa5k")
+    if not is_cubicasa:
+        raise ValueError("This pilot's attribution is scoped to CubiCasa inputs; adapt attribution before using another collection.")
+    shutil.copyfile(source.parent / "LICENSE.md", output / "SOURCE_LICENSE.md")
+    (output / "ATTRIBUTION.txt").write_text(ATTRIBUTION + "\nOverlay/crops added; CC BY-NC-SA 4.0.\n", encoding="utf-8")
+    prompt = PROMPT_FILE.read_text(encoding="utf-8").format(width=width, height=height)
+    schema = DoorLabels.model_json_schema()
+    system = "You propose localized annotations for construction drawings. Preserve uncertainty. Return only one JSON object matching this schema:\n" + json.dumps(schema)
+    settings = NemotronSettings.from_env().model_copy(update={"max_retries": 0})
+    metadata = {
+        "experiment": "door-labeling.full-image.v1", "run_id": run_id,
+        "code_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+        "code_dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip()),
+        "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "source": source.relative_to(ROOT).as_posix(),
+        "source_sha256": hashlib.sha256((output / "input.png").read_bytes()).hexdigest(),
+        "image_width": width, "image_height": height, "attribution": ATTRIBUTION,
+        "coordinate_frame": "bbox_1000 xyxy over the complete unmodified input image; top-left origin",
+        "settings": settings.model_dump(mode="json", exclude={"api_key"}),
+        "request_overrides": {"temperature": 0, "max_tokens": 4096, "response_format": {"type": "json_object"}},
+        "messages_without_image_payload": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+        "response_schema": schema,
+        "pricing_snapshot": price_snapshot(),
+    }
+    write_json(output / "request.json", metadata)
+    started = perf_counter()
+    try:
+        with NemotronClient(settings) as client:
+            completion = client.ask(prompt, system=system, images=[output / "input.png"],
+                                    temperature=0, max_tokens=4096, response_format={"type": "json_object"})
+        elapsed = round((perf_counter() - started) * 1000)
+        write_json(output / "response.json", {
+            "id": completion.id, "model": completion.model, "elapsed_ms": elapsed,
+            "finish_reason": completion.choices[0].finish_reason,
+            "text": completion.choices[0].message.content,
+            "usage": completion.usage.model_dump(exclude_none=True) if completion.usage else None,
+        })
+        labels = DoorLabels.model_validate_json(completion_text(completion))
+    except (NemotronError, ValidationError) as exc:
+        write_json(output / "error.json", {"error_type": type(exc).__name__,
+                   "message": str(exc) if isinstance(exc, NemotronError) else "Model output failed the door-box schema.",
+                   "elapsed_ms": round((perf_counter() - started) * 1000)})
+        print(json.dumps({"status": "failed", "run_directory": output.relative_to(ROOT).as_posix()}))
+        return 1
+    predictions = labels.model_dump(mode="json")
+    predictions["count"] = len(labels.doors)
+    for door, record in zip(labels.doors, predictions["doors"]):
+        record["bbox_pixels_xyxy"] = list(pixel_box(door, width, height))
+    write_json(output / "predictions.json", predictions)
+    render(output / "input.png", labels, output)
+    summary = {"status": "proposals_saved", "run_directory": output.relative_to(ROOT).as_posix(),
+               "door_proposals": len(labels.doors), "elapsed_ms": elapsed,
+               "usage": completion.usage.model_dump(exclude_none=True) if completion.usage else None}
+    if args.evaluate_reference:
+        reference = compare_reference(source, len(labels.doors))
+        write_json(output / "reference-check.json", reference)
+        summary["reference"] = reference
+    write_json(output / "summary.json", summary)
+    summary = write_report(output)
+    print(json.dumps(summary, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

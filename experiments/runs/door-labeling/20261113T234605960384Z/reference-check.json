@@ -1,0 +1,9 @@
+{
+  "status": "compared_after_inference",
+  "question_line": 1,
+  "reference_count": 5,
+  "predicted_count": 5,
+  "count_matches": true,
+  "localization_verified": false,
+  "note": "Count agreement alone does not validate instance locations."
+}

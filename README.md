@@ -118,7 +118,7 @@ real model files may skip if their expected dataset layout is absent. See the
 [IFC engine guide](docs/IFC_ENGINE.md) for real-file commands, supported operations,
 scope/unit semantics, and limitations. This CLI is independent of the mock UI.
 
-Checks on 14 November 2026: Windows Python 3.14 passed 87 tests with one optional
+Checks on 14 November 2026: Windows Python 3.14 passed 90 tests with one optional
 dataset-layout skip; separate full-dataset IFC CLI checks reproduced the selected
 door counts and stored-area total in the guide. Frontend logic tests and the
 production build passed with Node 24 LTS. Reported Linux backend checks used
@@ -160,6 +160,7 @@ Python source models rather than editing the generated output.
 frontend/       Browser prototype and generated TypeScript wire types
 ifc_engine/     Local IFC extraction and structured query execution
 nemotron/       Backend Verda text/vision client and connection-check CLI
+experiments/    Reproducible model experiments, prompts, and findings
 contracts/      Shared models, validation, JSON Schemas, synthetic examples
 tests/          Python contract and IFC regression tests
 scripts/        Repository maintenance checks
@@ -187,6 +188,7 @@ full dataset at `dataset/junction-dataset/` and the preview nested under
 | [Tech stack recommendation](docs/TECH_STACK_RECOMMENDATION.md) | Dated architecture rationale and candidate components |
 | [OCR recommendations](docs/ocr_recs.md) | Perception candidates and evaluation gates; not an installed pipeline |
 | [Nemotron configuration](docs/nvidia_info.md) | Implemented backend client, local key setup, usage, and live-verification boundary |
+| [Experiments](experiments/README.md) | Reproducible investigations, starting with raster door labeling |
 | [Full dataset findings](dataset/FULL_DATASET_FINDINGS.md) | Full-corpus audit and source-specific pitfalls |
 | [Preview findings](dataset/DATASET_FINDINGS.md) | Historical preview-only audit |
 | [Compute notes](dataset/compute.md) | Reported credit grants; not a live balance |

@@ -16,6 +16,7 @@ def documents() -> list[Path]:
     return sorted([
         ROOT / "AGENTS.md", ROOT / "README.md",
         *ROOT.glob("docs/*.md"), *ROOT.glob("dataset/*.md"),
+        *ROOT.glob("experiments/*.md"), *ROOT.glob("experiments/*/*.md"),
         ROOT / "frontend/README.md", ROOT / "contracts/examples/README.md",
     ])
 

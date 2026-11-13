@@ -1,0 +1,43 @@
+{
+  "reviewer": "assistant",
+  "method": "Visual inspection of full-image overlay and all five context crops; no independent human ground truth or IoU measurement.",
+  "model_predictions_modified": false,
+  "visible_door_locations_matched": 5,
+  "additional_visible_doors_observed": 0,
+  "false_positive_locations_observed": 0,
+  "instances": [
+    {
+      "id": "D1",
+      "location_correct": true,
+      "box_extent": "usable",
+      "predicted_kind": "single_swing",
+      "reviewed_kind": "double_swing",
+      "correction_needed": "door subtype"
+    },
+    {
+      "id": "D2",
+      "location_correct": true,
+      "box_extent": "usable",
+      "correction_needed": null
+    },
+    {
+      "id": "D3",
+      "location_correct": true,
+      "box_extent": "needs_expansion",
+      "correction_needed": "upper symbol/leaf extent clipped"
+    },
+    {
+      "id": "D4",
+      "location_correct": true,
+      "box_extent": "needs_expansion",
+      "correction_needed": "left/bottom swing extent clipped"
+    },
+    {
+      "id": "D5",
+      "location_correct": true,
+      "box_extent": "needs_expansion",
+      "correction_needed": "slight clipping at top/bottom symbol extent"
+    }
+  ],
+  "decision": "Useful provisional labels on this one clean example; require correction and broader evaluation before training-scale acceptance."
+}

@@ -11,3 +11,8 @@ __pycache__/
 .env
 .env.*
 !.env.example
+# Keep one shareable example; every other run stays local.
+/experiments/runs/*
+!/experiments/runs/door-labeling/
+/experiments/runs/door-labeling/*
+!/experiments/runs/door-labeling/20261113T234605960384Z/

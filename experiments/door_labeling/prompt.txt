@@ -1,0 +1,20 @@
+Locate every doorway fitted with a door in the attached floor plan.
+
+Counting rule:
+- One physical doorway is one door instance, including a double-leaf door.
+- Include interior and exterior doors, and sliding/folding doors if depicted.
+- Exclude open passages without a door leaf, windows, furniture, cabinet doors,
+  plumbing fixtures, and symbols outside the actual floor plan.
+- Do not infer an invisible door from a wall gap alone.
+
+The input image is {width} pixels wide and {height} pixels high.
+Return one bounding box per door instance, tightly enclosing its visible door
+leaf/leaves and swing arc when present. Use bbox_1000 = [xmin, ymin, xmax, ymax]
+with both axes normalized from 0 to 1000 over the ENTIRE attached image. The
+origin is the image's top-left corner. Do not use a cropped plan's coordinate
+frame. Box edges must satisfy 0 <= xmin < xmax <= 1000 and
+0 <= ymin < ymax <= 1000.
+
+Give each door a unique ID such as D1, its door kind, an uncertainty flag, and a
+short observable visual cue. List image limitations separately. Use the image
+alone. Do not guess an expected total. The application will count the instances.

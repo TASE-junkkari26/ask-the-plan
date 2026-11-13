@@ -1,0 +1,15 @@
+{
+  "id": "chatcmpl-98915bbe7b8780dd",
+  "model": "nemotron-3.5-super-vl",
+  "elapsed_ms": 1775,
+  "finish_reason": "stop",
+  "text": "{\n  \"doors\": [\n    {\n      \"id\": \"D1\",\n      \"bbox_1000\": [\n            88,\n            438,\n            206,\n            518\n      ],\n      \"kind\": \"single_swing\",\n      \"uncertain\": false,\n      \"visual_cue\": \"Swing arc and door leaf at left wall opening\"\n    },\n    {\n      \"id\": \"D2\",\n      \"bbox_1000\": [\n            644,\n            273,\n            690,\n            333\n      ],\n      \"kind\": \"single_swing\",\n      \"uncertain\": false,\n      \"visual_cue\": \"Swing arc at bathroom entry\"\n    },\n    {\n      \"id\": \"D3\",\n      \"bbox_1000\": [\n            516,\n            428,\n            584,\n            478\n      ],\n      \"kind\": \"single_swing\",\n      \"uncertain\": false,\n      \"visual_cue\": \"Swing arc near toilet area\"\n    },\n    {\n      \"id\": \"D4\",\n      \"bbox_1000\": [\n            644,\n            562,\n            690,\n            622\n      ],\n      \"kind\": \"single_swing\",\n      \"uncertain\": false,\n      \"visual_cue\": \"Swing arc at lower right room entry\"\n    },\n    {\n      \"id\": \"D5\",\n      \"bbox_1000\": [\n            618,\n            662,\n            682,\n            722\n      ],\n      \"kind\": \"single_swing\",\n      \"uncertain\": false,\n      \"visual_cue\": \"Swing arc at bottom corridor door\"\n    }\n  ],\n  \"limitations\": [\n    \"Image resolution limits precise leaf thickness and hinge side confirmation.\",\n    \"Some wall gaps may represent openings without visible door leaves and are excluded per instructions.\",\n    \"Cabinet and fixture doors are not included as building doors.\"\n  ]\n}",
+  "usage": {
+    "completion_tokens": 459,
+    "prompt_tokens": 4009,
+    "total_tokens": 4468,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    }
+  }
+}
