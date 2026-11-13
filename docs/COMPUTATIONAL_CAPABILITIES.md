@@ -4,6 +4,12 @@ Reviewed 14 November 2026 against the current source tree, documentation, and se
 
 The system needs reusable capabilities that compose into answers. A question such as "Which floor has the largest total bedroom area, excluding balconies?" combines scope resolution, room classification, area acquisition, exclusions, grouping, summation, and ranking. It should not require a dedicated model for that sentence.
 
+The backend [Nemotron adapter](nvidia_info.md) now supports sync/async text,
+local-image, and validated JSON calls, plus usage reporting and a connection-check
+CLI. Its HTTP tests use mocked responses; separate live text and synthetic
+image/JSON requests passed. Plan compilation, drawing perception accuracy, and
+frontend integration remain to be verified/implemented.
+
 Current implementation includes the shared contracts and validation, a preliminary [local IFC extractor and query executor](IFC_ENGINE.md), and a [mock 2D workbench](../frontend/README.md). The IFC engine executes structured queries on real files and returns source-backed results. The frontend displays authored sources, prepared answers, overlays, and calculation evidence; it is not connected to that engine. [dataset_audit.py](../dataset/dataset_audit.py) supplies dataset/file/STEP-record/SVG inspection. OCR/detector inference, natural-language planning, an HTTP/database service, general geometry computation, and IFC 3D viewing remain unimplemented. Contract/frontend fixtures are synthetic; optional real-model checks do not establish dataset-wide accuracy.
 
 Organizer clarification reported on 14 November: prioritize questions about the drawing/view shown. Broader capabilities below are a backlog, not a requirement to enable every operation for every source. Preserve explicit model-wide scope in existing reference questions.

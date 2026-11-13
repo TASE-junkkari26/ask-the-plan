@@ -7,16 +7,23 @@ name = "ask-the-plan"
 version = "0.1.0"
 description = "Local, evidence-backed queries over IFC building models"
 requires-python = ">=3.10"
-dependencies = ["pydantic>=2.7,<3", "ifcopenshell>=0.8.3,<1"]
+dependencies = [
+    "pydantic>=2.7,<3",
+    "ifcopenshell>=0.8.3,<1",
+    "openai>=2.54,<3",
+    "httpx>=0.27,<1",
+    "python-dotenv>=1.2,<2",
+]
 
 [project.optional-dependencies]
 test = ["jsonschema>=4.18,<5", "pytest>=8,<10"]
 
 [project.scripts]
 ifc-query = "ifc_engine.cli:main"
+nemotron = "nemotron.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["contracts*", "ifc_engine*"]
+include = ["contracts*", "ifc_engine*", "nemotron*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

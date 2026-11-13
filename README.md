@@ -26,7 +26,27 @@ optional extensions unless a supplied question needs them. See the
 | Frontend | React workbench, synthetic drawings/answers, selectable overlays, calculations, local image/PDF preview, export | Mock adapter; no backend/model calls or IFC 3D viewer. Uploaded files are not analysed. |
 | IFC engine | CPU extraction, structured selection/traversal, scalar properties/quantities, counts, grouping/ranking, evidence and caching | Standalone Python/CLI; no natural-language planner, HTTP API, or geometry-measurement engine. |
 | Shared contracts | Pydantic models, generated JSON Schemas/TypeScript, reference/unit/scope/evidence validation | Validation cannot prove source completeness or correctness. |
+| Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI | Live text and synthetic image/JSON checks passed; drawing analysis and query planning remain to implement. |
 | Perception and services | Research and capability plans | OCR, raster detection/reconstruction, model routing, and frontend/backend HTTP integration remain work to implement. |
+
+## Configure Nemotron
+
+In this prepared checkout, the client dependencies are installed in `.venv` and
+the ignored **`.env` file is already created**. Paste your key after
+`VERDA_INFERENCE_KEY=`. The supplied Verda endpoint, model, and request defaults
+are already configured. Credentials stay on the backend.
+
+From the repository root, check the connection with one short live request:
+
+```powershell
+.\.venv\Scripts\python.exe -m nemotron check
+```
+
+On Linux, use `.venv/bin/python -m nemotron check`. For a fresh clone, install the
+Python project as described below, then copy `.env.example` to `.env` once.
+The normal Python installation includes the client dependencies and `nemotron`
+console command. See [Nemotron setup and usage](docs/nvidia_info.md) for image,
+JSON, and async examples. The frontend continues to use its prepared demo adapter.
 
 ## Start the frontend
 
@@ -98,11 +118,13 @@ real model files may skip if their expected dataset layout is absent. See the
 [IFC engine guide](docs/IFC_ENGINE.md) for real-file commands, supported operations,
 scope/unit semantics, and limitations. This CLI is independent of the mock UI.
 
-Checks on 14 November 2026: Windows Python 3.14 passed 63 tests with one optional
+Checks on 14 November 2026: Windows Python 3.14 passed 87 tests with one optional
 dataset-layout skip; separate full-dataset IFC CLI checks reproduced the selected
 door counts and stored-area total in the guide. Frontend logic tests and the
 production build passed with Node 24 LTS. Reported Linux backend checks used
 Python 3.12.3. Browser/end-to-end UI verification remains outstanding.
+Nemotron's 24 HTTP adapter tests use mocked responses; separate live text and
+synthetic image/JSON requests passed against the configured Verda deployment.
 
 ## Checks and generated contracts
 
@@ -137,6 +159,7 @@ Python source models rather than editing the generated output.
 ```text
 frontend/       Browser prototype and generated TypeScript wire types
 ifc_engine/     Local IFC extraction and structured query execution
+nemotron/       Backend Verda text/vision client and connection-check CLI
 contracts/      Shared models, validation, JSON Schemas, synthetic examples
 tests/          Python contract and IFC regression tests
 scripts/        Repository maintenance checks
@@ -163,7 +186,7 @@ full dataset at `dataset/junction-dataset/` and the preview nested under
 | [Evidence and platform requirements](docs/FRONTEND_EVIDENCE_REQUIREMENTS.md) | Q01-Q20 evidence requirements and Linux/Windows boundaries |
 | [Tech stack recommendation](docs/TECH_STACK_RECOMMENDATION.md) | Dated architecture rationale and candidate components |
 | [OCR recommendations](docs/ocr_recs.md) | Perception candidates and evaluation gates; not an installed pipeline |
-| [Nemotron configuration](docs/nvidia_info.md) | Supplied endpoint notes; access/integration still needs verification |
+| [Nemotron configuration](docs/nvidia_info.md) | Implemented backend client, local key setup, usage, and live-verification boundary |
 | [Full dataset findings](dataset/FULL_DATASET_FINDINGS.md) | Full-corpus audit and source-specific pitfalls |
 | [Preview findings](dataset/DATASET_FINDINGS.md) | Historical preview-only audit |
 | [Compute notes](dataset/compute.md) | Reported credit grants; not a live balance |

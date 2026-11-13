@@ -6,11 +6,14 @@ model performance. External model/version/pricing references describe the dated
 research snapshot and need verification when selecting a deployment.
 
 Current implementation: shared contracts, a standalone [CPU IFC query engine](IFC_ENGINE.md),
-and a [mock 2D frontend](../frontend/README.md). FastAPI, SQLite persistence,
+and a [mock 2D frontend](../frontend/README.md). A [backend Nemotron client](nvidia_info.md)
+now provides sync/async text, image, and locally validated JSON requests with
+credential-free HTTP tests and successful live text/synthetic image checks.
+FastAPI, SQLite persistence,
 CAD/PDF extraction, OCR/detectors, language-model routing, and IFC viewing remain
 planned. Start the planner integration by testing the [supplied Nemotron endpoint](nvidia_info.md);
 Qwen is a self-hosted comparison candidate if access, accuracy, latency, or cost
-warrants it. Neither is connected to the application yet.
+warrants it. Neither is connected to the frontend or a query planner yet.
 
 Organizer clarification reported on 14 November: questions should mostly concern
 what is shown. Default to the selected drawing/view and require explicit scope

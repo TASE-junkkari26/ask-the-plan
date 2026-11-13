@@ -34,6 +34,9 @@ component guide before changing behavior.
 - `ifc_engine/`: independent CPU IFC extractor/structured query executor. See
   [its guide](docs/IFC_ENGINE.md) for supported operations and limitations. It is
   not an HTTP service or natural-language planner.
+- `nemotron/`: backend-only sync/async Verda client and text/image/JSON CLI.
+  See [its guide](docs/nvidia_info.md). Loads local `.env` settings; model outputs
+  are proposals, not validated source evidence or a connected frontend planner.
 - `contracts/models.py`: source of truth for shared wire contracts.
   `contracts/validation.py` checks consistency, not source truth or all geometry.
 - `contracts/jsonschema/` and `frontend/src/contracts/`: generated files. Change
