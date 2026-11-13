@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ask-the-plan"
+version = "0.1.0"
+description = "Local, evidence-backed queries over IFC building models"
+requires-python = ">=3.10"
+dependencies = ["pydantic>=2.7,<3", "ifcopenshell>=0.8.3,<1"]
+
+[project.optional-dependencies]
+test = ["jsonschema>=4.18,<5", "pytest>=8,<10"]
+
+[project.scripts]
+ifc-query = "ifc_engine.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["contracts*", "ifc_engine*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

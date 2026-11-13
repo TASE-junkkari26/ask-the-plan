@@ -1,0 +1,201 @@
+# Local IFC query engine
+
+The initial implementation reads an IFC into the shared `KnowledgeBundle`,
+executes validated `QueryPlan` operations, and returns a `QueryResult` with
+materialized entity sets, source anchors, facts, and calculation nodes. It runs
+locally on a CPU. A language-model planner can later produce the same plans.
+
+## Install and run
+
+From the repository root, using Python 3.10 or newer:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[test]'
+.venv/bin/python -m unittest discover -s tests -v
+```
+
+On Windows, the virtual environment's Python is `.venv\Scripts\python.exe`.
+On Debian/Ubuntu, creating a pip-enabled virtual environment may require the
+matching `python3-venv` package. Network access is needed to install dependencies;
+model extraction and query execution run offline afterward.
+
+The initial Linux checks used Python 3.12.3, IfcOpenShell 0.9.0.post1, and
+Pydantic 2.14.3. Windows backend and browser/viewer integration have not been
+tested. The implementation follows the [frontend evidence requirements](FRONTEND_EVIDENCE_REQUIREMENTS.md)
+for source identity and trace data; browser resource endpoints remain future work.
+
+The dataset is optional and is not included in the Python package. If the local
+preview is available, these are actual model and storey count examples:
+
+```sh
+.venv/bin/python -m ifc_engine inspect \
+  dataset/junction-dataset-preview/data/ifc_models/bsc-esplanades_1807-ep-ar-v18.ifc \
+  --output /tmp/esplanades-catalog.json
+
+.venv/bin/python -m ifc_engine count \
+  dataset/junction-dataset-preview/data/ifc_models/bsc-esplanades_1807-ep-ar-v18.ifc \
+  door --cache-dir .ifc-cache
+
+.venv/bin/python -m ifc_engine count \
+  dataset/junction-dataset-preview/data/ifc_models/bsc-esplanades_1807-ep-ar-v18.ifc \
+  door --storey 4.korrus --cache-dir .ifc-cache \
+  --plan-out /tmp/doors.plan.json --bundle-out /tmp/doors.bundle.json \
+  --output /tmp/doors.result.json
+```
+
+The model-wide answer is 211; the fourth-storey answer is 42. The result's scope
+distinguishes them. All output is JSON. Exit codes are 0 for an answered query
+or successful catalog export, 1 for a structured non-answer outcome, and 2 for
+invalid input or a loading/CLI error. Input paths cannot be reused as outputs.
+
+## Operations and catalogs
+
+`inspect` lists schema, actual class counts, resolved storeys, native property
+paths, supported operations, and extraction warnings. `ingest` exports the
+knowledge bundle. Query shortcuts are `count`, `sum`, `mean`, `min`, `max`,
+`lookup`, and `rank`; `execute --plan PATH` accepts a shared-contract plan.
+
+For example, after discovering the actual quantity path in a model:
+
+```sh
+.venv/bin/python -m ifc_engine sum building.ifc space \
+  --property Qto_SpaceBaseQuantities.NetFloorArea --unit m2
+
+.venv/bin/python -m ifc_engine rank building.ifc door \
+  --property OverallWidth --storey Ground --limit 5
+
+.venv/bin/python -m ifc_engine lookup building.ifc door \
+  --entity 'door-guid-from-the-catalog' --property Pset_DoorCommon.FireRating
+
+.venv/bin/python -m ifc_engine count building.ifc stair \
+  --hierarchy topmost_matches
+
+.venv/bin/python -m ifc_engine execute building.ifc \
+  --plan /tmp/doors.plan.json --bundle-out /tmp/execution.bundle.json
+```
+
+Property paths and storey names are examples and must exist in the chosen file.
+Fully qualified property keys remove ambiguity; `property_key(pset, name)` and
+`attribute_key(name)` construct them. Display paths such as
+`Pset_DoorCommon.FireRating` also resolve when unique. Properties with null
+values remain explicit nulls, and unsupported property structures are marked
+`not_extracted` rather than silently dropped from an answer.
+
+Targets can be native IFC classes, such as `IfcWall`, or the occurrence concepts
+in `ifc_engine/catalog.py`, such as `wall`, `space`, and `sanitary_terminal`.
+Native class selection includes schema subtypes. Occurrence concepts also use
+the assigned IFC type, so an IFC2X3 `IfcFlowTerminal` assigned to an
+`IfcSanitaryTerminalType` can be found as `sanitary_terminal`.
+
+Python integration uses the same entry point:
+
+```python
+from ifc_engine.engine import IfcQueryEngine
+
+engine = IfcQueryEngine.open("building.ifc", cache_dir=".ifc-cache")
+plan = engine.plan("door", storey="Ground", operation="count")
+result = engine.execute(plan)
+print(result.model_dump_json(indent=2))
+
+# The convenience wrapper also converts unresolved names into structured outcomes.
+missing = engine.query("door", operation="lookup", property="UnknownProperty")
+assert missing.status == "missing_information"
+```
+
+Custom plans can combine selection, typed predicates, bounded relationship
+traversal, grouped aggregation, projection, and ranking of derived table
+columns. All IDs are resolved before execution. Unknown operations and count
+rules are rejected; plans contain no SQL, Python, or function-evaluation strings.
+
+## Scope, quantities, and evidence
+
+- Default scope is the supplied model revision's `modeled_objects`. Source
+  record scope is also supported. Floor names resolve to entity roots, whose
+  containment/assembly descendants are included. Missing or ambiguous names
+  produce `needs_clarification`; they never broaden scope to the whole model.
+- Traversal stays inside scope, including traversal to types and materials.
+  For cross-floor/type/system exploration, use model-wide scope with a filtered
+  starting selection. Inherited scalar properties are already retained on
+  occurrences with anchors pointing to their original type property records.
+- The default policy counts distinct occurrences. `topmost_matches` counts
+  matching parent assemblies; `leaves` selects matching objects with no
+  decomposition children. These are explicit model policies, not a universal
+  interpretation of a construction trade's counting rules.
+- A known class can have a complete zero count in the supplied model. That is
+  a statement about modeled objects, not proof that the physical building has
+  no rooms, doors, or systems. `physical_building` scope is unsupported.
+- Each scalar is evaluated once per selected entity. Repeated identical native
+  values retain their evidence and do not inflate totals. Conflicting values
+  yield `conflicting_evidence`. Occurrence properties override matching type
+  properties, including explicit null overrides.
+- Length, area, and volume units resolve independently. Explicit quantity units
+  override project defaults; square/cubic prefixes use squared/cubed scaling.
+  Supported units use decimal arithmetic, preserving the numeric values supplied
+  by IfcOpenShell. Unknown or unsupported units cannot be used in aggregation.
+  Quantities with different meanings/bases cannot be combined solely because
+  their dimensions match.
+- Missing aggregate inputs fail the whole query. Missing predicate fields use
+  three-valued logic: negating an unknown comparison remains unknown.
+- Each returned claim references a matching coverage declaration in
+  `engine.bundle`. These declare complete evaluation of the queried source
+  records; they do not validate the authoring model against physical reality.
+  Export `--bundle-out` together with a result when sharing/verifying references.
+  Table cells have individual evidence bindings. Selection records excluded
+  candidates; native traversals cite relationship records; aggregation records
+  unit-conversion nodes alongside source quantities.
+  Native STEP and GUID selectors are ready for a viewer integration; this
+  implementation does not render or highlight geometry itself.
+
+Bundle, plan, and result validation reuse `contracts/validation.py`. The
+executor independently calculates answers; the validators check reference,
+scope, unit, policy, and evidence consistency. Neither layer formally validates
+the source IFC against every EXPRESS rule or establishes as-built accuracy.
+
+## Caching and boundaries
+
+An optional JSON extraction cache is keyed by source content, resolved source
+URI, extractor version, IfcOpenShell version, and attribution configuration.
+Cache writes are atomic. Editing a source produces a new asset/document revision
+and cache entry. Queries use in-memory indexes; SQLite is a future persistence
+adapter, not required for this version. Source files and supplied QA are never
+modified or used as an answer lookup.
+
+The initial extractor handles one `IfcProject` per file, `IfcProduct`
+occurrences, type definitions, systems, zones, materials, common scalar
+attributes, single-value properties, and simple quantities. It preserves
+containment, aggregation/nesting, typing, material, and system relationships.
+Opaque entity IDs are stable within a source revision. Cross-file identity
+reconciliation and multi-model federation are not implemented.
+
+Geometry measurements, clash detection, route finding, spatial predicates,
+arithmetic plan steps, partial aggregates, arbitrary nested/list/table IFC
+properties, estimated-value propagation, natural-language interpretation, and
+SVG/3D rendering remain explicit extension points. Ranked outputs are bounded
+and use deterministic tie order; they do not imply a unique maximum.
+
+The regression suite creates tiny IFC fixtures for scope, overrides, assemblies,
+unit conversion, duplicates, missing inputs, predicates, grouping, traversal,
+cache invalidation, and CLI exports. An additional real-model test verifies
+the Esplanades counts when the optional preview is present.
+
+Additional manual checks on the preview found 119 sanitary fixtures through
+IFC2X3 type relationships in the clinic model, and 579 stair occurrences versus
+15 topmost stair assemblies in Molio. These are selected integration checks,
+not a dataset-wide accuracy measurement. Small fixtures also cover IFC4X3_ADD2.
+
+The real `ifc_bench/ac20_arc.ifc` model also supports a quantity example:
+
+```sh
+.venv/bin/python -m ifc_engine sum \
+  dataset/junction-dataset-preview/data/ifc_bench/ac20_arc.ifc \
+  space --property BaseQuantities.NetFloorArea --unit m2
+```
+
+This returns the stored-quantity sum 1939.3839474444 m2 (1939.38 m2 rounded).
+Ranking the same property identifies room `006` with 128.2728 m2. Its two widest
+doors are `Tür-019` and `Tür-018`, with stored widths of 2.0 m and 1.8 m.
+
+Implementation references: [IfcOpenShell examples](https://docs.ifcopenshell.org/ifcopenshell-python/code_examples.html),
+[unit utilities](https://docs.ifcopenshell.org/autoapi/ifcopenshell/util/unit/index.html),
+and the project's [shared contracts](SCHEMA.md).

@@ -27,7 +27,7 @@ Three.js's current WebGL renderer requires WebGL 2. Test the actual model viewer
 
 Use API resource URLs/opaque IDs rather than transmitting `C:\...` or `/home/...` paths as browser resources. Keep source hashes, units, coordinate frames, fonts, artifact/converter versions, and model-origin transforms consistent across machines. Use one authoritative computed result; clients must not independently recalculate geometry and produce different platform-dependent answers.
 
-The supported browser list and exact Python/Node/package versions need to be fixed after integration. Existing contract tests have run in this Windows workspace; a Linux application/browser test has not been performed in this task. Native DWG conversion and legacy model runtimes remain optional adapters whose platform support must be verified separately.
+The supported browser list and exact Python/Node/package versions need to be fixed after integration. The original contract review ran on Windows. The preliminary [IFC backend](IFC_ENGINE.md) has since passed contract/query tests on Linux with Python 3.12, including real-model counts; Windows IFC execution and application/browser integration remain untested. Native DWG conversion and legacy model runtimes remain optional adapters whose platform support must be verified separately.
 
 ## What showing reasoning means
 

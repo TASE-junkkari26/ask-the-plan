@@ -2,3 +2,9 @@
 /contracts/__pycache__
 /tests/__pycache__/
 /.pytest_cache/
+/.venv/
+__pycache__/
+*.egg-info/
+/build/
+/dist/
+/.ifc-cache/
