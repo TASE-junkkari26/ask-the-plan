@@ -1,0 +1,29 @@
+{
+  "name": "ask-the-plan-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": { "node": ">=22.12" },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "generate:contracts": "node scripts/generate-contracts.mjs",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --experimental-strip-types --test src/demo/engine.test.ts src/lib/viewport.test.ts"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "pdfjs-dist": "^5.4.54",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "json-schema-to-typescript": "^15.0.4",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.2"
+  }
+}

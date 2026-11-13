@@ -2,6 +2,8 @@
 
 Prepared 13 November 2026. This is an implementation recommendation using the existing [shared schema](SCHEMA.md). It introduces no changes to the backend contracts and does not implement a viewer.
 
+Update, 14 November 2026: the user reports that the challenge organizer expects questions to be mostly limited to what is shown. The [mock frontend](../frontend/README.md) therefore defaults to the selected drawing/view and does not silently aggregate the whole model. Broader scope remains an explicit future capability. This clarification does not change the scope of existing reference rows that explicitly ask whole-model questions.
+
 See [cross-platform and full capability evidence requirements](FRONTEND_EVIDENCE_REQUIREMENTS.md) for Linux/Windows deployment boundaries and the evidence needed for all Q01-Q20 capabilities, including surface areas, materials, routes, rules, and revision comparisons.
 
 Build a drawing/evidence workbench with one selection model, several source renderers, and a shared overlay vocabulary. Make 2D the default for drawing questions. Add an existing IFC viewer with a small application-specific evidence layer for questions where depth, systems, or multiple floors matter.
