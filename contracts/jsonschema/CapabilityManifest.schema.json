@@ -1,0 +1,73 @@
+{
+  "$comment": "Generated from contracts.models; do not edit manually. JSON Schema checks structure. Pydantic and semantic validators also enforce local invariants, references, units, scope, and evidence.",
+  "$id": "urn:stoa:contracts:0.1.0:CapabilityManifest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "concept_ids": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Concept Ids",
+      "type": "array"
+    },
+    "executor_version": {
+      "title": "Executor Version",
+      "type": "string"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "operations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Operations",
+      "type": "array"
+    },
+    "property_keys": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Property Keys",
+      "type": "array"
+    },
+    "relation_predicates": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Relation Predicates",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1.0",
+      "default": "0.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "supported_formats": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Supported Formats",
+      "type": "array"
+    }
+  },
+  "required": [
+    "executor_version",
+    "operations",
+    "relation_predicates",
+    "property_keys",
+    "concept_ids",
+    "supported_formats",
+    "limitations"
+  ],
+  "title": "CapabilityManifest",
+  "type": "object"
+}

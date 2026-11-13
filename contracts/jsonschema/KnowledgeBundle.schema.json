@@ -1,0 +1,2451 @@
+{
+  "$comment": "Generated from contracts.models; do not edit manually. JSON Schema checks structure. Pydantic and semantic validators also enforce local invariants, references, units, scope, and evidence.",
+  "$defs": {
+    "Asset": {
+      "additionalProperties": false,
+      "properties": {
+        "attribution": {
+          "title": "Attribution",
+          "type": "string"
+        },
+        "document_id": {
+          "minLength": 1,
+          "title": "Document Id",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "ifc",
+            "dxf",
+            "dwg",
+            "pdf",
+            "svg",
+            "png",
+            "jpeg",
+            "other"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "license": {
+          "title": "License",
+          "type": "string"
+        },
+        "media_type": {
+          "title": "Media Type",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "source_collection": {
+          "title": "Source Collection",
+          "type": "string"
+        },
+        "uri": {
+          "title": "Uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "document_id",
+        "uri",
+        "sha256",
+        "format",
+        "media_type",
+        "source_collection",
+        "attribution",
+        "license"
+      ],
+      "title": "Asset",
+      "type": "object"
+    },
+    "AssetLink": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "equivalent_representation",
+            "rendered_from",
+            "converted_from",
+            "byte_duplicate"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "source_asset_id": {
+          "minLength": 1,
+          "title": "Source Asset Id",
+          "type": "string"
+        },
+        "target_asset_id": {
+          "minLength": 1,
+          "title": "Target Asset Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_asset_id",
+        "target_asset_id",
+        "kind",
+        "provenance"
+      ],
+      "title": "AssetLink",
+      "type": "object"
+    },
+    "BooleanValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "boolean",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "BooleanValue",
+      "type": "object"
+    },
+    "BoxShape": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "box",
+          "title": "Kind",
+          "type": "string"
+        },
+        "maximum": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Maximum",
+          "type": "array"
+        },
+        "minimum": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Minimum",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "minimum",
+        "maximum"
+      ],
+      "title": "BoxShape",
+      "type": "object"
+    },
+    "Calibration": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "native_units",
+            "dimension",
+            "scale_bar",
+            "human"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "transform_id": {
+          "minLength": 1,
+          "title": "Transform Id",
+          "type": "string"
+        },
+        "view_id": {
+          "minLength": 1,
+          "title": "View Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "view_id",
+        "transform_id",
+        "method",
+        "provenance"
+      ],
+      "title": "Calibration",
+      "type": "object"
+    },
+    "Concept": {
+      "additionalProperties": false,
+      "properties": {
+        "definition": {
+          "title": "Definition",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "$ref": "#/$defs/LocalizedText"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "parent_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Parent Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "labels",
+        "definition"
+      ],
+      "title": "Concept",
+      "type": "object"
+    },
+    "CoordinateFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "axes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Axes",
+          "type": "array"
+        },
+        "crs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crs"
+        },
+        "dimension": {
+          "enum": [
+            2,
+            3
+          ],
+          "title": "Dimension",
+          "type": "integer"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "space": {
+          "enum": [
+            "presentation",
+            "physical"
+          ],
+          "title": "Space",
+          "type": "string"
+        },
+        "unit_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Id"
+        }
+      },
+      "required": [
+        "id",
+        "asset_id",
+        "dimension",
+        "space",
+        "axes"
+      ],
+      "title": "CoordinateFrame",
+      "type": "object"
+    },
+    "CountPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "distinct_by": {
+          "const": "canonical_entity_id",
+          "default": "canonical_entity_id",
+          "title": "Distinct By",
+          "type": "string"
+        },
+        "grain": {
+          "enum": [
+            "logical_object",
+            "occurrence",
+            "assembly",
+            "part",
+            "schedule_row"
+          ],
+          "title": "Grain",
+          "type": "string"
+        },
+        "hierarchy": {
+          "enum": [
+            "all_matches",
+            "topmost_matches",
+            "leaves"
+          ],
+          "title": "Hierarchy",
+          "type": "string"
+        },
+        "rule_key": {
+          "minLength": 1,
+          "title": "Rule Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "grain",
+        "hierarchy",
+        "rule_key"
+      ],
+      "title": "CountPolicy",
+      "type": "object"
+    },
+    "CountValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "count",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "minimum": 0,
+          "title": "Value",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "CountValue",
+      "type": "object"
+    },
+    "Coverage": {
+      "additionalProperties": false,
+      "properties": {
+        "completeness": {
+          "enum": [
+            "complete",
+            "partial",
+            "not_modeled",
+            "not_extracted",
+            "unknown"
+          ],
+          "title": "Completeness",
+          "type": "string"
+        },
+        "concept_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Concept Ids",
+          "type": "array"
+        },
+        "count_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CountPolicy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "explanation": {
+          "title": "Explanation",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "property_keys": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Property Keys",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "concept_ids",
+        "completeness",
+        "explanation",
+        "provenance"
+      ],
+      "title": "Coverage",
+      "type": "object"
+    },
+    "Document": {
+      "additionalProperties": false,
+      "properties": {
+        "discipline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Discipline"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "logical_key": {
+          "minLength": 1,
+          "title": "Logical Key",
+          "type": "string"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        },
+        "supersedes_document_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supersedes Document Id"
+        },
+        "title": {
+          "items": {
+            "$ref": "#/$defs/LocalizedText"
+          },
+          "title": "Title",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "logical_key",
+        "revision"
+      ],
+      "title": "Document",
+      "type": "object"
+    },
+    "Entity": {
+      "additionalProperties": false,
+      "properties": {
+        "concept_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Concept Ids",
+          "type": "array"
+        },
+        "document_id": {
+          "minLength": 1,
+          "title": "Document Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "site",
+            "building",
+            "storey",
+            "unit",
+            "space",
+            "element",
+            "assembly",
+            "part",
+            "type",
+            "system",
+            "material",
+            "zone",
+            "site_feature",
+            "schedule_row"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "$ref": "#/$defs/LocalizedText"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "document_id",
+        "kind",
+        "concept_ids",
+        "provenance"
+      ],
+      "title": "Entity",
+      "type": "object"
+    },
+    "EvidenceAnchor": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "geometry_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Geometry Id"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocalizedText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "selector": {
+          "$ref": "#/$defs/NativeSelector"
+        },
+        "view_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "View Id"
+        }
+      },
+      "required": [
+        "id",
+        "asset_id",
+        "selector"
+      ],
+      "title": "EvidenceAnchor",
+      "type": "object"
+    },
+    "ExtractionRun": {
+      "additionalProperties": false,
+      "properties": {
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Config Sha256",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "input_asset_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Input Asset Ids",
+          "type": "array"
+        },
+        "model_revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Revision"
+        },
+        "output_schema_version": {
+          "const": "0.1.0",
+          "default": "0.1.0",
+          "title": "Output Schema Version",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "tool",
+        "version",
+        "config_sha256",
+        "input_asset_ids",
+        "started_at"
+      ],
+      "title": "ExtractionRun",
+      "type": "object"
+    },
+    "Fact": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "original_property_path": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Original Property Path",
+          "type": "array"
+        },
+        "property_key": {
+          "minLength": 1,
+          "title": "Property Key",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "status": {
+          "enum": [
+            "present",
+            "explicit_null",
+            "not_in_source",
+            "not_extracted",
+            "unknown",
+            "ambiguous"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "subject_id": {
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "supersedes_fact_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supersedes Fact Id"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "boolean": "#/$defs/BooleanValue",
+                  "count": "#/$defs/CountValue",
+                  "list": "#/$defs/ListValue",
+                  "quantity": "#/$defs/QuantityValue",
+                  "record": "#/$defs/RecordValue",
+                  "references": "#/$defs/ReferencesValue",
+                  "table": "#/$defs/TableValue",
+                  "text": "#/$defs/TextValue",
+                  "unavailable": "#/$defs/UnavailableValue"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/QuantityValue"
+                },
+                {
+                  "$ref": "#/$defs/CountValue"
+                },
+                {
+                  "$ref": "#/$defs/TextValue"
+                },
+                {
+                  "$ref": "#/$defs/BooleanValue"
+                },
+                {
+                  "$ref": "#/$defs/ReferencesValue"
+                },
+                {
+                  "$ref": "#/$defs/UnavailableValue"
+                },
+                {
+                  "$ref": "#/$defs/ListValue"
+                },
+                {
+                  "$ref": "#/$defs/RecordValue"
+                },
+                {
+                  "$ref": "#/$defs/TableValue"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "id",
+        "subject_id",
+        "property_key",
+        "status",
+        "provenance"
+      ],
+      "title": "Fact",
+      "type": "object"
+    },
+    "Geometry": {
+      "additionalProperties": false,
+      "properties": {
+        "frame_id": {
+          "minLength": 1,
+          "title": "Frame Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "shape": {
+          "discriminator": {
+            "mapping": {
+              "box": "#/$defs/BoxShape",
+              "mesh": "#/$defs/MeshShape",
+              "multipolygon": "#/$defs/MultiPolygonShape",
+              "point": "#/$defs/PointShape",
+              "polyline": "#/$defs/PolylineShape"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PointShape"
+            },
+            {
+              "$ref": "#/$defs/PolylineShape"
+            },
+            {
+              "$ref": "#/$defs/MultiPolygonShape"
+            },
+            {
+              "$ref": "#/$defs/BoxShape"
+            },
+            {
+              "$ref": "#/$defs/MeshShape"
+            }
+          ],
+          "title": "Shape"
+        }
+      },
+      "required": [
+        "id",
+        "frame_id",
+        "shape"
+      ],
+      "title": "Geometry",
+      "type": "object"
+    },
+    "ListValue": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "boolean": "#/$defs/BooleanValue",
+                "count": "#/$defs/CountValue",
+                "list": "#/$defs/ListValue",
+                "quantity": "#/$defs/QuantityValue",
+                "record": "#/$defs/RecordValue",
+                "references": "#/$defs/ReferencesValue",
+                "table": "#/$defs/TableValue",
+                "text": "#/$defs/TextValue",
+                "unavailable": "#/$defs/UnavailableValue"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/QuantityValue"
+              },
+              {
+                "$ref": "#/$defs/CountValue"
+              },
+              {
+                "$ref": "#/$defs/TextValue"
+              },
+              {
+                "$ref": "#/$defs/BooleanValue"
+              },
+              {
+                "$ref": "#/$defs/ReferencesValue"
+              },
+              {
+                "$ref": "#/$defs/UnavailableValue"
+              },
+              {
+                "$ref": "#/$defs/ListValue"
+              },
+              {
+                "$ref": "#/$defs/RecordValue"
+              },
+              {
+                "$ref": "#/$defs/TableValue"
+              }
+            ]
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "kind": {
+          "const": "list",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "items"
+      ],
+      "title": "ListValue",
+      "type": "object"
+    },
+    "LocalizedText": {
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    },
+    "MeshShape": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "enum": [
+            "glb",
+            "gltf",
+            "obj",
+            "other"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "kind": {
+          "const": "mesh",
+          "title": "Kind",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "uri": {
+          "title": "Uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "uri",
+        "sha256",
+        "format"
+      ],
+      "title": "MeshShape",
+      "type": "object"
+    },
+    "MultiPolygonShape": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "multipolygon",
+          "title": "Kind",
+          "type": "string"
+        },
+        "polygons": {
+          "items": {
+            "$ref": "#/$defs/PolygonPart"
+          },
+          "minItems": 1,
+          "title": "Polygons",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "polygons"
+      ],
+      "title": "MultiPolygonShape",
+      "type": "object"
+    },
+    "NativeSelector": {
+      "additionalProperties": false,
+      "properties": {
+        "column_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Column Index"
+        },
+        "instance_path": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Instance Path",
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "ifc_guid",
+            "step_id",
+            "dxf_handle",
+            "svg_id",
+            "pdf_span",
+            "table_cell",
+            "image_region",
+            "file_metadata"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "property_path": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Property Path",
+          "type": "array"
+        },
+        "row_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Row Index"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "NativeSelector",
+      "type": "object"
+    },
+    "NormalizedQuantity": {
+      "additionalProperties": false,
+      "properties": {
+        "magnitude": {
+          "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+          "title": "Magnitude",
+          "type": "string"
+        },
+        "unit_id": {
+          "minLength": 1,
+          "title": "Unit Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "magnitude",
+        "unit_id"
+      ],
+      "title": "NormalizedQuantity",
+      "type": "object"
+    },
+    "PointShape": {
+      "additionalProperties": false,
+      "properties": {
+        "coordinates": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Coordinates",
+          "type": "array"
+        },
+        "kind": {
+          "const": "point",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "coordinates"
+      ],
+      "title": "PointShape",
+      "type": "object"
+    },
+    "PolygonPart": {
+      "additionalProperties": false,
+      "properties": {
+        "holes": {
+          "items": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 2,
+              "type": "array"
+            },
+            "minItems": 4,
+            "type": "array"
+          },
+          "title": "Holes",
+          "type": "array"
+        },
+        "shell": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 3,
+            "minItems": 2,
+            "type": "array"
+          },
+          "minItems": 4,
+          "title": "Shell",
+          "type": "array"
+        }
+      },
+      "required": [
+        "shell"
+      ],
+      "title": "PolygonPart",
+      "type": "object"
+    },
+    "PolylineShape": {
+      "additionalProperties": false,
+      "properties": {
+        "closed": {
+          "default": false,
+          "title": "Closed",
+          "type": "boolean"
+        },
+        "coordinates": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 3,
+            "minItems": 2,
+            "type": "array"
+          },
+          "minItems": 2,
+          "title": "Coordinates",
+          "type": "array"
+        },
+        "kind": {
+          "const": "polyline",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "coordinates"
+      ],
+      "title": "PolylineShape",
+      "type": "object"
+    },
+    "Project": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "Project",
+      "type": "object"
+    },
+    "PropertyDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "definition": {
+          "title": "Definition",
+          "type": "string"
+        },
+        "dimension": {
+          "anyOf": [
+            {
+              "maxItems": 7,
+              "minItems": 7,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dimension"
+        },
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "$ref": "#/$defs/LocalizedText"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "quantity_kind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quantity Kind"
+        },
+        "value_kind": {
+          "enum": [
+            "text",
+            "count",
+            "quantity",
+            "boolean",
+            "references",
+            "list",
+            "record",
+            "table"
+          ],
+          "title": "Value Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "labels",
+        "value_kind",
+        "definition"
+      ],
+      "title": "PropertyDefinition",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "method": {
+          "enum": [
+            "native",
+            "computed",
+            "ocr",
+            "detected",
+            "inferred",
+            "human"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "score_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score Name"
+        }
+      },
+      "required": [
+        "run_id",
+        "method"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "QuantityValue": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "title": "Basis",
+          "type": "string"
+        },
+        "kind": {
+          "const": "quantity",
+          "title": "Kind",
+          "type": "string"
+        },
+        "magnitude": {
+          "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+          "title": "Magnitude",
+          "type": "string"
+        },
+        "normalized": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NormalizedQuantity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "quality": {
+          "default": "exact",
+          "enum": [
+            "exact",
+            "estimated",
+            "lower_bound",
+            "upper_bound"
+          ],
+          "title": "Quality",
+          "type": "string"
+        },
+        "quantity_kind": {
+          "title": "Quantity Kind",
+          "type": "string"
+        },
+        "source_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Text"
+        },
+        "source_value_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Value Type"
+        },
+        "unit_anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Unit Anchor Ids",
+          "type": "array"
+        },
+        "unit_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unit Id"
+        },
+        "unit_resolution": {
+          "enum": [
+            "explicit",
+            "project_default",
+            "calibrated",
+            "derived",
+            "unknown"
+          ],
+          "title": "Unit Resolution",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "magnitude",
+        "unit_id",
+        "quantity_kind",
+        "basis",
+        "unit_resolution"
+      ],
+      "title": "QuantityValue",
+      "type": "object"
+    },
+    "RecordValue": {
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "additionalProperties": {
+            "discriminator": {
+              "mapping": {
+                "boolean": "#/$defs/BooleanValue",
+                "count": "#/$defs/CountValue",
+                "list": "#/$defs/ListValue",
+                "quantity": "#/$defs/QuantityValue",
+                "record": "#/$defs/RecordValue",
+                "references": "#/$defs/ReferencesValue",
+                "table": "#/$defs/TableValue",
+                "text": "#/$defs/TextValue",
+                "unavailable": "#/$defs/UnavailableValue"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/QuantityValue"
+              },
+              {
+                "$ref": "#/$defs/CountValue"
+              },
+              {
+                "$ref": "#/$defs/TextValue"
+              },
+              {
+                "$ref": "#/$defs/BooleanValue"
+              },
+              {
+                "$ref": "#/$defs/ReferencesValue"
+              },
+              {
+                "$ref": "#/$defs/UnavailableValue"
+              },
+              {
+                "$ref": "#/$defs/ListValue"
+              },
+              {
+                "$ref": "#/$defs/RecordValue"
+              },
+              {
+                "$ref": "#/$defs/TableValue"
+              }
+            ]
+          },
+          "title": "Fields",
+          "type": "object"
+        },
+        "kind": {
+          "const": "record",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "fields"
+      ],
+      "title": "RecordValue",
+      "type": "object"
+    },
+    "ReferencesValue": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Entity Ids",
+          "type": "array"
+        },
+        "kind": {
+          "const": "references",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "entity_ids"
+      ],
+      "title": "ReferencesValue",
+      "type": "object"
+    },
+    "Relation": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "native_predicate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Native Predicate"
+        },
+        "object_id": {
+          "minLength": 1,
+          "title": "Object Id",
+          "type": "string"
+        },
+        "predicate": {
+          "enum": [
+            "contains",
+            "aggregates",
+            "typed_by",
+            "assigned_to_system",
+            "has_material",
+            "belongs_to_unit",
+            "adjacent_to",
+            "connected_to",
+            "hosted_by",
+            "depicts",
+            "same_as",
+            "custom"
+          ],
+          "title": "Predicate",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "subject_id": {
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "subject_id",
+        "predicate",
+        "object_id",
+        "provenance"
+      ],
+      "title": "Relation",
+      "type": "object"
+    },
+    "Representation": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "asset_id": {
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "entity_id": {
+          "minLength": 1,
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "feature_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Feature Ids",
+          "type": "array"
+        },
+        "geometry_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Geometry Ids",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "view_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "View Id"
+        }
+      },
+      "required": [
+        "id",
+        "entity_id",
+        "asset_id",
+        "provenance"
+      ],
+      "title": "Representation",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "document_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Document Ids",
+          "type": "array"
+        },
+        "entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Entity Ids",
+          "type": "array"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "universe": {
+          "enum": [
+            "source_records",
+            "modeled_objects",
+            "depicted_objects",
+            "schedule_entries",
+            "physical_building"
+          ],
+          "title": "Universe",
+          "type": "string"
+        },
+        "view_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "View Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "project_id",
+        "document_ids",
+        "universe"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "SourceFeature": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "asset_id": {
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "column_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Column Index"
+        },
+        "column_span": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Column Span",
+          "type": "integer"
+        },
+        "header_feature_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Header Feature Ids",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "cad_primitive",
+            "text_span",
+            "detection",
+            "segmentation",
+            "table",
+            "table_row",
+            "table_cell",
+            "other"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "row_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Row Index"
+        },
+        "row_span": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Row Span",
+          "type": "integer"
+        },
+        "table_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Table Id"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocalizedText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "view_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "View Id"
+        }
+      },
+      "required": [
+        "id",
+        "asset_id",
+        "kind",
+        "anchor_ids",
+        "provenance"
+      ],
+      "title": "SourceFeature",
+      "type": "object"
+    },
+    "TableColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/LocalizedText"
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "title": "TableColumn",
+      "type": "object"
+    },
+    "TableValue": {
+      "additionalProperties": false,
+      "properties": {
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/TableColumn"
+          },
+          "minItems": 1,
+          "title": "Columns",
+          "type": "array"
+        },
+        "kind": {
+          "const": "table",
+          "title": "Kind",
+          "type": "string"
+        },
+        "rows": {
+          "items": {
+            "additionalProperties": {
+              "discriminator": {
+                "mapping": {
+                  "boolean": "#/$defs/BooleanValue",
+                  "count": "#/$defs/CountValue",
+                  "list": "#/$defs/ListValue",
+                  "quantity": "#/$defs/QuantityValue",
+                  "record": "#/$defs/RecordValue",
+                  "references": "#/$defs/ReferencesValue",
+                  "table": "#/$defs/TableValue",
+                  "text": "#/$defs/TextValue",
+                  "unavailable": "#/$defs/UnavailableValue"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/QuantityValue"
+                },
+                {
+                  "$ref": "#/$defs/CountValue"
+                },
+                {
+                  "$ref": "#/$defs/TextValue"
+                },
+                {
+                  "$ref": "#/$defs/BooleanValue"
+                },
+                {
+                  "$ref": "#/$defs/ReferencesValue"
+                },
+                {
+                  "$ref": "#/$defs/UnavailableValue"
+                },
+                {
+                  "$ref": "#/$defs/ListValue"
+                },
+                {
+                  "$ref": "#/$defs/RecordValue"
+                },
+                {
+                  "$ref": "#/$defs/TableValue"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "title": "Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "columns",
+        "rows"
+      ],
+      "title": "TableValue",
+      "type": "object"
+    },
+    "TextValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "text",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/LocalizedText"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "TextValue",
+      "type": "object"
+    },
+    "Transform": {
+      "additionalProperties": false,
+      "properties": {
+        "from_frame_id": {
+          "minLength": 1,
+          "title": "From Frame Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "affine",
+            "homography",
+            "projection"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "matrix": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "title": "Matrix",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "to_frame_id": {
+          "minLength": 1,
+          "title": "To Frame Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "from_frame_id",
+        "to_frame_id",
+        "kind",
+        "matrix",
+        "provenance"
+      ],
+      "title": "Transform",
+      "type": "object"
+    },
+    "UnavailableValue": {
+      "additionalProperties": false,
+      "description": "A missing cell in a partial list/record/table; never a numeric zero.",
+      "properties": {
+        "explanation": {
+          "title": "Explanation",
+          "type": "string"
+        },
+        "kind": {
+          "const": "unavailable",
+          "title": "Kind",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "explicit_null",
+            "not_in_source",
+            "not_extracted",
+            "unknown",
+            "ambiguous"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "reason",
+        "explanation"
+      ],
+      "title": "UnavailableValue",
+      "type": "object"
+    },
+    "Unit": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "anyOf": [
+            {
+              "maxItems": 7,
+              "minItems": 7,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dimension"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "physical",
+            "presentation"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "si_multiplier": {
+          "anyOf": [
+            {
+              "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Si Multiplier"
+        },
+        "si_offset": {
+          "default": "0",
+          "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+          "title": "Si Offset",
+          "type": "string"
+        },
+        "symbol": {
+          "title": "Symbol",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "symbol",
+        "kind"
+      ],
+      "title": "Unit",
+      "type": "object"
+    },
+    "View": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "boundary_geometry_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Boundary Geometry Id"
+        },
+        "depicts_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Depicts Entity Ids",
+          "type": "array"
+        },
+        "frame_id": {
+          "minLength": 1,
+          "title": "Frame Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "page",
+            "floor_plan",
+            "section",
+            "elevation",
+            "detail",
+            "site",
+            "schedule",
+            "legend",
+            "tile",
+            "unknown"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "$ref": "#/$defs/LocalizedText"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "page_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Index"
+        },
+        "parent_view_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent View Id"
+        }
+      },
+      "required": [
+        "id",
+        "asset_id",
+        "frame_id",
+        "kind"
+      ],
+      "title": "View",
+      "type": "object"
+    }
+  },
+  "$id": "urn:stoa:contracts:0.1.0:KnowledgeBundle",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "anchors": {
+      "items": {
+        "$ref": "#/$defs/EvidenceAnchor"
+      },
+      "title": "Anchors",
+      "type": "array"
+    },
+    "asset_links": {
+      "items": {
+        "$ref": "#/$defs/AssetLink"
+      },
+      "title": "Asset Links",
+      "type": "array"
+    },
+    "assets": {
+      "items": {
+        "$ref": "#/$defs/Asset"
+      },
+      "title": "Assets",
+      "type": "array"
+    },
+    "calibrations": {
+      "items": {
+        "$ref": "#/$defs/Calibration"
+      },
+      "title": "Calibrations",
+      "type": "array"
+    },
+    "concepts": {
+      "items": {
+        "$ref": "#/$defs/Concept"
+      },
+      "title": "Concepts",
+      "type": "array"
+    },
+    "coverage": {
+      "items": {
+        "$ref": "#/$defs/Coverage"
+      },
+      "title": "Coverage",
+      "type": "array"
+    },
+    "documents": {
+      "items": {
+        "$ref": "#/$defs/Document"
+      },
+      "title": "Documents",
+      "type": "array"
+    },
+    "entities": {
+      "items": {
+        "$ref": "#/$defs/Entity"
+      },
+      "title": "Entities",
+      "type": "array"
+    },
+    "facts": {
+      "items": {
+        "$ref": "#/$defs/Fact"
+      },
+      "title": "Facts",
+      "type": "array"
+    },
+    "features": {
+      "items": {
+        "$ref": "#/$defs/SourceFeature"
+      },
+      "title": "Features",
+      "type": "array"
+    },
+    "frames": {
+      "items": {
+        "$ref": "#/$defs/CoordinateFrame"
+      },
+      "title": "Frames",
+      "type": "array"
+    },
+    "geometries": {
+      "items": {
+        "$ref": "#/$defs/Geometry"
+      },
+      "title": "Geometries",
+      "type": "array"
+    },
+    "projects": {
+      "items": {
+        "$ref": "#/$defs/Project"
+      },
+      "title": "Projects",
+      "type": "array"
+    },
+    "properties": {
+      "items": {
+        "$ref": "#/$defs/PropertyDefinition"
+      },
+      "title": "Properties",
+      "type": "array"
+    },
+    "relations": {
+      "items": {
+        "$ref": "#/$defs/Relation"
+      },
+      "title": "Relations",
+      "type": "array"
+    },
+    "representations": {
+      "items": {
+        "$ref": "#/$defs/Representation"
+      },
+      "title": "Representations",
+      "type": "array"
+    },
+    "runs": {
+      "items": {
+        "$ref": "#/$defs/ExtractionRun"
+      },
+      "title": "Runs",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1.0",
+      "default": "0.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "transforms": {
+      "items": {
+        "$ref": "#/$defs/Transform"
+      },
+      "title": "Transforms",
+      "type": "array"
+    },
+    "units": {
+      "items": {
+        "$ref": "#/$defs/Unit"
+      },
+      "title": "Units",
+      "type": "array"
+    },
+    "views": {
+      "items": {
+        "$ref": "#/$defs/View"
+      },
+      "title": "Views",
+      "type": "array"
+    }
+  },
+  "required": [
+    "projects",
+    "documents",
+    "assets",
+    "runs",
+    "concepts",
+    "properties",
+    "units"
+  ],
+  "title": "KnowledgeBundle",
+  "type": "object"
+}

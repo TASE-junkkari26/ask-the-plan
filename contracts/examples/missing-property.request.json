@@ -1,0 +1,14 @@
+{
+  "schema_version": "0.1.0",
+  "id": "request:occupancy",
+  "question": {
+    "text": "What is the live load capacity of room 7.16?",
+    "language": "en"
+  },
+  "attachment_asset_ids": [
+    "cad:a"
+  ],
+  "attachment_view_ids": [],
+  "project_id": "project:p",
+  "previous_request_ids": []
+}

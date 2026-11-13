@@ -1,0 +1,93 @@
+{
+  "$comment": "Generated from contracts.models; do not edit manually. JSON Schema checks structure. Pydantic and semantic validators also enforce local invariants, references, units, scope, and evidence.",
+  "$defs": {
+    "LocalizedText": {
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    }
+  },
+  "$id": "urn:stoa:contracts:0.1.0:QuestionRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "attachment_asset_ids": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Attachment Asset Ids",
+      "type": "array"
+    },
+    "attachment_view_ids": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Attachment View Ids",
+      "type": "array"
+    },
+    "id": {
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "previous_request_ids": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "title": "Previous Request Ids",
+      "type": "array"
+    },
+    "project_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Project Id"
+    },
+    "question": {
+      "$ref": "#/$defs/LocalizedText"
+    },
+    "schema_version": {
+      "const": "0.1.0",
+      "default": "0.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "question"
+  ],
+  "title": "QuestionRequest",
+  "type": "object"
+}

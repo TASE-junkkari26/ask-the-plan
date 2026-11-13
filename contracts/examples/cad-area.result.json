@@ -1,0 +1,109 @@
+{
+  "schema_version": "0.1.0",
+  "id": "result:area",
+  "request_id": "request:area",
+  "plan_id": "plan:area",
+  "status": "answered",
+  "claims": [
+    {
+      "id": "claim:area",
+      "output_key": "area",
+      "name": "Net room area",
+      "scope": {
+        "project_id": "project:p",
+        "document_ids": [
+          "doc:d"
+        ],
+        "entity_ids": [
+          "floor:1"
+        ],
+        "view_ids": [],
+        "universe": "depicted_objects"
+      },
+      "concept_ids": [
+        "concept:room"
+      ],
+      "property_keys": [
+        "property:net_area"
+      ],
+      "value": {
+        "kind": "quantity",
+        "magnitude": "19",
+        "unit_id": "unit:m2",
+        "quantity_kind": "area",
+        "basis": "net",
+        "unit_resolution": "derived",
+        "unit_anchor_ids": [
+          "anchor:room"
+        ],
+        "source_value_type": null,
+        "source_text": null,
+        "normalized": {
+          "magnitude": "19",
+          "unit_id": "unit:m2"
+        },
+        "quality": "exact"
+      },
+      "quality": "exact",
+      "coverage_ids": [
+        "coverage:rooms"
+      ],
+      "evidence": [
+        {
+          "value_path": "",
+          "anchor_ids": [
+            "anchor:room"
+          ],
+          "fact_ids": [
+            "fact:area"
+          ],
+          "entity_set_ids": [],
+          "calculation_id": "calculation:area"
+        }
+      ],
+      "count_policy": null
+    }
+  ],
+  "entity_sets": [],
+  "calculations": [
+    {
+      "id": "calculation:area",
+      "plan_step_id": "lookup",
+      "operation": "sum",
+      "input_node_ids": [],
+      "fact_ids": [
+        "fact:area"
+      ],
+      "included_set_id": null,
+      "excluded_set_id": null,
+      "anchor_ids": [
+        "anchor:room"
+      ],
+      "calibration_ids": [],
+      "output": {
+        "kind": "quantity",
+        "magnitude": "19",
+        "unit_id": "unit:m2",
+        "quantity_kind": "area",
+        "basis": "net",
+        "unit_resolution": "derived",
+        "unit_anchor_ids": [
+          "anchor:room"
+        ],
+        "source_value_type": null,
+        "source_text": null,
+        "normalized": {
+          "magnitude": "19",
+          "unit_id": "unit:m2"
+        },
+        "quality": "exact"
+      },
+      "quality": "exact",
+      "rule_key": null
+    }
+  ],
+  "issues": [],
+  "explanation": null,
+  "executor_version": "fixture-1",
+  "metrics": null
+}

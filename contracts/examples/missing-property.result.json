@@ -1,0 +1,30 @@
+{
+  "schema_version": "0.1.0",
+  "id": "result:occupancy",
+  "request_id": "request:occupancy",
+  "plan_id": null,
+  "status": "missing_information",
+  "claims": [],
+  "entity_sets": [],
+  "calculations": [],
+  "issues": [
+    {
+      "code": "missing_information",
+      "message": {
+        "text": "The supplied source does not record a live load capacity for this room.",
+        "language": "en"
+      },
+      "entity_ids": [
+        "room:1"
+      ],
+      "fact_ids": [],
+      "anchor_ids": [
+        "anchor:room"
+      ],
+      "options": []
+    }
+  ],
+  "explanation": null,
+  "executor_version": "fixture-1",
+  "metrics": null
+}

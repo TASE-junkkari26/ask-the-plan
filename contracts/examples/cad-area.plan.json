@@ -1,0 +1,69 @@
+{
+  "schema_version": "0.1.0",
+  "id": "plan:area",
+  "request_id": "request:area",
+  "scope": {
+    "project_id": "project:p",
+    "document_ids": [
+      "doc:d"
+    ],
+    "entity_ids": [
+      "floor:1"
+    ],
+    "view_ids": [],
+    "universe": "depicted_objects"
+  },
+  "steps": [
+    {
+      "id": "select",
+      "operation": {
+        "kind": "select",
+        "concept_ids": [
+          "concept:room"
+        ],
+        "entity_kinds": [],
+        "where": {
+          "kind": "compare",
+          "field": {
+            "kind": "entity_id",
+            "key": "id"
+          },
+          "operator": "in",
+          "value": {
+            "kind": "references",
+            "entity_ids": [
+              "room:1"
+            ]
+          }
+        },
+        "exclude": null,
+        "count_policy": {
+          "grain": "logical_object",
+          "hierarchy": "topmost_matches",
+          "distinct_by": "canonical_entity_id",
+          "rule_key": "room.logical_space.v1"
+        }
+      }
+    },
+    {
+      "id": "lookup",
+      "operation": {
+        "kind": "aggregate",
+        "input_step_id": "select",
+        "method": "sum",
+        "field": {
+          "kind": "property",
+          "key": "property:net_area"
+        },
+        "group_by": [],
+        "value_key": "value",
+        "output_unit_id": "unit:m2",
+        "missing_values": "fail"
+      }
+    }
+  ],
+  "outputs": {
+    "area": "lookup"
+  },
+  "required_capabilities": []
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "0.1.0",
+  "id": "result:raster",
+  "request_id": "request:raster",
+  "plan_id": null,
+  "status": "incomplete_coverage",
+  "claims": [],
+  "entity_sets": [],
+  "calculations": [],
+  "issues": [
+    {
+      "code": "incomplete_coverage",
+      "message": {
+        "text": "The door detector has not produced a complete inventory for this view. No exact count can be given.",
+        "language": "en"
+      },
+      "entity_ids": [],
+      "fact_ids": [],
+      "anchor_ids": [
+        "anchor:scale"
+      ],
+      "options": []
+    }
+  ],
+  "explanation": null,
+  "executor_version": "fixture-1",
+  "metrics": null
+}

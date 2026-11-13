@@ -1,0 +1,14 @@
+{
+  "schema_version": "0.1.0",
+  "id": "request:area",
+  "question": {
+    "text": "Mikä on huoneen 7.16 nettoala?",
+    "language": "fi"
+  },
+  "attachment_asset_ids": [
+    "png:a"
+  ],
+  "attachment_view_ids": [],
+  "project_id": "project:p",
+  "previous_request_ids": []
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": "0.1.0",
+  "id": "request:raster",
+  "question": {
+    "text": "How many doors are visible on this floor?",
+    "language": "en"
+  },
+  "attachment_asset_ids": [
+    "png:a"
+  ],
+  "attachment_view_ids": [],
+  "project_id": "project:p",
+  "previous_request_ids": []
+}

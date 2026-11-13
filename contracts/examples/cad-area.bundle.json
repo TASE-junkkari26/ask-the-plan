@@ -1,0 +1,581 @@
+{
+  "schema_version": "0.1.0",
+  "projects": [
+    {
+      "id": "project:p",
+      "name": "Illustrative contract fixture"
+    }
+  ],
+  "documents": [
+    {
+      "id": "doc:d",
+      "project_id": "project:p",
+      "logical_key": "plan:1",
+      "revision": "A",
+      "title": [],
+      "discipline": null,
+      "supersedes_document_id": null
+    }
+  ],
+  "assets": [
+    {
+      "id": "cad:a",
+      "document_id": "doc:d",
+      "uri": "fixture://room.dxf",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "format": "dxf",
+      "media_type": "application/dxf",
+      "source_collection": "illustrative_contract_fixture",
+      "attribution": "Synthetic contract example",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "png:a",
+      "document_id": "doc:d",
+      "uri": "fixture://room.png",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "format": "png",
+      "media_type": "image/png",
+      "source_collection": "illustrative_contract_fixture",
+      "attribution": "Synthetic contract example",
+      "license": "CC0-1.0"
+    }
+  ],
+  "asset_links": [
+    {
+      "source_asset_id": "png:a",
+      "target_asset_id": "cad:a",
+      "kind": "rendered_from",
+      "provenance": {
+        "run_id": "run:r",
+        "anchor_ids": [
+          "anchor:room"
+        ],
+        "method": "native",
+        "score": null,
+        "score_name": null
+      }
+    }
+  ],
+  "runs": [
+    {
+      "id": "run:r",
+      "tool": "fixture",
+      "version": "1",
+      "model_revision": null,
+      "config_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "input_asset_ids": [
+        "cad:a",
+        "png:a"
+      ],
+      "output_schema_version": "0.1.0",
+      "started_at": "2026-11-13T12:00:00Z"
+    }
+  ],
+  "concepts": [
+    {
+      "id": "concept:room",
+      "labels": [
+        {
+          "text": "room",
+          "language": "en"
+        },
+        {
+          "text": "huone",
+          "language": "fi"
+        }
+      ],
+      "parent_ids": [],
+      "definition": "A logical room, not a drawing primitive."
+    },
+    {
+      "id": "concept:storey",
+      "labels": [
+        {
+          "text": "storey",
+          "language": "en"
+        }
+      ],
+      "parent_ids": [],
+      "definition": "A building storey."
+    }
+  ],
+  "properties": [
+    {
+      "key": "property:net_area",
+      "labels": [
+        {
+          "text": "net area",
+          "language": "en"
+        }
+      ],
+      "value_kind": "quantity",
+      "quantity_kind": "area",
+      "dimension": [
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "definition": "Floor polygon area excluding column holes."
+    }
+  ],
+  "units": [
+    {
+      "id": "unit:m",
+      "symbol": "m",
+      "kind": "physical",
+      "dimension": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "si_multiplier": "1",
+      "si_offset": "0"
+    },
+    {
+      "id": "unit:mm",
+      "symbol": "mm",
+      "kind": "physical",
+      "dimension": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "si_multiplier": "0.001",
+      "si_offset": "0"
+    },
+    {
+      "id": "unit:m2",
+      "symbol": "m2",
+      "kind": "physical",
+      "dimension": [
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "si_multiplier": "1",
+      "si_offset": "0"
+    },
+    {
+      "id": "unit:mm2",
+      "symbol": "mm2",
+      "kind": "physical",
+      "dimension": [
+        2,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "si_multiplier": "0.000001",
+      "si_offset": "0"
+    },
+    {
+      "id": "unit:px",
+      "symbol": "px",
+      "kind": "presentation",
+      "dimension": null,
+      "si_multiplier": null,
+      "si_offset": "0"
+    }
+  ],
+  "frames": [
+    {
+      "id": "frame:metric",
+      "asset_id": "cad:a",
+      "dimension": 2,
+      "space": "physical",
+      "unit_id": "unit:m",
+      "axes": [
+        "right",
+        "up"
+      ],
+      "crs": null
+    },
+    {
+      "id": "frame:pixel",
+      "asset_id": "png:a",
+      "dimension": 2,
+      "space": "presentation",
+      "unit_id": "unit:px",
+      "axes": [
+        "right",
+        "down"
+      ],
+      "crs": null
+    }
+  ],
+  "transforms": [
+    {
+      "id": "transform:pixel_to_metric",
+      "from_frame_id": "frame:pixel",
+      "to_frame_id": "frame:metric",
+      "kind": "affine",
+      "matrix": [
+        [
+          0.01,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          -0.01,
+          4.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "provenance": {
+        "run_id": "run:r",
+        "anchor_ids": [
+          "anchor:scale"
+        ],
+        "method": "computed",
+        "score": null,
+        "score_name": null
+      }
+    }
+  ],
+  "views": [
+    {
+      "id": "view:cad",
+      "asset_id": "cad:a",
+      "frame_id": "frame:metric",
+      "kind": "floor_plan",
+      "page_index": null,
+      "parent_view_id": null,
+      "boundary_geometry_id": null,
+      "depicts_entity_ids": [
+        "floor:1"
+      ],
+      "labels": []
+    },
+    {
+      "id": "view:pixel",
+      "asset_id": "png:a",
+      "frame_id": "frame:pixel",
+      "kind": "floor_plan",
+      "page_index": null,
+      "parent_view_id": null,
+      "boundary_geometry_id": null,
+      "depicts_entity_ids": [
+        "floor:1"
+      ],
+      "labels": []
+    }
+  ],
+  "geometries": [
+    {
+      "id": "geometry:room",
+      "frame_id": "frame:metric",
+      "shape": {
+        "kind": "multipolygon",
+        "polygons": [
+          {
+            "shell": [
+              [
+                0.0,
+                0.0
+              ],
+              [
+                5.0,
+                0.0
+              ],
+              [
+                5.0,
+                4.0
+              ],
+              [
+                0.0,
+                4.0
+              ],
+              [
+                0.0,
+                0.0
+              ]
+            ],
+            "holes": [
+              [
+                [
+                  1.0,
+                  1.0
+                ],
+                [
+                  2.0,
+                  1.0
+                ],
+                [
+                  2.0,
+                  2.0
+                ],
+                [
+                  1.0,
+                  2.0
+                ],
+                [
+                  1.0,
+                  1.0
+                ]
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "geometry:scale",
+      "frame_id": "frame:pixel",
+      "shape": {
+        "kind": "box",
+        "minimum": [
+          0.0,
+          400.0
+        ],
+        "maximum": [
+          500.0,
+          420.0
+        ]
+      }
+    }
+  ],
+  "anchors": [
+    {
+      "id": "anchor:room",
+      "asset_id": "cad:a",
+      "view_id": "view:cad",
+      "selector": {
+        "kind": "dxf_handle",
+        "value": "A5",
+        "instance_path": [],
+        "property_path": [],
+        "row_index": null,
+        "column_index": null
+      },
+      "geometry_id": "geometry:room",
+      "quote": {
+        "text": "7.16 Korridor",
+        "language": "de"
+      }
+    },
+    {
+      "id": "anchor:scale",
+      "asset_id": "png:a",
+      "view_id": "view:pixel",
+      "selector": {
+        "kind": "image_region",
+        "value": "scale-bar",
+        "instance_path": [],
+        "property_path": [],
+        "row_index": null,
+        "column_index": null
+      },
+      "geometry_id": "geometry:scale",
+      "quote": {
+        "text": "5 m",
+        "language": "und"
+      }
+    }
+  ],
+  "calibrations": [
+    {
+      "id": "calibration:1",
+      "view_id": "view:pixel",
+      "transform_id": "transform:pixel_to_metric",
+      "method": "scale_bar",
+      "provenance": {
+        "run_id": "run:r",
+        "anchor_ids": [
+          "anchor:scale"
+        ],
+        "method": "native",
+        "score": null,
+        "score_name": null
+      }
+    }
+  ],
+  "features": [],
+  "entities": [
+    {
+      "id": "floor:1",
+      "project_id": "project:p",
+      "document_id": "doc:d",
+      "kind": "storey",
+      "concept_ids": [
+        "concept:storey"
+      ],
+      "labels": [],
+      "provenance": {
+        "run_id": "run:r",
+        "anchor_ids": [
+          "anchor:room"
+        ],
+        "method": "native",
+        "score": null,
+        "score_name": null
+      }
+    },
+    {
+      "id": "room:1",
+      "project_id": "project:p",
+      "document_id": "doc:d",
+      "kind": "space",
+      "concept_ids": [
+        "concept:room"
+      ],
+      "labels": [
+        {
+          "text": "7.16",
+          "language": "und"
+        }
+      ],
+      "provenance": {
+        "run_id": "run:r",
+        "anchor_ids": [
+          "anchor:room"
+        ],
+        "method": "native",
+        "score": null,
+        "score_name": null
+      }
+    }
+  ],
+  "representations": [
+    {
+      "id": "representation:room",
+      "entity_id": "room:1",
+      "asset_id": "cad:a",
+      "view_id": "view:cad",
+      "feature_ids": [],
+      "anchor_ids": [
+        "anchor:room"
+      ],
+      "geometry_ids": [
+        "geometry:room"
+      ],
+      "provenance": {
+        "run_id": "run:r",
+        "anchor_ids": [
+          "anchor:room"
+        ],
+        "method": "native",
+        "score": null,
+        "score_name": null
+      }
+    }
+  ],
+  "facts": [
+    {
+      "id": "fact:area",
+      "subject_id": "room:1",
+      "property_key": "property:net_area",
+      "original_property_path": [],
+      "status": "present",
+      "value": {
+        "kind": "quantity",
+        "magnitude": "19000000",
+        "unit_id": "unit:mm2",
+        "quantity_kind": "area",
+        "basis": "net",
+        "unit_resolution": "explicit",
+        "unit_anchor_ids": [
+          "anchor:room"
+        ],
+        "source_value_type": null,
+        "source_text": null,
+        "normalized": {
+          "magnitude": "19",
+          "unit_id": "unit:m2"
+        },
+        "quality": "exact"
+      },
+      "provenance": {
+        "run_id": "run:r",
+        "anchor_ids": [
+          "anchor:room"
+        ],
+        "method": "computed",
+        "score": null,
+        "score_name": null
+      },
+      "supersedes_fact_id": null
+    }
+  ],
+  "relations": [
+    {
+      "id": "relation:floor_room",
+      "subject_id": "floor:1",
+      "predicate": "contains",
+      "object_id": "room:1",
+      "native_predicate": null,
+      "provenance": {
+        "run_id": "run:r",
+        "anchor_ids": [
+          "anchor:room"
+        ],
+        "method": "native",
+        "score": null,
+        "score_name": null
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "id": "coverage:rooms",
+      "scope": {
+        "project_id": "project:p",
+        "document_ids": [
+          "doc:d"
+        ],
+        "entity_ids": [
+          "floor:1"
+        ],
+        "view_ids": [],
+        "universe": "depicted_objects"
+      },
+      "concept_ids": [
+        "concept:room"
+      ],
+      "property_keys": [
+        "property:net_area"
+      ],
+      "count_policy": {
+        "grain": "logical_object",
+        "hierarchy": "topmost_matches",
+        "distinct_by": "canonical_entity_id",
+        "rule_key": "room.logical_space.v1"
+      },
+      "completeness": "complete",
+      "explanation": "Illustrative complete inventory for this source/view scope.",
+      "provenance": {
+        "run_id": "run:r",
+        "anchor_ids": [
+          "anchor:room"
+        ],
+        "method": "native",
+        "score": null,
+        "score_name": null
+      }
+    }
+  ]
+}
