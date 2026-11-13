@@ -5,9 +5,27 @@ executes validated `QueryPlan` operations, and returns a `QueryResult` with
 materialized entity sets, source anchors, facts, and calculation nodes. It runs
 locally on a CPU. A language-model planner can later produce the same plans.
 
+The [project scope](PROJECT_SCOPE.md) is the supplied dataset's known question
+families. Extend this executor for uncovered supplied IFC questions, not for
+hypothetical unknown evaluation classes. The limitations below describe current
+implementation boundaries; they do not make every possible IFC operation a
+hackathon requirement.
+
 ## Install and run
 
-From the repository root, using Python 3.10 or newer:
+From the repository root, using Python 3.10 or newer and a compatible
+IfcOpenShell wheel. Create a separate environment per OS.
+
+Windows PowerShell (activation is not required):
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[test]"
+.\.venv\Scripts\python.exe -m ifc_engine --help
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
+Linux:
 
 ```sh
 python3 -m venv .venv
@@ -15,33 +33,38 @@ python3 -m venv .venv
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-On Windows, the virtual environment's Python is `.venv\Scripts\python.exe`.
 On Debian/Ubuntu, creating a pip-enabled virtual environment may require the
 matching `python3-venv` package. Network access is needed to install dependencies;
 model extraction and query execution run offline afterward.
 
 The initial Linux checks used Python 3.12.3, IfcOpenShell 0.9.0.post1, and
-Pydantic 2.14.3. Windows backend and browser/viewer integration have not been
-tested. The implementation follows the [frontend evidence requirements](FRONTEND_EVIDENCE_REQUIREMENTS.md)
+Pydantic 2.14.3. On 14 November, Windows checks used Python 3.14, IfcOpenShell
+0.9.0.post1, and Pydantic 2.14.3: 63 tests passed and one optional dataset test
+skipped because its expected preview layout differs. The full-dataset CLI
+examples below separately returned the documented door counts and area sum.
+Browser/viewer integration remains untested. The implementation follows the
+[frontend evidence requirements](FRONTEND_EVIDENCE_REQUIREMENTS.md)
 for source identity and trace data; browser resource endpoints remain future work.
 
-The dataset is optional and is not included in the Python package. If the local
-preview is available, these are actual model and storey count examples:
+In the remaining commands, replace `python` with the virtual environment's
+executable above. Commands run from the repository root; one line is one command.
+Output parent directories must exist before using `--output`, `--plan-out`, or
+`--bundle-out`. `build/` is ignored by Git.
+
+The dataset is optional and is not included in the Python package. These examples
+use the full extraction at `dataset/junction-dataset/`. For this checkout's
+preview, replace that prefix with
+`dataset/junction-dataset-preview/junction-dataset-preview/`; archive layouts can
+differ. The model and storey counts below are actual selected checks.
 
 ```sh
-.venv/bin/python -m ifc_engine inspect \
-  dataset/junction-dataset-preview/data/ifc_models/bsc-esplanades_1807-ep-ar-v18.ifc \
-  --output /tmp/esplanades-catalog.json
+python -c "from pathlib import Path; Path('build/ifc-examples').mkdir(parents=True, exist_ok=True)"
 
-.venv/bin/python -m ifc_engine count \
-  dataset/junction-dataset-preview/data/ifc_models/bsc-esplanades_1807-ep-ar-v18.ifc \
-  door --cache-dir .ifc-cache
+python -m ifc_engine inspect dataset/junction-dataset/data/ifc_models/bsc-esplanades_1807-ep-ar-v18.ifc --output build/ifc-examples/esplanades-catalog.json
 
-.venv/bin/python -m ifc_engine count \
-  dataset/junction-dataset-preview/data/ifc_models/bsc-esplanades_1807-ep-ar-v18.ifc \
-  door --storey 4.korrus --cache-dir .ifc-cache \
-  --plan-out /tmp/doors.plan.json --bundle-out /tmp/doors.bundle.json \
-  --output /tmp/doors.result.json
+python -m ifc_engine count dataset/junction-dataset/data/ifc_models/bsc-esplanades_1807-ep-ar-v18.ifc door --cache-dir .ifc-cache
+
+python -m ifc_engine count dataset/junction-dataset/data/ifc_models/bsc-esplanades_1807-ep-ar-v18.ifc door --storey 4.korrus --cache-dir .ifc-cache --plan-out build/ifc-examples/doors.plan.json --bundle-out build/ifc-examples/doors.bundle.json --output build/ifc-examples/doors.result.json
 ```
 
 The model-wide answer is 211; the fourth-storey answer is 42. The result's scope
@@ -56,26 +79,27 @@ paths, supported operations, and extraction warnings. `ingest` exports the
 knowledge bundle. Query shortcuts are `count`, `sum`, `mean`, `min`, `max`,
 `lookup`, and `rank`; `execute --plan PATH` accepts a shared-contract plan.
 
-For example, after discovering the actual quantity path in a model:
+The following are templates: replace `building.ifc`, the storey/entity values,
+and property paths with entries discovered by `inspect` for your chosen model.
 
 ```sh
-.venv/bin/python -m ifc_engine sum building.ifc space \
-  --property Qto_SpaceBaseQuantities.NetFloorArea --unit m2
+python -m ifc_engine sum building.ifc space --property Qto_SpaceBaseQuantities.NetFloorArea --unit m2
 
-.venv/bin/python -m ifc_engine rank building.ifc door \
-  --property OverallWidth --storey Ground --limit 5
+python -m ifc_engine rank building.ifc door --property OverallWidth --storey Ground --limit 5
 
-.venv/bin/python -m ifc_engine lookup building.ifc door \
-  --entity 'door-guid-from-the-catalog' --property Pset_DoorCommon.FireRating
+python -m ifc_engine lookup building.ifc door --entity 'door-guid-from-the-catalog' --property Pset_DoorCommon.FireRating
 
-.venv/bin/python -m ifc_engine count building.ifc stair \
-  --hierarchy topmost_matches
-
-.venv/bin/python -m ifc_engine execute building.ifc \
-  --plan /tmp/doors.plan.json --bundle-out /tmp/execution.bundle.json
+python -m ifc_engine count building.ifc stair --hierarchy topmost_matches
 ```
 
 Property paths and storey names are examples and must exist in the chosen file.
+An exported plan is bound to its source revision. To execute the real door plan
+created above against the same Esplanades file:
+
+```text
+python -m ifc_engine execute dataset/junction-dataset/data/ifc_models/bsc-esplanades_1807-ep-ar-v18.ifc --plan build/ifc-examples/doors.plan.json --bundle-out build/ifc-examples/execution.bundle.json --output build/ifc-examples/execution.result.json
+```
+
 Fully qualified property keys remove ambiguity; `property_key(pset, name)` and
 `attribute_key(name)` construct them. Display paths such as
 `Pset_DoorCommon.FireRating` also resolve when unique. Properties with null
@@ -177,7 +201,9 @@ and use deterministic tie order; they do not imply a unique maximum.
 The regression suite creates tiny IFC fixtures for scope, overrides, assemblies,
 unit conversion, duplicates, missing inputs, predicates, grouping, traversal,
 cache invalidation, and CLI exports. An additional real-model test verifies
-the Esplanades counts when the optional preview is present.
+the Esplanades counts when its expected optional preview path is present. A
+different extraction layout can skip that test even when another copy of the
+model exists; run the real-file commands above to check that copy explicitly.
 
 Additional manual checks on the preview found 119 sanitary fixtures through
 IFC2X3 type relationships in the clinic model, and 579 stair occurrences versus
@@ -187,9 +213,7 @@ not a dataset-wide accuracy measurement. Small fixtures also cover IFC4X3_ADD2.
 The real `ifc_bench/ac20_arc.ifc` model also supports a quantity example:
 
 ```sh
-.venv/bin/python -m ifc_engine sum \
-  dataset/junction-dataset-preview/data/ifc_bench/ac20_arc.ifc \
-  space --property BaseQuantities.NetFloorArea --unit m2
+python -m ifc_engine sum dataset/junction-dataset/data/ifc_bench/ac20_arc.ifc space --property BaseQuantities.NetFloorArea --unit m2
 ```
 
 This returns the stored-quantity sum 1939.3839474444 m2 (1939.38 m2 rounded).

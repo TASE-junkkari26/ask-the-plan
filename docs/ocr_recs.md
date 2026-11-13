@@ -3,6 +3,20 @@
 **Analysis date:** 13 November 2026  
 **Purpose:** Choose OCR and handwritten-text-recognition (HTR) components for the evidence-backed quantity engine described in [the stack recommendation](TECH_STACK_RECOMMENDATION.md), using [the shared contracts](SCHEMA.md).
 
+**Implementation status, 14 November:** This is a dated research and evaluation
+plan. No OCR, handwriting, raster detector, or model-routing pipeline is currently
+integrated. The repo contains a standalone [IFC engine](IFC_ENGINE.md) and a
+[mock frontend](../frontend/README.md). Model/version/benchmark statements below
+describe the original review, not measurements on this dataset; verify exact
+versions and checkpoint terms when implementing.
+
+**Scope:** The [supplied dataset's question families](PROJECT_SCOPE.md) define
+acceptance. Add OCR or a specialist only to answer those questions or to deliver
+an explicitly optional demonstration. Unlabelled archival assets and unasked
+categories do not imply surprise evaluation classes or require universal
+handwriting recognition. The research candidates below are options, not a
+mandatory model checklist.
+
 ## Executive recommendation
 
 Use a **hybrid extraction system**, not one universal OCR model:
@@ -10,7 +24,7 @@ Use a **hybrid extraction system**, not one universal OCR model:
 1. Extract text, properties, and geometry **natively** from IFC, DXF, and vector PDFs. Resolve DWG through a verified paired export or a separately validated converter; generic DWG reading is outside the initial supported path.
 2. Use **PP-OCRv6 medium** as the initial raster text detector/recognizer. Compare small only when measured latency or cost warrants it.
 3. Persist text regions, source anchors, coordinate transforms, and extraction provenance through the shared contracts. Associate them with visual instances, room geometry, and schedule cells before deterministic queries.
-4. For selected ambiguous crops, first evaluate reuse of the planned **Qwen3.5-4B** endpoint or the **Verda/Nemotron** endpoint configured in [nvidia_info.md](nvidia_info.md). Verify access, image handling, localization, and cost before depending on either crop path.
+4. For selected ambiguous crops, first evaluate the supplied **Verda/Nemotron** endpoint configured in [nvidia_info.md](nvidia_info.md). **Qwen3.5-4B** remains a self-hosted comparison candidate if access, accuracy, or cost warrants it. Verify image handling and localization before depending on either crop path.
 5. Benchmark **Kraken 7.1 medium** only when a relevant handwriting failure slice emerges or an archival demonstration is deliberately in scope. Keep **TrOCR small/base** as a later fine-tuning alternative.
 6. If native schedule extraction fails on relevant examples, test **one** document parser: **Surya 2.5** or **PaddleOCR-VL 1.6**. Evaluate **Chandra OCR 2** only if unresolved cases justify another model and serving dependency.
 
@@ -31,7 +45,7 @@ The full-dataset audit reports:
 
 The final group includes images without associated question-answer rows. Its contents are promising for historical and handwritten-text testing, but **not every file is necessarily historical or handwritten**, and some files are alternative formats.
 
-**Priority:** CubiCasa and Swiss Dwellings supply **96.89% of the question rows**. First address modern room labels, literal room IDs, multilingual abbreviations, rotated text, and text-to-room association. Archival handwriting is an additional capability with unmeasured QA benefit. Supplied row proportions are not published hidden-test weights. See [the full findings](../dataset/FULL_DATASET_FINDINGS.md).
+**Priority:** CubiCasa and Swiss Dwellings supply **96.89% of the question rows**. First address modern room labels, literal room IDs, multilingual abbreviations, rotated text, and text-to-room association. Keep the remaining known task families in the coverage plan. Archival handwriting is an optional additional capability without demonstrated QA benefit. See [the full findings](../dataset/FULL_DATASET_FINDINGS.md).
 
 ### Distribution of question types
 
@@ -151,7 +165,7 @@ Source: [TrOCR handwritten checkpoint](https://huggingface.co/microsoft/trocr-ba
 
 ### 3.3 Reuse a planned or configured image endpoint first
 
-The stack recommendation plans Qwen3.5-4B for question interpretation and selected ambiguous crops. [nvidia_info.md](nvidia_info.md) separately supplies a Verda endpoint configured for text and image input with model ID `nemotron-3.5-super-vl`. These are candidates to compare before adding a dedicated generative OCR service.
+The updated stack recommendation prioritizes a bounded check of the supplied Verda endpoint for question interpretation and selected ambiguous crops. [nvidia_info.md](nvidia_info.md) records model ID `nemotron-3.5-super-vl` and supplied text/image settings. Qwen3.5-4B remains a self-hosted comparison candidate. Compare these paths before adding a dedicated generative OCR service.
 
 Run a bounded crop experiment to check authentication, actual image support, image-resolution limits, literal identifier/dimension accuracy, timeouts, latency, and billed cost. Test localization rather than assuming the endpoint returns reliable boxes. For recognition on a known crop, retain its source anchor and transform; reject invented subregions. Crop recognition does not establish that all text on a sheet was detected.
 
@@ -280,7 +294,12 @@ Confidence values are not automatically calibrated probabilities or evidence of 
 
 ### Stage A: Create a representative evaluation sample
 
-Build approximately **250–400 manually verified text regions** as a development sample, prioritizing CubiCasa and Swiss label/identifier cases and relevant schedule failures. Keep a separately reported archival slice only if that capability is in scope. Stratify by:
+For a dedicated OCR comparison, approximately **250–400 manually verified text
+regions** is suggested sampling guidance, not a hackathon acceptance requirement.
+Start with the regions needed by known question failures and expand only when
+useful. Prioritize CubiCasa/Swiss labels and relevant schedule failures. Keep an
+archival slice separate and optional. Sample the relevant observed styles from
+the list below; testing every style is not required:
 
 - Clean modern machine print.
 - Historic or cursive handwriting.
@@ -333,7 +352,10 @@ Report per-source/macro results alongside row-weighted QA results. Track coverag
 
 Only after the retained baseline/fallback still fails on a relevant style, and enough verified labels are available, consider **hundreds to several thousand verified line crops** for Kraken or TrOCR adaptation. Choose one training experiment by development error frequency and available annotation time; this is not a prerequisite for the MVP.
 
-Do not allow the large model's unverified synthetic or pseudo-transcriptions to become ground truth. Keep a held-out set from unseen projects or archives and compare against the non-fine-tuned baseline.
+Do not allow the large model's unverified synthetic or pseudo-transcriptions to
+become ground truth. Where the supplied data permits, hold out projects within
+the relevant known task families and compare against the non-fine-tuned baseline.
+This checks reliability within scope, not recognition of new evaluation classes.
 
 ## 8. Deployment, resource budget, and licensing
 

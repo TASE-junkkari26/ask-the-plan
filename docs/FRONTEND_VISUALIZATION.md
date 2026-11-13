@@ -1,10 +1,15 @@
 # Frontend visualization and evidence plan
 
-Prepared 13 November 2026. This is an implementation recommendation using the existing [shared schema](SCHEMA.md). It introduces no changes to the backend contracts and does not implement a viewer.
+Prepared 13 November 2026; implementation status updated 14 November. This is a design guide using the [shared schema](SCHEMA.md). The [frontend README](../frontend/README.md) describes the implemented mock 2D workbench: synthetic sources, prepared answers, selectable overlays, local file preview, and exports. Backend integration, real-source annotation resolution, and IFC 3D viewing remain planned. The recommendations below are the target architecture, not a list of shipped features.
 
 Update, 14 November 2026: the user reports that the challenge organizer expects questions to be mostly limited to what is shown. The [mock frontend](../frontend/README.md) therefore defaults to the selected drawing/view and does not silently aggregate the whole model. Broader scope remains an explicit future capability. This clarification does not change the scope of existing reference rows that explicitly ask whole-model questions.
 
-See [cross-platform and full capability evidence requirements](FRONTEND_EVIDENCE_REQUIREMENTS.md) for Linux/Windows deployment boundaries and the evidence needed for all Q01-Q20 capabilities, including surface areas, materials, routes, rules, and revision comparisons.
+The [project scope](PROJECT_SCOPE.md) is the supplied dataset's demonstrated
+question families, with no requirement to anticipate unknown evaluation classes.
+See the [evidence requirements](FRONTEND_EVIDENCE_REQUIREMENTS.md) for presentation
+patterns across Q01-Q20. Implement the patterns needed by known questions;
+revision comparison and other extensions are optional. A custom 3D engine is not
+required when a simpler view provides adequate source verification.
 
 Build a drawing/evidence workbench with one selection model, several source renderers, and a shared overlay vocabulary. Make 2D the default for drawing questions. Add an existing IFC viewer with a small application-specific evidence layer for questions where depth, systems, or multiple floors matter.
 

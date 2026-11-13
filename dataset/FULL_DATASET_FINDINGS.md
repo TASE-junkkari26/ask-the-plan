@@ -1,6 +1,20 @@
 # Full dataset compared with the preview
 
-Investigated 13 November 2026. The full extraction is `junction-dataset/`. The original files were left unchanged. Results are recorded in [full_dataset_audit.json](full_dataset_audit.json) and [full_dataset_quality.json](full_dataset_quality.json). The pre-existing `full_dataset_comparison.json` was read and left unchanged; its basic counts agree with this audit.
+Investigated 13 November 2026. The full extraction is `dataset/junction-dataset/`
+from the repository root. This is a dated source audit, not a statement of current
+application features; see [README](../README.md) for implementation status. The
+original files were left unchanged. Results are recorded in
+[full_dataset_audit.json](full_dataset_audit.json) and
+[full_dataset_quality.json](full_dataset_quality.json). The pre-existing
+`full_dataset_comparison.json` was read and left unchanged; its basic counts agree
+with this audit. Source paths elsewhere in this report are relative to the full
+extraction unless stated otherwise.
+
+Scope clarification, 14 November: the supplied dataset's demonstrated question
+families are the project target. Working for that set is sufficient for the
+hackathon's technical scope; unknown evaluation classes are not required. See
+[project scope](../docs/PROJECT_SCOPE.md). Unasked categories and assets without
+QA do not themselves introduce new task requirements.
 
 **The full dataset is structurally similar: the same nine sources, the same seven asset formats, identical README, and the same five JSONL fields and five observed answer types.** CubiCasa still has exactly the same 12 question categories, each in English and Finnish. The main additions are scale, more models/projects, and broader BIM tasks.
 
@@ -116,4 +130,13 @@ The existing library choices still fit the supplied formats. Prioritize the heav
 
 This audit examined all question records, IFC entity inventories, selected IFC relationship graphs, and IFC-derived SVG metadata. It did not formally validate every IFC against its schema, calculate every model's geometry, or visually verify every reference answer. The raw class-count differences are therefore review candidates, not a blanket assertion of bad ground truth.
 
-Reproduce the main structural audit with `python dataset_audit.py junction-dataset --output full_dataset_audit.json`. Additional comparison, assembly, duplicate-file, and SVG results are preserved in [full_dataset_quality.json](full_dataset_quality.json).
+Reproduce the main structural audit from the **repository root**:
+
+```text
+python dataset/dataset_audit.py dataset/junction-dataset --output dataset/full_dataset_audit.json
+```
+
+This reads source files and replaces the requested report. Additional comparison,
+assembly, duplicate-file, and SVG results are preserved in
+[full_dataset_quality.json](full_dataset_quality.json); the command above does not
+reproduce all of those supplemental checks.

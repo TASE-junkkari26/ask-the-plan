@@ -1,6 +1,27 @@
 # Stack recommendation for Make Blueprints Talk
 
-Prepared 13 November 2026. This is an architecture recommendation, not an implementation or a claim of benchmarked model performance.
+Prepared 13 November 2026; implementation and integration priorities reviewed
+14 November. This is an architecture recommendation, not a claim of benchmarked
+model performance. External model/version/pricing references describe the dated
+research snapshot and need verification when selecting a deployment.
+
+Current implementation: shared contracts, a standalone [CPU IFC query engine](IFC_ENGINE.md),
+and a [mock 2D frontend](../frontend/README.md). FastAPI, SQLite persistence,
+CAD/PDF extraction, OCR/detectors, language-model routing, and IFC viewing remain
+planned. Start the planner integration by testing the [supplied Nemotron endpoint](nvidia_info.md);
+Qwen is a self-hosted comparison candidate if access, accuracy, latency, or cost
+warrants it. Neither is connected to the application yet.
+
+Organizer clarification reported on 14 November: questions should mostly concern
+what is shown. Default to the selected drawing/view and require explicit scope
+for broader queries. Existing whole-model reference questions keep their stated
+scope; this clarification does not retroactively change those rows.
+
+The [project scope](PROJECT_SCOPE.md) is the supplied dataset's question families.
+A system that handles those correctly and verifiably is sufficient for the
+hackathon's technical scope. Do not add architecture or training work to prepare
+for hypothetical unknown evaluation classes. Known rare/difficult questions
+still count toward coverage; broader product capabilities are optional.
 
 **Build a multilingual quantity engine with inspectable evidence. Use a small language model to interpret questions, format-specific parsers and geometry to execute them, and small vision models to turn raster plans into reusable objects.** The durable contribution is the connection between an answer, its scope, its calculation, and the exact source objects.
 
@@ -10,7 +31,7 @@ Prepared 13 November 2026. This is an architecture recommendation, not an implem
 
 I delegated three source reviews: raster drawings; Swiss/CAD drawings and schedules; and BIM/IFC. We sampled actual images, geometry, and matching questions rather than examining every drawing. Existing dataset audits supplied collection-level context. I independently checked the question distribution and selected QA rows and visually inspected the reviewers' contact sheets.
 
-The full question file contains 127,044 rows: CubiCasa 85,514 (67.31%), Swiss Dwellings 37,584 (29.58%), IFC models 3,062, IFC-Bench 820, and Opening Design 64. These are question rows, with translations and repeated drawings, not independent examples or published hidden-test weights. Raster support matters: an IFC-only product addresses only a small part of the supplied QA. Swiss and IFC are nevertheless the fastest path to reliable calculations and convincing evidence.
+The full question file contains 127,044 rows: CubiCasa 85,514 (67.31%), Swiss Dwellings 37,584 (29.58%), IFC models 3,062, IFC-Bench 820, and Opening Design 64. These are question rows, with translations and repeated drawings, rather than independent examples. Use their distribution to prioritize coverage within the known families. Raster support matters: an IFC-only product addresses only a small part of the supplied QA. Swiss and IFC are nevertheless the fastest path to reliable calculations and convincing evidence.
 
 ## Findings from the sample
 
@@ -44,26 +65,65 @@ See [the full dataset findings](../dataset/FULL_DATASET_FINDINGS.md) for broader
 | Native PDF and schedules | PyMuPDF first; table-specific extraction where needed | Read native words and vector paths with coordinates before invoking OCR. Reconstruct schedule rows/cells with their bounding boxes. Add Docling/TableFormer only if a schedule benchmark justifies it. [PyMuPDF](https://pymupdf.readthedocs.io/en/latest/page.html), [Docling models](https://docling-project.github.io/docling/usage/model_catalog/). |
 | Raster text | PaddleOCR PP-OCRv6, initially medium | Cache literal text, polygons, orientations, source anchors, and transforms through the shared contracts. Test actual abbreviations/scripts and individual 90/270-degree labels; the listed text-line classifiers handle 0/180 degrees. Compare small only if measured cost/latency warrants it. Historical HTR is optional after a relevant failure slice is established. [OCR pipeline](https://github.com/PaddlePaddle/PaddleOCR/blob/main/docs/version3.x/pipeline_usage/OCR.en.md), [OCR plan and gates](ocr_recs.md). |
 | Raster objects | Existing CubiCasa model as a timeboxed baseline; custom RT-DETRv2-R18 only where it improves held-out results | Recover instances/room regions, then apply semantic grouping rules. RT-DETRv2 weights are COCO pretrained, not blueprint capable out of the box; task fine-tuning needs boxes/masks. [CubiCasa](https://github.com/CubiCasa/CubiCasa5k), [RT-DETRv2-R18](https://huggingface.co/PekingU/rtdetr_v2_r18vd). |
-| Multilingual question interpreter | Qwen3.5-4B via vLLM, constrained JSON, non-thinking mode | Convert free-form questions to a language-independent plan. Reuse the endpoint for selected ambiguous crops; keep the backend capable of swapping models. Evaluate 9B only if 4B makes material semantic errors. Official model support is a selection rationale, not a blueprint benchmark. [4B model card](https://huggingface.co/Qwen/Qwen3.5-4B), [structured output](https://docs.vllm.ai/en/latest/features/structured_outputs/). |
+| Multilingual question interpreter | Supplied Nemotron endpoint first; Qwen3.5-4B/vLLM as a comparison candidate | Verify endpoint access, structured plans, image support, and cost before choosing it. Convert free-form questions to resolved, validated plans; reuse the adapter for selected ambiguous crops only when measured useful. The original self-hosted candidate was Qwen; its model card is a selection rationale, not a blueprint benchmark. [Endpoint notes](nvidia_info.md), [4B model card](https://huggingface.co/Qwen/Qwen3.5-4B), [structured output](https://docs.vllm.ai/en/latest/features/structured_outputs/). |
 | Compute | CPU ingestion/query service; one GPU worker | Use the existing Verda credit for bounded batch extraction/training if suitable GPU capacity is available. Modal is convenient for burst jobs and a demonstration endpoint. Keep persistent evidence independent of GPU lifetime. [Modal GPU guide](https://modal.com/docs/guide/gpu). |
 
 Start with one API process, a separate batch worker, one database, and one model endpoint. A vector database, graph database, multi-agent runtime, Kubernetes, and a large RAG framework add little to the first version. Add semantic retrieval later if measured failures concern finding the right sheet; retrieval alone cannot count every object reliably.
 
 ## Multilingual routing: useful, but a narrow responsibility
 
-Multilingual understanding is needed; a separate LLM per language is not. Use deterministic routing for file formats and known, validated question templates. Send novel wording to one multilingual interpreter with a compact catalog of the available floors, room IDs, class names, and properties.
+Multilingual understanding is needed; a separate LLM per language is not. Use deterministic routing for file formats and known, validated question templates. Send alternative wording within the dataset's task families to one multilingual interpreter with a compact catalog of supported operations, floors, room IDs, classes, and properties. Its routing target is that bounded catalog; discovering new question classes is not required.
 
-The interpreter emits a Pydantic-validated plan such as:
+The interpreter must emit the shared `QueryPlan`, then resolve/check it against
+the source catalog and executor capabilities. This floor-scoped, single-room
+area example matches the [synthetic CAD fixture](../contracts/examples/cad-area.plan.json)
+and the current schema; its IDs are fixture IDs, not real source identifiers:
 
 ```json
 {
-  "operation": "sum",
-  "target": "room",
-  "quantity": "net_area",
-  "scope": {"kind": "storey", "id": "resolved-storey-id"},
-  "filters": {"use": "residential_indoor"},
-  "exclude": ["balcony", "terrace", "shaft", "void"],
-  "output_unit": "m2"
+  "schema_version": "0.1.0",
+  "id": "plan:area",
+  "request_id": "request:area",
+  "scope": {
+    "project_id": "project:p",
+    "document_ids": ["doc:d"],
+    "entity_ids": ["floor:1"],
+    "view_ids": [],
+    "universe": "depicted_objects"
+  },
+  "steps": [
+    {
+      "id": "select",
+      "operation": {
+        "kind": "select",
+        "concept_ids": ["concept:room"],
+        "where": {
+          "kind": "compare",
+          "field": {"kind": "entity_id", "key": "id"},
+          "operator": "in",
+          "value": {"kind": "references", "entity_ids": ["room:1"]}
+        },
+        "count_policy": {
+          "grain": "logical_object",
+          "hierarchy": "topmost_matches",
+          "distinct_by": "canonical_entity_id",
+          "rule_key": "room.logical_space.v1"
+        }
+      }
+    },
+    {
+      "id": "lookup",
+      "operation": {
+        "kind": "aggregate",
+        "input_step_id": "select",
+        "method": "sum",
+        "field": {"kind": "property", "key": "property:net_area"},
+        "output_unit_id": "unit:m2",
+        "missing_values": "fail"
+      }
+    }
+  ],
+  "outputs": {"area": "lookup"}
 }
 ```
 
@@ -73,9 +133,19 @@ The contract also needs explicit `needs_clarification`, `unsupported_operation`,
 
 Preserve identifiers such as `121.A` and `7.16` exactly. Normalize Finnish, German, French, Italian, and other room terms into shared concepts, while retaining the original text. Keep toilet bowls separate from WC rooms, door leaves separate from open passages, and net room area separate from gross building area.
 
-Use the documented `chat_template_kwargs.enable_thinking=false` for short routing responses. Limit output size and send only relevant schema/catalog entries. Render the final numeric answer directly from the executor; translate a short explanation only when necessary. Never ask the model to recalculate the result. The Qwen card documents multilingual capabilities, vision input, and this non-thinking switch; their performance on this dataset still needs measurement.
+Limit output size and send only relevant schema/catalog entries. Render the final
+numeric answer directly from the executor; translate a short explanation only
+when necessary. Never ask the model to recalculate the result. If testing Qwen,
+its model card documents `chat_template_kwargs.enable_thinking=false` for short
+routing responses; this is model-specific and must not be assumed for Nemotron.
+Performance on this dataset still needs measurement.
 
-Before committing to GPU serving, compare 4B semantic plan accuracy and end-to-end latency against one compact hosted reference on development questions. Include unseen paraphrases, mixed-language questions with literal IDs, exclusions, and global-versus-floor scope. Keep 4B only if this task-level result is acceptable; otherwise use the stronger interpreter through the same adapter. There is no architectural dependence on one vendor or model generation.
+First verify the supplied endpoint on a bounded set of development questions.
+Include unseen paraphrases, mixed-language questions with literal IDs,
+exclusions, and global-versus-floor scope. If self-hosting is justified, compare
+the 4B candidate's plan accuracy, latency, and actual cost against that baseline
+before committing GPU capacity. Keep the same adapter and deterministic executor
+regardless of model choice.
 
 ## The central artifact: objects with evidence
 
@@ -115,7 +185,15 @@ Traditional methods should do unit conversion, polygon area with holes, CAD bloc
 
 A crop VLM can interpret an unfamiliar abbreviation, handwriting, or an ambiguous candidate. Its proposed object still needs a location and a coverage check. If it supplies only a textual count, the answer remains weakly evidenced. Measurements on uncalibrated drawings should return an explicit limitation.
 
-For OCR fallbacks, first compare reuse of the planned Qwen crop endpoint or the image-capable Verda/Nemotron configuration in [nvidia_info.md](nvidia_info.md). Verify service access, image handling, literal-text accuracy, source alignment, and billed cost before relying on either path; the configured endpoint has not been tested here. Add Kraken for a demonstrated handwriting slice or a deliberately scoped archival demo, and add a schedule parser only when native extraction fails on relevant examples. Chandra or specialist fine-tuning must justify an additional dependency through held-out QA/evidence benefit. Follow the staged comparison, localization requirements, and checkpoint-license records in [the OCR plan](ocr_recs.md).
+For OCR fallbacks, first test reuse of the supplied Verda/Nemotron configuration
+in [nvidia_info.md](nvidia_info.md); compare a Qwen crop path if justified. Verify
+service access, image handling, literal-text accuracy, source alignment, and
+billed cost before relying on either path; neither is integrated or tested here.
+Add Kraken for a demonstrated handwriting slice or a deliberately scoped archival
+demo, and add a schedule parser only when native extraction fails on relevant
+examples. Chandra or specialist fine-tuning must justify an additional dependency
+through held-out QA/evidence benefit. Follow the staged comparison, localization
+requirements, and checkpoint-license records in [the OCR plan](ocr_recs.md).
 
 ## Product behavior that could distinguish the entry
 
@@ -142,6 +220,11 @@ Reserve substantial time for evidence alignment and evaluation. Do not spend the
 
 ## Evaluation and inference cost
 
+Measure completion against the supplied question families. The splits and
+paraphrase checks below are internal reliability checks within those families;
+they do not assume that evaluation introduces unknown classes. Track uncovered
+known tasks explicitly, and keep optional product extensions out of acceptance.
+
 Create a small stratified development set immediately, with images/projects isolated from training. Include EN/FI pairs, new paraphrases, German/French/Italian labels, door grouping, multiple floors, room holes, whole-model scope, BIM assembly parts, missing information, and unit conversions. Keep translations, alternate formats, duplicate IFC hashes, and all floors of a project in the same partition. Report public-checkpoint exposure separately.
 
 Maintain a separate frozen project-level test partition that does not guide model or threshold selection. Honor upstream CubiCasa train/test identities where known; an upstream checkpoint may already have seen a local image. If independent test examples are unavailable for a source, state that limitation rather than presenting a reused development score as generalization.
@@ -150,8 +233,20 @@ Track exact-count accuracy; numeric accuracy within the documented 2% tolerance;
 
 Cache extraction by source hash and pipeline version. Cache canonical plans and evidence results; invalidate when sources or extraction change. The desired common path is one short language call plus a CPU query, or no language call for a validated template. OCR, vision, and geometry extraction should be reusable ingestion work rather than repeated on every question.
 
-Use the existing EUR 200 Verda and EUR 100 Modal credits as ceilings, not spending targets. Start with a bounded GPU experiment and inspect useful examples/hour before scaling it. A 48 GB L40S is a convenient initial serving candidate; use a smaller GPU after measuring memory and latency. Do not keep both 4B and 9B warm by default.
+The [compute note](../dataset/compute.md) records EUR 200 Verda and EUR 100 Modal
+grants, not a live balance. Treat them as ceilings, not spending targets. Verify
+endpoint access/cost before provisioning a self-hosted planner; if a GPU worker is
+needed, start with a bounded experiment and inspect useful examples/hour before
+scaling it. The original serving candidate was a 48 GB L40S; select hardware from
+measured memory/latency needs and do not keep multiple planner sizes warm by default.
 
-Modal currently lists L4 GPU at USD 0.000222/s and L40S at USD 0.000542/s: about USD 0.80 and USD 1.95 per GPU-hour, respectively, excluding CPU, RAM, startup, idle windows, storage, and egress. Ten active L40S GPU-seconds would be USD 0.00542 in GPU charges only. Actual per-answer cost must include idle/startup allocation and amortized ingestion. Warm serving can cost more than a hosted API at low volume; self-hosting is not automatically cheaper. [Current pricing](https://modal.com/pricing), [scaling controls](https://modal.com/docs/guide/scale).
+The 13 November research snapshot recorded Modal L4 at USD 0.000222/s and L40S at
+USD 0.000542/s: about USD 0.80 and USD 1.95 per GPU-hour, respectively, excluding
+CPU, RAM, startup, idle windows, storage, and egress. Ten active L40S GPU-seconds
+at that rate would be USD 0.00542 in GPU charges only. These are historical
+planning figures, not a verified current quote. Actual per-answer cost must
+include idle/startup allocation and amortized ingestion. Warm serving can cost
+more than a hosted API at low volume; self-hosting is not automatically cheaper.
+[Provider pricing](https://modal.com/pricing), [scaling controls](https://modal.com/docs/guide/scale).
 
 The strongest pitch is a system that answers from localized, reusable building facts, shows its calculations, and exposes gaps. Improved frontier models can then improve its language and vision components while preserving the geometry, provenance, validation, and user workflow.

@@ -2,6 +2,16 @@
 
 Contract version: **0.1.0**. The source of truth is [contracts/models.py](../contracts/models.py); [contracts/validation.py](../contracts/validation.py) supplies cross-record validation. These contracts represent the observed IFC, CAD, PDF, raster, schedule, quantity, property, and missing-information tasks. They do not claim that every represented operation already has an executor.
 
+Current consumers are the standalone [IFC executor](IFC_ENGINE.md) and generated
+types used by the [mock frontend](../frontend/README.md). They are not integrated
+through an API yet. Use the executor's capability manifest for supported
+operations; the frontend's prepared evidence is not extracted source truth.
+
+The [project scope](PROJECT_SCOPE.md) is bounded by the supplied dataset's question
+families. The schema can represent extensions beyond that set; representability
+does not make them hackathon requirements. No unknown evaluation class needs to
+be anticipated. Keep validators and evidence checks for the tasks actually used.
+
 The core distinction is **source evidence → canonical entities and facts → a resolved query → calculated claims**. A printed door symbol, a DXF arc, a schedule row, an IFC object, and a physical door are different things. The schema connects them without assuming they are identical.
 
 ## Public root contracts
@@ -17,7 +27,7 @@ The core distinction is **source evidence → canonical entities and facts → a
 
 Generate the JSON Schemas from the repository root with `python -m contracts.export`. Check that they are current with `python -m contracts.export --check`. Do not edit the generated files. Draft 2020-12 schemas use internal `$defs` and stable versioned URN IDs; they require no network resolution.
 
-Install contract dependencies with `python -m pip install -r contracts/requirements.txt`; run the contract suite with `python -m pytest`. Pydantic is the runtime dependency; JSON Schema and pytest support conformance/testing. These instructions operate from the repository root.
+Install contract dependencies with `python -m pip install -r contracts/requirements.txt`; run the contract suite with `python -m unittest tests.test_contracts -v` or `python -m pytest tests/test_contracts.py`. Pydantic is the runtime dependency; JSON Schema and pytest support conformance/testing. These instructions operate from the repository root using the configured Python environment. An unqualified `python -m pytest` also discovers IFC tests and requires the full dependencies described in [README](../README.md#install-and-use-the-ifc-engine).
 
 All models forbid unknown fields. Internal IDs are opaque nonempty strings. `schema_version` is the wire contract version, separate from source revisions and extractor/model versions. Consumers must reject unsupported versions rather than silently reinterpret data. Adding a new union variant or changing count semantics requires an explicit compatibility decision and regenerated schemas.
 

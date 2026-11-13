@@ -1,10 +1,27 @@
 # What the Stoa dataset is asking us to build
 
-Investigated 13 November 2026. These measurements describe the extracted **preview**, not the full archive. The workspace contains challenge descriptions and a dataset, with no application, evaluator, training code, or Git checkout.
+Investigated 13 November 2026. This is a historical audit of the extracted
+**preview**, not the full archive or a current implementation status report. See
+[full dataset findings](FULL_DATASET_FINDINGS.md) for the later full-corpus audit
+and [README](../README.md) for the application now present in this repository.
+
+Project scope clarification, 14 November: the supplied dataset's question
+families define hackathon acceptance. A system that works for that set is
+sufficient; unknown question classes are not an evaluation requirement. See
+[project scope](../docs/PROJECT_SCOPE.md). Historical observations below about
+missing annotations do not expand that boundary.
 
 **The requested product answers a natural-language question using a construction drawing or BIM model, returns the answer with the right scope and units, and shows the supporting objects or source region.** Object detection, room classification, OCR, and geometry extraction are possible implementation components. The brief does not prescribe a fixed set of classes to predict.
 
-Evidence: [task.md](task.md), especially lines 28–34. The four judging criteria at lines 58–61 are answer accuracy, visualization that enables human verification, creativity, and low inference cost, each weighted 25%. Training a model is not a stated requirement. [verda.md](verda.md) describes a separate compute bounty that can be combined with another challenge; it does not change Stoa's task into a classification competition.
+Evidence: [task.md](task.md), especially its challenge and judging sections. The
+four criteria are answer accuracy, visualization that enables human verification,
+creativity, and low inference cost, each weighted 25%. Training a model is not a
+stated requirement. [Compute notes](compute.md) record the reported credit grants;
+they do not change Stoa's task into a classification competition.
+
+Later clarification reported on 14 November: the organizer expects questions to
+mostly concern what is shown. Default the UI to that drawing/view while retaining
+the explicit broader scope of the existing reference rows discussed below.
 
 ## What is actually present
 
@@ -46,7 +63,7 @@ The documented numeric scoring rule is exact counts and measurements within 2%; 
 
 ## Why questions do not cover every class
 
-**No existing row is missing its answer. What is missing is a row for every possible `(drawing, object category)` combination.** There is no exhaustive annotation contract or explanation of the selection/filtering process in the package. Treat an unasked category as unknown, not as a negative label or count of zero.
+**No existing row is missing its answer. What is missing is a row for every possible `(drawing, object category)` combination.** There is no exhaustive annotation contract or explanation of the selection/filtering process in the package. Treat an unasked category as an unknown training/evaluation annotation, not as a negative label or count of zero. This sparsity does not require support for additional question classes.
 
 CubiCasa illustrates this clearly. Its 24 distinct question texts are English/Finnish versions of 12 tasks:
 
@@ -120,10 +137,25 @@ Build a shared question-answering interface with format-specific extraction unde
 
 A useful first demonstrator is an IFC-backed answer with highlighted SVG objects, a Swiss count/area question using its structured drawing, and a real Opening Design schedule lookup. This recommendation follows the observed formats and judging criteria; it is not a requirement imposed by the organizer. It exercises counting, geometry, document lookup, and verifiable evidence. Standalone scans can then use an additional vision/OCR path. A detector for the 12 local CubiCasa question categories addresses only one part of this dataset.
 
-The package does not specify mandatory class coverage, a hidden test set, a submission schema, the exact free-form text grader, or why particular questions were selected. Those details require organizer clarification if they affect the submission. It is already clear from the supplied brief that correct answers and easily checked evidence are the central deliverable.
+The package does not specify the submission schema, exact free-form text grader,
+or why particular per-image questions were selected. Those administrative details
+do not expand the project scope: implement the families demonstrated by the full
+supplied dataset, with correct answers and easily checked evidence. Do not infer
+a requirement for unknown evaluation classes from missing package metadata.
 
 ## Reproduce the local audit
 
-Run `python dataset_audit.py --output dataset_audit.json` from this workspace. The script uses only the Python standard library, reads the original data without changing it, and records source counts, type distributions, sparse CubiCasa coverage, IFC STEP entity inventories, SVG metadata, and model/floor question examples.
+From the **repository root**, with the preview extracted in this checkout's
+nested layout:
+
+```text
+python dataset/dataset_audit.py dataset/junction-dataset-preview/junction-dataset-preview --output dataset/dataset_audit.json
+```
+
+Adjust the input path if your extraction layout differs. The script uses only
+the Python standard library, reads original data without changing it, and writes
+the requested report. Running it again replaces that report. It records source
+counts, type distributions, sparse CubiCasa coverage, IFC STEP entity inventories,
+SVG metadata, and model/floor question examples.
 
 [dataset_audit.json](dataset_audit.json) contains the measured results; [dataset_audit.py](dataset_audit.py) contains the audit. STEP string inspection verifies occurrence inventories, not general IFC geometry correctness. The raw drawings, question file, and licence documents were left unchanged.

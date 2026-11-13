@@ -1,0 +1,11 @@
+{
+  "name": "ask-the-plan",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix frontend run dev --",
+    "build": "npm --prefix frontend run build --",
+    "preview": "npm --prefix frontend run preview --",
+    "test:frontend": "npm --prefix frontend test",
+    "setup:frontend": "npm --prefix frontend ci --ignore-scripts"
+  }
+}

@@ -1,12 +1,21 @@
 # Cross-platform frontend and evidence requirements
 
-Reviewed 13 November 2026 against [COMPUTATIONAL_CAPABILITIES.md](COMPUTATIONAL_CAPABILITIES.md), the [shared schema](SCHEMA.md), the [frontend plan](FRONTEND_VISUALIZATION.md), and the supplied [Nemotron configuration](nvidia_info.md).
+Reviewed 14 November 2026 against [COMPUTATIONAL_CAPABILITIES.md](COMPUTATIONAL_CAPABILITIES.md), the [shared schema](SCHEMA.md), the [frontend plan](FRONTEND_VISUALIZATION.md), and the supplied [Nemotron configuration](nvidia_info.md).
 
-This specifies required behavior. It does not establish that the extractors, computations, viewer, or all question families are implemented. Preserve that distinction when presenting capabilities.
+This maps capabilities to their evidence presentation. The
+[project scope](PROJECT_SCOPE.md) limits required coverage to the supplied
+dataset's question families; unexpected new evaluation classes are not a design
+requirement. Rows describing extensions apply only if that capability is chosen.
+This document does not establish that all extractors, computations, or viewers
+are implemented.
+
+The [current frontend](../frontend/README.md) is a mock 2D workbench with prepared evidence. The [IFC engine](IFC_ENGINE.md) is a separate CLI/Python component. There is no connecting HTTP API, real-source annotation service, or 3D viewer yet. Following the organizer clarification reported on 14 November, default questions to the shown drawing/view; enable each broader capability only when its source and executor support it.
 
 ## Linux and Windows support
 
 The product should be a browser application available to users on either OS, with a common backend API and stable evidence artifacts. Most CPU components can also be developed natively on either platform. GPU inference should remain a separate deployment concern.
+
+This table describes the intended platform architecture. FastAPI/SQLite, the GPU workers, model adapters, CAD/PDF extraction, and IFC viewing are proposed components; available packages do not establish an installed integration. External platform references below were consulted for the original 13 November design and must be rechecked when selecting exact versions.
 
 | Layer | Linux | Windows | Decision |
 |---|---|---|---|
@@ -17,7 +26,7 @@ The product should be a browser application available to users on either OS, wit
 | IfcOpenShell/ezdxf/Shapely/PyMuPDF | Supported packages/builds | Supported packages/builds | Choose matching Python/architecture wheels and pin a tested dependency combination. |
 | GPU OCR/detection/HTR | Recommended worker environment | Possible for selected runtimes; installation/runtime compatibility varies | Invoke through an API or job queue; an optional specialist must not block the viewer startup. |
 | vLLM self-hosted model serving | Supported deployment OS | No official native support; WSL is an option | Use a Linux worker if self-hosting. |
-| Supplied Nemotron service | HTTP client in backend | HTTP client in backend | Use the provided endpoint adapter; keep credentials on the backend. No local frontier-model serving is required. |
+| Supplied Nemotron service | HTTP client in backend | HTTP client in backend | Implement and verify an adapter for the supplied endpoint; keep credentials on the backend. No local frontier-model serving is required. |
 
 IfcOpenShell documents Windows/Linux builds; Shapely provides binary wheels for both, and PyMuPDF documents both platforms. ezdxf also documents cross-platform dependency installation. These establish available packaging routes, not a tested application release. [IfcOpenShell](https://docs.ifcopenshell.org/ifcopenshell-python/installation.html), [Shapely](https://shapely.readthedocs.io/en/stable/installation.html), [PyMuPDF](https://pymupdf.readthedocs.io/en/latest/installation.html), [ezdxf](https://ezdxf.readthedocs.io/en/stable/setup.html).
 
@@ -27,7 +36,7 @@ Three.js's current WebGL renderer requires WebGL 2. Test the actual model viewer
 
 Use API resource URLs/opaque IDs rather than transmitting `C:\...` or `/home/...` paths as browser resources. Keep source hashes, units, coordinate frames, fonts, artifact/converter versions, and model-origin transforms consistent across machines. Use one authoritative computed result; clients must not independently recalculate geometry and produce different platform-dependent answers.
 
-The supported browser list and exact Python/Node/package versions need to be fixed after integration. The original contract review ran on Windows. The preliminary [IFC backend](IFC_ENGINE.md) has since passed contract/query tests on Linux with Python 3.12, including real-model counts; Windows IFC execution and application/browser integration remain untested. Native DWG conversion and legacy model runtimes remain optional adapters whose platform support must be verified separately.
+The supported browser list and release dependency versions need to be fixed after integration. Reported Linux backend checks used Python 3.12.3. On Windows, Python 3.14 with IfcOpenShell 0.9.0.post1 and Pydantic 2.14.3 passed 63 tests, with one optional real-model test skipped because its expected preview layout differs. The frontend logic tests and production build passed with Node 24 LTS on Windows. Browser/end-to-end integration remains unverified. Native DWG conversion and legacy model runtimes remain optional adapters whose platform support must be verified separately.
 
 ## What showing reasoning means
 
@@ -47,7 +56,10 @@ An illustrative net-area explanation can show a shell, two excluded column holes
 
 ## Evidence required for every query capability
 
-The IDs below match the capability inventory. This is a UI coverage map, not an assertion that all executors exist.
+The IDs below match the capability inventory. This is a UI coverage map, not an
+assertion that all executors exist or that every row is a hackathon requirement.
+Apply it to the supplied question families; revision comparison and other
+unrequested extensions need not be implemented for acceptance.
 
 | Capability | Evidence the user must be able to inspect | Visual form |
 |---|---|---|
@@ -87,7 +99,9 @@ For Q18, a narrow dimensional comparison must identify its actual supplied rule 
 
 ## Shared visualization primitives
 
-The frontend needs a bounded set of composable renderers:
+Use the following palette of composable renderers for the supplied tasks. Only
+add a renderer when a known question's evidence needs it; synchronized revision
+comparison, for example, is optional without such a question:
 
 1. Numbered boxes, points, and object outlines.
 2. Multipolygons with holes and included/excluded/result layers.
@@ -104,7 +118,8 @@ These can share entity selection, source anchors, stable ordinals, and interacti
 
 The committed schema already covers source objects, most shapes, quantities, properties, basic relations, claims, calculations, and evidence bindings. The capability inventory correctly identifies gaps. Do not encode a new computation as an unrelated existing operation merely to make validation pass.
 
-Coordinate explicit versioned extensions for:
+Coordinate explicit versioned extensions when needed by supplied questions or a
+deliberately chosen optional feature. The list below is not a release checklist:
 
 - physical surface/face selection and `surface_area` semantics, including stable face/patch selectors;
 - material-layer contributions and their thickness/source relationships;

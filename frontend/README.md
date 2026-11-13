@@ -2,16 +2,32 @@
 
 A local React/TypeScript prototype for answering questions about the drawing currently shown. Sources and answers are explicitly illustrative. No backend, model endpoint, or credentials are used.
 
+The [project scope](../docs/PROJECT_SCOPE.md) is the supplied dataset's question
+families. Build real integrations and evidence views for that set; unknown
+evaluation classes and every possible renderer are not requirements. The prepared
+demo answers alone do not establish dataset coverage.
+
 ## Run
 
-Install Node.js 22.12 or later (24 LTS recommended), then from this directory:
+Install Node.js 22.12 or later (24 LTS is the tested baseline). From the
+**repository root**, Windows PowerShell:
 
-```sh
-npm ci
-npm run dev
+```powershell
+npm.cmd run setup:frontend
+npm.cmd run dev
 ```
 
-Open the printed local URL. The same commands work on Linux and Windows. `npm run build` performs TypeScript checking and creates `dist/`; `npm run preview` serves the production build. Browser/graphics behavior still needs verification on the target demo devices.
+On Linux, use `npm` instead of `npm.cmd`. These root scripts forward to this
+directory. The root has no dependency lockfile; do not run root `npm ci`. If
+already inside `frontend/`, use `npm.cmd ci --ignore-scripts` followed by
+`npm.cmd run dev` (or `npm` on Linux). Dependency installation does not install
+Node itself. See the [root README](../README.md#start-the-frontend) for Windows
+PATH troubleshooting; `npm.cmd` avoids PowerShell's blocked `npm.ps1` wrapper.
+
+Open the printed local URL, normally <http://127.0.0.1:5173/>. From this directory,
+`npm.cmd run build` performs TypeScript checking and creates `dist/`;
+`npm.cmd run preview` serves the production build. Browser/graphics behavior
+still needs verification on the target demo devices.
 
 ## Included
 
@@ -30,10 +46,12 @@ PDF.js is loaded only for local PDF preview. This version does not embed an IFC/
 
 `src/demo/engine.ts` exports `askDemo`, the asynchronous fixture adapter. Replace it with an API client accepting the generated `QuestionRequest` and returning a `QueryResult` plus resolved presentation evidence.
 
-`src/types.ts` defines UI-only `Mark` and `DemoResponse` presentation records. They resolve the canonical entity, source geometry, label, ordinal, and calculation display. They are not additional physical facts or changes to the shared Python contracts. `src/contracts/` is generated from the committed request/result JSON Schemas:
+`src/types.ts` defines UI-only `Mark` and `DemoResponse` presentation records. They resolve the canonical entity, source geometry, label, ordinal, and calculation display. They are not additional physical facts or changes to the shared Python contracts. `src/contracts/` is generated from the committed request/result JSON Schemas.
 
-```sh
-npm run generate:contracts
+From `frontend/` (`npm` on Linux):
+
+```text
+npm.cmd run generate:contracts
 ```
 
 Mock result IDs/anchors/coverage references are presentation fixtures. They are structurally valid `QueryResult` records; this prototype does not provide a complete source `KnowledgeBundle` or establish real extraction completeness. The area example's geometric dimensions and subtraction are internally consistent, and matching plan/schedule doors share canonical identities.
@@ -47,9 +65,11 @@ Preserve this separation during integration:
 
 ## Checks
 
-```sh
-npm test
-npm run build
+From `frontend/` (`npm` on Linux):
+
+```text
+npm.cmd test
+npm.cmd run build
 node scripts/smoke-render.mjs
 ```
 

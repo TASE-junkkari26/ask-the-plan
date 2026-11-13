@@ -18,10 +18,16 @@ The German label `7.16` remains literal when the question is in Finnish.
 - `missing-property.request.json`, `missing-property.result.json`: uses the
   bundle's room identifiers and shows how to return unavailable information.
 
-The result contracts illustrate response shape, not an implemented executor.
+These files illustrate the contract and are authored fixtures, not outputs from
+the current [IFC executor](../../docs/IFC_ENGINE.md). They do not imply that a
+CAD/raster extraction or execution pipeline is implemented.
 Never infer a physical building inventory from the illustrative fixture's
-source-only coverage. Run the contract regression suite from the repository:
+source-only coverage. From the repository root, use the configured Python
+environment, install `contracts/requirements.txt`, and run only the contract suite:
 
 ```sh
-python -m unittest discover -s tests -v
+python -m unittest tests.test_contracts -v
 ```
+
+The [root README](../../README.md#install-and-use-the-ifc-engine) describes the
+full Python suite, which also requires IfcOpenShell.
