@@ -1,0 +1,1 @@
+we have 200€ in verda, 100€ in modal. not used anything yet.

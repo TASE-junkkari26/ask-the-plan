@@ -1,0 +1,356 @@
+{
+  "preview": {
+    "asset_files": 910,
+    "asset_bytes": 722493648,
+    "same_name_format_groups": 770,
+    "questions": 7990,
+    "referenced_files": 320,
+    "missing_question_paths": [],
+    "missing_or_null_answers": 0,
+    "extensions": {
+      ".png": 306,
+      ".jpg": 374,
+      ".ifc": 14,
+      ".pdf": 122,
+      ".svg": 10,
+      ".dxf": 66,
+      ".dwg": 18
+    },
+    "types": {
+      "count": 6076,
+      "text": 265,
+      "area": 1599,
+      "volume": 34,
+      "length": 16
+    },
+    "sources": {
+      "cubicasa5k": {
+        "files": 241,
+        "extensions": {
+          ".png": 241
+        },
+        "questions": 4270,
+        "referenced_files": 241
+      },
+      "europeana": {
+        "files": 61,
+        "extensions": {
+          ".jpg": 61
+        },
+        "questions": 0,
+        "referenced_files": 0
+      },
+      "finna": {
+        "files": 96,
+        "extensions": {
+          ".jpg": 96
+        },
+        "questions": 0,
+        "referenced_files": 0
+      },
+      "habs": {
+        "files": 92,
+        "extensions": {
+          ".jpg": 92
+        },
+        "questions": 0,
+        "referenced_files": 0
+      },
+      "ifc_bench": {
+        "files": 5,
+        "extensions": {
+          ".ifc": 5
+        },
+        "questions": 249,
+        "referenced_files": 5
+      },
+      "ifc_models": {
+        "files": 10,
+        "extensions": {
+          ".ifc": 4,
+          ".pdf": 3,
+          ".svg": 3
+        },
+        "questions": 1049,
+        "referenced_files": 6
+      },
+      "opening_design": {
+        "files": 78,
+        "extensions": {
+          ".pdf": 54,
+          ".ifc": 5,
+          ".dwg": 18,
+          ".dxf": 1
+        },
+        "questions": 64,
+        "referenced_files": 3
+      },
+      "swiss_dwellings": {
+        "files": 195,
+        "extensions": {
+          ".dxf": 65,
+          ".pdf": 65,
+          ".png": 65
+        },
+        "questions": 2358,
+        "referenced_files": 65
+      },
+      "wikimedia": {
+        "files": 132,
+        "extensions": {
+          ".jpg": 125,
+          ".svg": 7
+        },
+        "questions": 0,
+        "referenced_files": 0
+      }
+    },
+    "cubicasa_coverage": {
+      "How many windows are shown on this floor plan?": {
+        "files_with_question": 241,
+        "files_without_question": 0,
+        "explicit_zeros": 1
+      },
+      "How many toilet bowls (WC seats) are drawn on this floor plan?": {
+        "files_with_question": 240,
+        "files_without_question": 1,
+        "explicit_zeros": 11
+      },
+      "How many sinks and wash basins (kitchen and bathroom combined; a double-bowl sink counts as one) are drawn on this floor plan?": {
+        "files_with_question": 239,
+        "files_without_question": 2,
+        "explicit_zeros": 6
+      },
+      "How many showers and bathtubs are drawn on this floor plan in total?": {
+        "files_with_question": 227,
+        "files_without_question": 14,
+        "explicit_zeros": 14
+      },
+      "How many floors (storeys) does this floor plan show?": {
+        "files_with_question": 241,
+        "files_without_question": 0,
+        "explicit_zeros": 0
+      },
+      "How many doors are shown on this floor plan? Count doorways fitted with a door; open doorways without a door leaf do not count.": {
+        "files_with_question": 176,
+        "files_without_question": 65,
+        "explicit_zeros": 0
+      },
+      "How many bedrooms (makuuhuone, usually marked MH) are on this floor plan?": {
+        "files_with_question": 154,
+        "files_without_question": 87,
+        "explicit_zeros": 26
+      },
+      "How many kitchens (including kitchenettes, open kitchens and utility kitchens) are on this floor plan?": {
+        "files_with_question": 161,
+        "files_without_question": 80,
+        "explicit_zeros": 3
+      },
+      "How many bathrooms or washrooms (e.g. KH, KPH, PH, PESUH, SH) are on this floor plan, not counting separate WC rooms?": {
+        "files_with_question": 111,
+        "files_without_question": 130,
+        "explicit_zeros": 8
+      },
+      "How many separate WC rooms (toilet rooms marked WC) are on this floor plan?": {
+        "files_with_question": 112,
+        "files_without_question": 129,
+        "explicit_zeros": 68
+      },
+      "How many saunas are on this floor plan?": {
+        "files_with_question": 165,
+        "files_without_question": 76,
+        "explicit_zeros": 72
+      },
+      "How many balconies (parveke, including glazed balconies) are on this floor plan?": {
+        "files_with_question": 68,
+        "files_without_question": 173,
+        "explicit_zeros": 39
+      }
+    }
+  },
+  "full": {
+    "asset_files": 16891,
+    "asset_bytes": 12225645628,
+    "same_name_format_groups": 14550,
+    "questions": 127044,
+    "referenced_files": 5939,
+    "missing_question_paths": [],
+    "missing_or_null_answers": 0,
+    "extensions": {
+      ".png": 6327,
+      ".jpg": 6566,
+      ".ifc": 611,
+      ".pdf": 1825,
+      ".svg": 242,
+      ".dxf": 1049,
+      ".dwg": 271
+    },
+    "types": {
+      "count": 111763,
+      "text": 836,
+      "area": 14243,
+      "volume": 138,
+      "length": 64
+    },
+    "sources": {
+      "cubicasa5k": {
+        "files": 4787,
+        "extensions": {
+          ".png": 4787
+        },
+        "questions": 85514,
+        "referenced_files": 4787
+      },
+      "europeana": {
+        "files": 1085,
+        "extensions": {
+          ".jpg": 1085
+        },
+        "questions": 0,
+        "referenced_files": 0
+      },
+      "finna": {
+        "files": 1800,
+        "extensions": {
+          ".jpg": 1800
+        },
+        "questions": 0,
+        "referenced_files": 0
+      },
+      "habs": {
+        "files": 1506,
+        "extensions": {
+          ".jpg": 1506
+        },
+        "questions": 0,
+        "referenced_files": 0
+      },
+      "ifc_bench": {
+        "files": 30,
+        "extensions": {
+          ".ifc": 30
+        },
+        "questions": 820,
+        "referenced_files": 25
+      },
+      "ifc_models": {
+        "files": 1247,
+        "extensions": {
+          ".ifc": 533,
+          ".pdf": 107,
+          ".svg": 107,
+          ".png": 500
+        },
+        "questions": 3062,
+        "referenced_files": 84
+      },
+      "opening_design": {
+        "files": 1006,
+        "extensions": {
+          ".pdf": 678,
+          ".ifc": 48,
+          ".dwg": 271,
+          ".dxf": 9
+        },
+        "questions": 64,
+        "referenced_files": 3
+      },
+      "swiss_dwellings": {
+        "files": 3120,
+        "extensions": {
+          ".dxf": 1040,
+          ".pdf": 1040,
+          ".png": 1040
+        },
+        "questions": 37584,
+        "referenced_files": 1040
+      },
+      "wikimedia": {
+        "files": 2310,
+        "extensions": {
+          ".jpg": 2175,
+          ".svg": 135
+        },
+        "questions": 0,
+        "referenced_files": 0
+      }
+    },
+    "cubicasa_coverage": {
+      "How many doors are shown on this floor plan? Count doorways fitted with a door; open doorways without a door leaf do not count.": {
+        "files_with_question": 3519,
+        "files_without_question": 1268,
+        "explicit_zeros": 2
+      },
+      "How many windows are shown on this floor plan?": {
+        "files_with_question": 4787,
+        "files_without_question": 0,
+        "explicit_zeros": 23
+      },
+      "How many bedrooms (makuuhuone, usually marked MH) are on this floor plan?": {
+        "files_with_question": 2960,
+        "files_without_question": 1827,
+        "explicit_zeros": 516
+      },
+      "How many saunas are on this floor plan?": {
+        "files_with_question": 3315,
+        "files_without_question": 1472,
+        "explicit_zeros": 1412
+      },
+      "How many toilet bowls (WC seats) are drawn on this floor plan?": {
+        "files_with_question": 4782,
+        "files_without_question": 5,
+        "explicit_zeros": 175
+      },
+      "How many sinks and wash basins (kitchen and bathroom combined; a double-bowl sink counts as one) are drawn on this floor plan?": {
+        "files_with_question": 4725,
+        "files_without_question": 62,
+        "explicit_zeros": 100
+      },
+      "How many floors (storeys) does this floor plan show?": {
+        "files_with_question": 4787,
+        "files_without_question": 0,
+        "explicit_zeros": 0
+      },
+      "How many balconies (parveke, including glazed balconies) are on this floor plan?": {
+        "files_with_question": 1462,
+        "files_without_question": 3325,
+        "explicit_zeros": 745
+      },
+      "How many showers and bathtubs are drawn on this floor plan in total?": {
+        "files_with_question": 4442,
+        "files_without_question": 345,
+        "explicit_zeros": 279
+      },
+      "How many kitchens (including kitchenettes, open kitchens and utility kitchens) are on this floor plan?": {
+        "files_with_question": 3262,
+        "files_without_question": 1525,
+        "explicit_zeros": 65
+      },
+      "How many bathrooms or washrooms (e.g. KH, KPH, PH, PESUH, SH) are on this floor plan, not counting separate WC rooms?": {
+        "files_with_question": 2384,
+        "files_without_question": 2403,
+        "explicit_zeros": 156
+      },
+      "How many separate WC rooms (toilet rooms marked WC) are on this floor plan?": {
+        "files_with_question": 2332,
+        "files_without_question": 2455,
+        "explicit_zeros": 1297
+      }
+    }
+  },
+  "comparison": {
+    "preview_rows_with_changed_paths": 866,
+    "preview_question_answers_missing_when_path_ignored": 0,
+    "changed_path_sources": {
+      "ifc_models": 866
+    },
+    "whole_model_door_example": {
+      "line": 86667,
+      "path": "data/ifc_models/bsc-esplanades_1807-ep-ar-v18_plan-01-1-korrus.pdf",
+      "question": "How many doors are there in the model 'Maleva tänav 18 korterelamu (Esplanades example model)'?",
+      "answer": 211,
+      "unit": "count",
+      "type": "count"
+    }
+  }
+}

@@ -1,0 +1,204 @@
+{
+  "preview_comparison": {
+    "same_readme": true,
+    "preview_rows_absent_with_exact_path": 866,
+    "preview_question_answer_pairs_absent_ignoring_path": 0,
+    "new_sources": []
+  },
+  "molio_stair_assembly_check": {
+    "exact_ifcstair_occurrences": 579,
+    "directly_contained_stairs": 15,
+    "stair_instances_aggregated_as_children": 564,
+    "root_stairs": 15,
+    "root_stairs_with_children": 15,
+    "name_prefix_counts": {
+      "RISER": 275,
+      "TREAD": 274,
+      "[L]AF": 30
+    },
+    "reference_question": {
+      "line": 87309,
+      "path": "data/ifc_models/bsc-molio_molio-with-uris_plan-01-fundament.pdf",
+      "question": "How many stairs are there in the model 'Molio Demo-hus'?",
+      "answer": 15,
+      "unit": "count",
+      "type": "count"
+    }
+  },
+  "floor_svg_comparison": {
+    "interpretation": "Raw class-group count differences identify assembly/rendering checks, not confirmed wrong reference answers. Classes are split on whitespace so cut IfcDoor is counted as an IfcDoor.",
+    "english_questions_checked": 195,
+    "raw_count_matches": 181,
+    "differences": [
+      {
+        "line": 87355,
+        "path": "data/ifc_models/bsc-molio_molio-with-uris_plan-03-grundplan.pdf",
+        "question": "How many walls are shown on the floor plan of 'Grundplan'?",
+        "answer": 21,
+        "raw_svg_object_count": 11
+      },
+      {
+        "line": 87397,
+        "path": "data/ifc_models/bsc-molio_molio-with-uris_plan-04-1-sal.pdf",
+        "question": "How many walls are shown on the floor plan of '1. Sal'?",
+        "answer": 26,
+        "raw_svg_object_count": 11
+      },
+      {
+        "line": 87451,
+        "path": "data/ifc_models/bsc-molio_molio-with-uris_plan-05-2-sal.pdf",
+        "question": "How many walls are shown on the floor plan of '2. Sal'?",
+        "answer": 26,
+        "raw_svg_object_count": 11
+      },
+      {
+        "line": 87505,
+        "path": "data/ifc_models/bsc-molio_molio-with-uris_plan-06-3-sal.pdf",
+        "question": "How many walls are shown on the floor plan of '3. Sal'?",
+        "answer": 26,
+        "raw_svg_object_count": 11
+      },
+      {
+        "line": 87559,
+        "path": "data/ifc_models/bsc-molio_molio-with-uris_plan-07-4-sal.pdf",
+        "question": "How many walls are shown on the floor plan of '4. Sal'?",
+        "answer": 26,
+        "raw_svg_object_count": 11
+      },
+      {
+        "line": 87563,
+        "path": "data/ifc_models/bsc-molio_molio-with-uris_plan-07-4-sal.pdf",
+        "question": "How many stairs are shown on the floor plan of '4. Sal'?",
+        "answer": 2,
+        "raw_svg_object_count": 4
+      },
+      {
+        "line": 87617,
+        "path": "data/ifc_models/bsc-molio_molio-with-uris_plan-08-5-sal.pdf",
+        "question": "How many walls are shown on the floor plan of '5. Sal'?",
+        "answer": 26,
+        "raw_svg_object_count": 11
+      },
+      {
+        "line": 87621,
+        "path": "data/ifc_models/bsc-molio_molio-with-uris_plan-08-5-sal.pdf",
+        "question": "How many stairs are shown on the floor plan of '5. Sal'?",
+        "answer": 1,
+        "raw_svg_object_count": 2
+      },
+      {
+        "line": 87671,
+        "path": "data/ifc_models/bsc-molio_molio-with-uris_plan-09-6-sal.pdf",
+        "question": "How many walls are shown on the floor plan of '6. sal'?",
+        "answer": 11,
+        "raw_svg_object_count": 5
+      },
+      {
+        "line": 88289,
+        "path": "data/ifc_models/tuwien-escape-route_real-world-escape-route-test-model-zdb_plan-02-ug1.pdf",
+        "question": "How many walls are shown on the floor plan of 'UG1'?",
+        "answer": 26,
+        "raw_svg_object_count": 22
+      },
+      {
+        "line": 88293,
+        "path": "data/ifc_models/tuwien-escape-route_real-world-escape-route-test-model-zdb_plan-02-ug1.pdf",
+        "question": "How many stairs are shown on the floor plan of 'UG1'?",
+        "answer": 1,
+        "raw_svg_object_count": 0
+      },
+      {
+        "line": 88343,
+        "path": "data/ifc_models/tuwien-escape-route_real-world-escape-route-test-model-zdb_plan-03-eg.pdf",
+        "question": "How many stairs are shown on the floor plan of 'EG'?",
+        "answer": 1,
+        "raw_svg_object_count": 0
+      },
+      {
+        "line": 88381,
+        "path": "data/ifc_models/tuwien-escape-route_real-world-escape-route-test-model-zdb_plan-04-og1.pdf",
+        "question": "How many stairs are shown on the floor plan of 'OG1'?",
+        "answer": 1,
+        "raw_svg_object_count": 0
+      },
+      {
+        "line": 88413,
+        "path": "data/ifc_models/tuwien-escape-route_real-world-escape-route-test-model-zdb_plan-05-dg1.pdf",
+        "question": "How many stairs are shown on the floor plan of 'DG1'?",
+        "answer": 1,
+        "raw_svg_object_count": 0
+      }
+    ]
+  },
+  "resbim": {
+    "ifc_files": 500,
+    "files_without_ifcspace": 500,
+    "files_without_product_definition_shapes": [
+      "data/ifc_models/resbim-388_model.ifc"
+    ],
+    "question_rows": 0
+  },
+  "byte_identical_ifc_groups": [
+    [
+      "data/ifc_bench/ac20_arc.ifc",
+      "data/ifc_models/kit-institute_ac20-institute-var-2.ifc"
+    ],
+    [
+      "data/ifc_bench/digital_hub_arc.ifc",
+      "data/ifc_models/rwth-digitalhub_digitalhub-fm-arc-v2.ifc"
+    ],
+    [
+      "data/ifc_bench/digital_hub_heating.ifc",
+      "data/ifc_models/rwth-digitalhub_digitalhub-fm-hzg-v2.ifc"
+    ],
+    [
+      "data/ifc_bench/digital_hub_plumbing.ifc",
+      "data/ifc_models/rwth-digitalhub_digitalhub-fm-san-v2.ifc"
+    ],
+    [
+      "data/ifc_bench/digital_hub_ventilation.ifc",
+      "data/ifc_models/rwth-digitalhub_digitalhub-fm-lft-v2.ifc"
+    ],
+    [
+      "data/ifc_bench/fzk_house_arc.ifc",
+      "data/ifc_models/kit-fzk-haus_ac20-fzk-haus.ifc"
+    ],
+    [
+      "data/ifc_bench/molio_arc.ifc",
+      "data/ifc_models/bsc-molio_molio-with-uris.ifc"
+    ],
+    [
+      "data/ifc_bench/smiley_west_arc.ifc",
+      "data/ifc_models/kit-smiley-west_ac-20-smiley-west-10-bldg.ifc"
+    ]
+  ],
+  "reference_metadata_discrepancy": {
+    "question": {
+      "line": 85820,
+      "path": "data/ifc_bench/ettenheim_gis_city.ifc",
+      "question": "What modelling program and IFC standard were used to create this model?",
+      "answer": "The model is created using Autodesk Architectural Desktop, and utilizes IFC2X_FINAL.",
+      "unit": null,
+      "type": "text"
+    },
+    "actual_file_schema": [
+      "('IFC2X3')"
+    ],
+    "interpretation": "The answer says IFC2X_FINAL while the distributed file header declares IFC2X3."
+  },
+  "text_answer_keyword_screen": {
+    "interpretation": "Heuristic keyword counts, not a definitive task taxonomy.",
+    "mentions_unavailable_information": 108,
+    "mentions_estimates_approximations_or_assumptions": 54
+  },
+  "ifc_schemas": {
+    "('IFC2X3')": 71,
+    "('IFC4')": 538,
+    "('IFC4X3_ADD2')": 2
+  },
+  "named_bad_ifc_files": [
+    "data/opening_design/ULI-44_E_Mifflin-Suite_802/Models/bad IFC models - for autopsy only/base model with wrong placements and extrusions - FreeCAD export.ifc",
+    "data/opening_design/ULI-44_E_Mifflin-Suite_802/Models/bad IFC models - for autopsy only/model Ryan reexported from FreeCAD.ifc"
+  ],
+  "fzk_source_now_present": true
+}
