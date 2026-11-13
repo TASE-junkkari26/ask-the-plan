@@ -1,0 +1,1 @@
+ask-the-plan\dataset\task.md contains hackathon primary task.
