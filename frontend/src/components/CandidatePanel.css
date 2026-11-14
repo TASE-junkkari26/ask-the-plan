@@ -31,14 +31,14 @@
   letter-spacing: 0.6px;
 }
 .candidate-summary h2 {
-  margin: 12px 0 7px;
+  margin: 0;
   font-size: 22px;
   font-weight: 550;
   line-height: 1.25;
   color: #164e3d;
 }
 .candidate-summary p {
-  margin: 0;
+  margin: 7px 0 0;
   font-size: 11px;
   color: #557365;
   line-height: 1.5;

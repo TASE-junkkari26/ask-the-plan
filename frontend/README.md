@@ -78,7 +78,7 @@ still needs verification on the target demo devices.
 - Local image/SVG/PDF previews with pan, zoom, fit, quarter-turn rotation, and PDF page navigation.
 - DXF previews rendered by the local backend, with source layout selection, original source hashes and persistent partial-rendering warnings. See [DXF support](../docs/DXF_PREVIEW.md).
 - IFC imports with a separate 3D renderer, original object properties/IDs, storey filtering, visibility controls, sectioning, and engine-backed questions. Questions and the inspector share the right panel for models.
-- Chat panel opens automatically after an image/PDF/DXF loads or is selected. It displays the original filename and preview details, and sends the selected image/page/layout for candidate analysis when a question is submitted.
+- Chat panel opens automatically after an image/PDF/DXF loads or is selected. The workspace shows the original filename and preview details; the composer identifies the selected view sent for candidate analysis.
 - Loading image/PDF/DXF requests announce the backend-selected model immediately in the viewer and chat panel, in English/Finnish. A source/page change, cancellation or new request clears that status. The opt-in NDJSON response carries progress and the final result in one POST; JSON-only backends remain compatible without resubmitting analysis.
 - Completed image/PDF/DXF responses show the returned model, total response time, and estimated USD token cost, with an expandable usage and pricing breakdown. The collapsed **How this was analyzed** panel displays the recorded capability check, chosen route, preparation and execution. Failed requests retain their recorded path too; responses without a trace explicitly say so.
 - Searchable drawing picker containing only imported files, with thumbnails and removal. The native dialog supports focus containment, Escape, and the `/` or Ctrl/Cmd+K shortcuts.
@@ -86,6 +86,11 @@ still needs verification on the target demo devices.
 - Image/PDF/DXF questions use the selected drawing/page/layout. IFC questions always use the entire imported model, including objects hidden in the preview. Whole-building requests do not aggregate separate imports.
 - Multiple local files through a file picker or drag and drop, marked SVG export, and candidate JSON export. Importing alone makes no analysis call.
 - Cancellation on source changes, keyboard shortcuts, help dialog, and responsive styles. On narrow screens the chat panel sits below the drawing and can be hidden from the viewer toolbar.
+
+The interface keeps instructions brief: import limits, question scope, upload
+disclosures and active progress stay visible. Repeated subtitles and file cards
+are omitted; analysis details, source evidence and calculation inputs remain
+available alongside explicit uncertainty and partial-result warnings.
 
 The interface uses the existing Lucide icons and a bundled Cantarell variable
 font, with a neutral drawing surface and a green selection accent. No external
@@ -120,6 +125,9 @@ directly on the import screen. Removing the selected file opens another import,
 or returns to the import screen with the chat/inspector hidden when no imports remain.
 
 Imported images/PDFs/DXFs have pan, zoom, fit, and rotation controls.
+2D zoom ranges from 50% to 1000% using the toolbar, mouse wheel, or keyboard.
+Rapid toolbar clicks preserve the view; double-click the drawing, click the zoom
+percentage or **Fit drawing**, or press `0` to reset it.
 The footer navigates PDF pages; each PDF remembers its current page while you
 browse other drawings. PDF previews limit their canvas size for large sheets.
 DXF previews have a named layout selector; only its displayed layout is analysed.

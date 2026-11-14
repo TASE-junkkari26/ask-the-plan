@@ -1,5 +1,26 @@
 # Sprint-one verification record
 
+## Minimal interface copy, 15 November 2026
+
+Removed repeated import instructions, subtitles, source filename cards and
+implementation explanations. Kept brief scope/upload notes, active model
+progress, incomplete-result warnings and inspectable source evidence.
+
+Checked on Linux with Node.js 24.22.3 and headless Firefox 160.0:
+
+- `npm run test:frontend`, `npm run build` and
+  `node frontend/scripts/smoke-render.mjs` passed. Existing Three/WebGPU export
+  and large-chunk build warnings remain.
+- A temporary browser check covered English/Finnish import and help, a synthetic
+  SVG import, streamed model handoff, candidate uncertainty/source close-ups,
+  partial/empty/unreadable/error states and a 390 px layout without horizontal
+  overflow. Selected-view scope stays visible in the combined upload note.
+  No uncaught application JavaScript errors were observed.
+- Documentation links and `git diff --check` passed.
+
+Browser analysis responses were mocked. This verifies the edited interface,
+without establishing live provider accuracy or new IFC viewer compatibility.
+
 ## Integrated routing, detail, IFC and DXF, 14 November 2026
 
 Main was fast-forwarded from `89dbae1` to fetched `2bc9476`, then the preserved
@@ -1207,3 +1228,20 @@ No supplied DXF assets are installed in this checkout, so these checks use
 synthetic drawings. They establish integration behavior, not real-dataset rendering
 fidelity, candidate accuracy or inference cost. Windows and physical mobile-device
 behavior were not tested in this pass.
+
+## 2D zoom range and rapid button clicks — 15 November 2026
+
+Checked on Linux with Node 24.22.3, npm 11.19.1 and headless Firefox 160.0.
+`npm run test:frontend` passed all 18 test files, `npm run build` passed with the
+existing optional WebGPU export and large SDK chunk warnings, and the
+server-rendering smoke check and local documentation link check passed.
+
+A temporary browser harness reproduced the original reset with two native clicks
+on the zoom icon by removing only the new toolbar double-click handler in memory.
+With the fix, rapid plus/minus clicks and alternating buttons accumulated correctly
+and preserved pan and rotation. Buttons, keyboard and wheel respected the
+50–1000% limits. The percentage button, Fit, keyboard `0` and drawing double-click
+still reset the viewport. Synthetic SVG and PDF imports passed, with no uncaught
+JavaScript errors. Owned browser and preview processes were stopped. DXF uses
+the same 2D controls but was not separately imported in this check; Windows and
+physical mobile devices were not tested.

@@ -133,12 +133,12 @@ export default function IfcQuestionPanel({
     try {
       let model = modelRef.current;
       if (!model || model.source_sha256 !== sourceHash) {
-        setPhase('Reading source with the IFC engine…');
+        setPhase('Reading IFC source…');
         model = await uploadIfcModel(source.file, sourceHash, signal);
         signal.throwIfAborted();
         modelRef.current = model;
       }
-      setPhase('Planning the source query; the IFC engine computes the answer…');
+      setPhase('Planning source query…');
       const request: IfcQuestionRequest = { model_id: model.model_id, source_sha256: sourceHash, question: text, scope: 'model', visible_step_ids: null };
       let result: IfcQuestionResponse;
       try {
@@ -171,13 +171,11 @@ export default function IfcQuestionPanel({
   ].map((element) => [element.entity_id, element])), onSelect };
   const canAsk = ready && !!source.file && !!sourceHash;
   return <div className="ifc-questions">
-    <div className="ifc-question-intro"><strong>Ask the model. Check every element.</strong><p>The configured planner interprets your question. The IFC engine calculates from source objects, stored properties and recorded relationships.</p></div>
     <form className="ifc-question-form" onSubmit={(event) => { event.preventDefault(); void ask(); }}>
-      <p className="ifc-scope-description">Questions use the entire IFC model, including objects hidden in the preview.</p>
+      <p className="ifc-scope-description">Questions use the entire model, including hidden objects.</p>
       <textarea aria-label="Question about IFC model" placeholder="How many windows are there?" value={question} maxLength={4000} onChange={(event) => setQuestion(event.target.value)} disabled={!ready || !!phase} rows={3} />
-      <div className="ifc-question-submit"><small>Asking uploads this IFC to the local backend. Your question and bounded source metadata go to the configured analysis provider.</small>{phase ? <button className="secondary-button" type="button" onClick={() => { controllerRef.current?.abort(); controllerRef.current = null; clearHighlights(); setPhase(''); }}><X size={14} />Cancel</button> : <button className="primary-button" type="submit" disabled={!canAsk || !question.trim()}><ArrowUp size={15} />Ask</button>}</div>
+      <div className="ifc-question-submit"><small>Asking uploads the IFC to the local server; your question and source metadata go to the analysis provider.</small>{phase ? <button className="secondary-button" type="button" onClick={() => { controllerRef.current?.abort(); controllerRef.current = null; clearHighlights(); setPhase(''); }}><X size={14} />Cancel</button> : <button className="primary-button" type="submit" disabled={!canAsk || !question.trim()}><ArrowUp size={15} />Ask</button>}</div>
     </form>
-    {!response && !phase && !question && <button className="ifc-example-question" disabled={!ready} onClick={() => setQuestion('How many windows are there?')}>Try “How many windows are there?”</button>}
     {phase && <p className="ifc-question-progress" role="status"><span className="spinner" />{phase}</p>}
     {error && <p className="ifc-question-warning" role="alert"><CircleAlert size={15} />{error}</p>}
     {response && <div className="ifc-question-answer" aria-live="polite">
