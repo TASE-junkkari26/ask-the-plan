@@ -785,7 +785,7 @@ kbd {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  padding: 0 24px;
+  padding: 0 24px 20px;
   background: #f3f4ef;
 }
 .workspace-heading {
@@ -1402,7 +1402,7 @@ kbd {
 .question-form-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 0 9px 9px 13px;
 }
 .question-form-footer > span {
@@ -2185,7 +2185,7 @@ kbd {
     --panel: 410px;
   }
   .workspace {
-    padding: 0 32px;
+    padding: 0 32px 20px;
   }
   .answer-panel-header,
   .question-section,
@@ -2207,7 +2207,7 @@ kbd {
     font-size: 11px;
   }
   .workspace {
-    padding: 0 16px;
+    padding: 0 16px 20px;
   }
   .answer-panel-header,
   .question-section,

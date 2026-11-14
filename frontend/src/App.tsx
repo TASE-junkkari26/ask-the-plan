@@ -69,12 +69,9 @@ const copy = {
   en: {
     drawings: 'Drawings',
     search: 'Find a drawing…',
-    current: 'Current drawing',
     ask: 'Ask the drawing',
-    intro: 'Questions about your selected drawing.',
     placeholder: 'Ask about this drawing…',
     askButton: 'Ask question',
-    only: 'Based only on the selected drawing',
     export: 'Export SVG',
     local: 'Local preview',
     help: 'How it works',
@@ -82,25 +79,22 @@ const copy = {
     drop: 'or drag and drop them here',
     select: 'Select files',
     localFiles: 'Your imports',
-    localNote: 'Refreshing clears the imports. DXF previews use the local backend.',
+    localNote: 'Cleared on refresh. DXF preview needs the local server.',
     dropTitle: 'Drop drawings to import',
     importErrors: 'Some files could not be opened',
     welcome: 'Start with a drawing.',
-    welcomeIntro: 'Import a drawing to open your workspace.',
-    formats: `PDF, DXF and images · Up to 35 MiB per file · IFC · Up to ${MAX_IFC_BYTES / 1024 / 1024} MiB`,
+    welcomeIntro: 'Ask questions and review the highlighted source.',
+    formats: `PDF, DXF, images ≤ 35 MiB · IFC ≤ ${MAX_IFC_BYTES / 1024 / 1024} MiB per file`,
     opening: 'Opening your drawing…',
     analysisNote:
-      'DXF previews use the local backend. Asking sends the displayed image, PDF page or DXF layout to the configured image model. Results are candidates for review.',
+      'Only this view goes to the analysis provider. Review highlights.',
   },
   fi: {
     drawings: 'Piirustukset',
     search: 'Etsi piirustusta…',
-    current: 'Valittu piirustus',
     ask: 'Kysy piirustukselta',
-    intro: 'Kysymyksiä valitusta piirustuksesta.',
     placeholder: 'Kysy tästä piirustuksesta…',
     askButton: 'Kysy',
-    only: 'Perustuu vain valittuun piirustukseen',
     export: 'Vie SVG',
     local: 'Paikallinen esikatselu',
     help: 'Miten tämä toimii',
@@ -109,15 +103,15 @@ const copy = {
     select: 'Valitse tiedostot',
     localFiles: 'Omat tiedostot',
     localNote:
-      'Sivun päivittäminen tyhjentää tuonnit. DXF-esikatselu käyttää paikallista palvelinta.',
+      'Päivitys tyhjentää tuonnit. DXF-esikatselu tarvitsee paikallisen palvelimen.',
     dropTitle: 'Pudota tuotavat piirustukset',
     importErrors: 'Joitakin tiedostoja ei voitu avata',
     welcome: 'Aloita piirustuksesta.',
-    welcomeIntro: 'Tuo piirustus avataksesi työtilan.',
-    formats: `PDF, DXF ja kuvat · Enintään 35 MiB / tiedosto · IFC · Enintään ${MAX_IFC_BYTES / 1024 / 1024} MiB`,
+    welcomeIntro: 'Kysy ja tarkista korostetut lähdekohdat.',
+    formats: `PDF, DXF, kuvat ≤ 35 MiB · IFC ≤ ${MAX_IFC_BYTES / 1024 / 1024} MiB / tiedosto`,
     opening: 'Avataan piirustusta…',
     analysisNote:
-      'DXF-esikatselu käyttää paikallista palvelinta. Kysymys lähettää näkyvän kuvan, PDF-sivun tai DXF-asettelun määritetylle kuvamallille. Tulokset ovat tarkistettavia ehdokkaita.',
+      'Vain tämä näkymä lähetetään analyysipalveluun. Tarkista korostukset.',
   },
 };
 
@@ -136,7 +130,8 @@ function Brand() {
   );
 }
 
-function HelpDialog({ onClose }: { onClose: () => void }) {
+function HelpDialog({ onClose, language }: { onClose: () => void; language: Language }) {
+  const fi = language === 'fi';
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     ref.current?.showModal();
@@ -152,7 +147,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
     >
       <button
         className="icon-button dialog-close"
-        aria-label="Close help"
+        aria-label={fi ? 'Sulje ohje' : 'Close help'}
         onClick={onClose}
       >
         <X size={18} />
@@ -160,37 +155,34 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
       <span className="feature-icon">
         <Upload size={25} />
       </span>
-      <h2>Your drawing, in focus.</h2>
+      <h2>{fi ? 'Avaa, kysy, tarkista.' : 'Open, ask, verify.'}</h2>
       <p>
-        Select or drop an image, PDF, DXF, or IFC file to open it. Explore drawings
-        with the chat panel, or ask questions and inspect a model in 3D. Use Drawings to switch
-        files or remove an import.
+        {fi
+          ? 'Tuo piirustus tai IFC-malli, kysy ja tarkista korostetut lähdekohdat.'
+          : 'Import a drawing or IFC model, ask a question, and inspect the highlighted source.'}
       </p>
       <div className="help-note">
         <FileImage size={17} />
         <span>
-          Imports are cleared on refresh. DXF files use the local backend for
-          preview; other formats open in the browser. Submitting a drawing
-          question sends the selected image, PDF page or DXF layout to the configured image model;
-          highlights are candidates for review. Asking about an IFC uploads it
-          to the local backend. The selected IFC planner proposes the query, the IFC engine computes
-          the answer, and matching source elements are highlighted for inspection.
+          {fi
+            ? 'Piirustuskysymys lähettää näkyvän sivun tai asettelun analysoitavaksi. IFC-kysymys lataa koko mallin paikalliselle palvelimelle. Piirustusten korostukset vaativat tarkistuksen. Päivitys tyhjentää tuonnit.'
+            : 'Drawing questions send the displayed page or layout for analysis. IFC questions upload the entire model to the local server. Drawing highlights need review. Refreshing clears imports.'}
         </span>
       </div>
       <div className="shortcut-grid">
-        <span>Zoom</span>
+        <span>{fi ? 'Zoomaa' : 'Zoom'}</span>
         <span>
-          <kbd>+</kbd> <kbd>−</kbd> or scroll
+          <kbd>+</kbd> <kbd>−</kbd> {fi ? 'tai vieritä' : 'or scroll'}
         </span>
-        <span>Fit drawing</span>
+        <span>{fi ? 'Sovita piirustus' : 'Fit drawing'}</span>
         <kbd>0</kbd>
-        <span>Rotate drawing</span>
+        <span>{fi ? 'Kierrä piirustusta' : 'Rotate drawing'}</span>
         <kbd>R</kbd>
-        <span>Find a drawing</span>
+        <span>{fi ? 'Etsi piirustusta' : 'Find a drawing'}</span>
         <kbd>/</kbd>
       </div>
       <button className="primary-button" onClick={onClose}>
-        Got it <ArrowRight size={16} />
+        {fi ? 'Selvä' : 'Got it'} <ArrowRight size={16} />
       </button>
     </dialog>
   );
@@ -897,7 +889,6 @@ export default function App() {
               <X size={18} />
             </button>
           </div>
-          <p className="picker-description">{t.localFiles}</p>
           <button
             className="import-dropzone"
             onClick={() => inputRef.current?.click()}
@@ -908,7 +899,7 @@ export default function App() {
             <span>
               {t.select} {t.drop}
             </span>
-            <small>{t.formats}</small>
+            <small title={SOURCE_FORMATS}>{t.formats}</small>
           </button>
           <p className="import-local-note">{t.localNote}</p>
           {importProgress && (
@@ -961,9 +952,6 @@ export default function App() {
       {!activeSource ? (
         <main className="import-screen">
           <div className="import-welcome">
-            <span className="eyebrow">
-              {language === 'fi' ? 'OMA TYÖTILASI' : 'YOUR WORKSPACE'}
-            </span>
             <h1>{t.welcome}</h1>
             <p className="import-intro">{t.welcomeIntro}</p>
             <button
@@ -993,7 +981,7 @@ export default function App() {
                   ? `${importProgress.current} / ${importProgress.total} · ${importProgress.name}`
                   : t.drop}
               </span>
-              <span className="welcome-formats" id="import-formats">
+              <span className="welcome-formats" id="import-formats" title={SOURCE_FORMATS}>
                 {t.formats}
               </span>
             </button>
@@ -1013,7 +1001,6 @@ export default function App() {
               {t.localNote}
             </p>
           </div>
-          <span className="import-screen-footnote">{SOURCE_FORMATS}</span>
         </main>
       ) : (
         <div
@@ -1022,18 +1009,6 @@ export default function App() {
           <main className="workspace">
             <div className="workspace-heading">
               <div>
-                <div className="eyebrow">
-                  <span className="sheet-index">{t.local}</span>
-                  <span>
-                    {ifcSource
-                      ? language === 'fi'
-                        ? 'TUOTU IFC-MALLI'
-                        : 'IMPORTED IFC MODEL'
-                      : language === 'fi'
-                        ? 'TUOTU PIIRUSTUS'
-                        : 'IMPORTED DRAWING'}
-                  </span>
-                </div>
                 <div className="drawing-title">
                   <h1 title={title}>{title}</h1>
                 </div>
@@ -1132,11 +1107,6 @@ export default function App() {
                       </span>
                       {language === 'fi' ? '2D-piirustus' : '2D drawing'}
                     </div>
-                    <span className="viewer-separator" />
-                    <span className="scope-indicator">
-                      <FileText size={12} />
-                      {t.current}
-                    </span>
                     <div className="viewer-tools">
                       <div className="layer-wrap">
                         <button
@@ -1245,7 +1215,7 @@ export default function App() {
                       <MousePointer2 size={12} />
                       {dragging
                         ? 'Panning drawing'
-                        : 'Drag to pan · Scroll to zoom · Drop files to import'}
+                        : 'Drag to pan · Scroll to zoom'}
                     </div>
                     {showMarks && candidateCount > 0 && !asking && (
                       <button
@@ -1259,8 +1229,8 @@ export default function App() {
                         <ScanLine size={14} />
                         <strong>{candidateCount}</strong>{' '}
                         {language === 'fi'
-                          ? 'ehdokasta tarkistettavaksi'
-                          : 'candidates to review'}
+                          ? candidateCount === 1 ? 'ehdokas tarkistettavaksi' : 'ehdokasta tarkistettavaksi'
+                          : candidateCount === 1 ? 'candidate to review' : 'candidates to review'}
                       </button>
                     )}
                     {(importing || asking) && (
@@ -1279,7 +1249,10 @@ export default function App() {
                             : candidateLoadingText}
                       </div>
                     )}
-                    <div className="zoom-controls">
+                    <div
+                      className="zoom-controls"
+                      onDoubleClick={(event) => event.stopPropagation()}
+                    >
                       <button
                         className="icon-button"
                         aria-label="Zoom out"
@@ -1353,7 +1326,8 @@ export default function App() {
                   <div className="viewer-footer">
                     <span>
                       <FileText size={12} />
-                      {imported.file.name}
+                      {fileSize(imported.file.size)}
+                      {imported.kind === 'image' && ` · ${imported.width} × ${imported.height} px`}
                     </span>
                     {imported.kind === 'dxf' && imported.dxf ? (
                       <label className="dxf-layout-picker">
@@ -1400,19 +1374,6 @@ export default function App() {
                 </>
               ) : null}
             </div>
-            <div className="workspace-footnote">
-              <span className="footnote-icon">
-                <Check size={13} />
-              </span>
-              {ifcSource
-                ? 'IFC answers · inspect the highlighted source elements'
-                : t.only}
-              {!ifcSource && (
-                <span className="footnote-shortcut">
-                  <kbd>0</kbd> Fit <span>·</span> <kbd>R</kbd> Rotate
-                </span>
-              )}
-            </div>
           </main>
           {(inspectorOpen || ifcSource) &&
             (ifcSource ? (
@@ -1436,7 +1397,6 @@ export default function App() {
                   </span>
                   <div>
                     <h2>{t.ask}</h2>
-                    <p>{t.intro}</p>
                   </div>
                   <button
                     className="icon-button panel-close"
@@ -1469,15 +1429,10 @@ export default function App() {
                       <FileImage size={28} />
                     </span>
                     <h3 role={asking ? 'status' : undefined} aria-live="polite">
-                      {asking ? candidateLoadingText : language === 'fi'
-                        ? 'Piirustuksesi on valmis tutkittavaksi.'
-                        : 'Your drawing is ready to analyse.'}
+                      {asking ? candidateLoadingText : candidateError
+                        ? language === 'fi' ? 'Analyysi epäonnistui' : 'Analysis failed'
+                        : language === 'fi' ? 'Valmis kysymyksille' : 'Ready for questions'}
                     </h3>
-                    <p>
-                      {language === 'fi'
-                        ? 'Kysy näkyvistä kohteista ja tarkista tunnistetut ehdokkaat piirustuksesta.'
-                        : 'Ask about visible objects and review the detected candidates against your drawing.'}
-                    </p>
                     {candidateError && (
                       <div className="candidate-failure">
                         <p role="alert" className="candidate-api-error">{candidateError}</p>
@@ -1494,43 +1449,12 @@ export default function App() {
                           : 'Cancel analysis'}
                       </button>
                     )}
-                    <div className="chat-file-card">
-                      {imported.kind === 'pdf' ? (
-                        <FileText size={20} />
-                      ) : (
-                        <FileImage size={20} />
-                      )}
-                      <div>
-                        <strong title={imported.file.name}>
-                          {imported.file.name}
-                        </strong>
-                        <span className="local-file-details">
-                          {fileSize(imported.file.size)} ·{' '}
-                          {imported.kind === 'dxf'
-                            ? `DXF · ${imported.dxf?.layouts[imported.page - 1] ?? ''}`
-                            : imported.kind === 'pdf'
-                              ? `${imported.pages} ${language === 'fi' ? 'sivua' : imported.pages === 1 ? 'page' : 'pages'}`
-                              : `${imported.width} × ${imported.height} px`}
-                        </span>
-                      </div>
-                      <Check size={14} />
-                    </div>
                   </div>
                 )}
                 <div className="question-section">
                   <p className="chat-availability" id="chat-availability">
                     {t.analysisNote}
                   </p>
-                  <div className="question-scope">
-                    <FileText size={12} />
-                    <span>{imported.file.name}</span>
-                    <span className="scope-lock">
-                      <Check size={11} />
-                      {language === 'fi'
-                        ? 'Vain tämä näkymä'
-                        : 'This view only'}
-                    </span>
-                  </div>
                   <form className="question-form" onSubmit={submit}>
                     <textarea
                       aria-label="Question about the drawing"
@@ -1556,11 +1480,6 @@ export default function App() {
                       }}
                     />
                     <div className="question-form-footer">
-                      <span>
-                        {language === 'fi'
-                          ? 'Näkyvä kuva → kuvamalli'
-                          : 'Displayed image → image model'}
-                      </span>
                       <button
                         type="submit"
                         className="ask-submit"
@@ -1601,7 +1520,7 @@ export default function App() {
           </button>
         </div>
       )}
-      {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)} />}
+      {helpOpen && <HelpDialog language={language} onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }

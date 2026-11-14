@@ -14,7 +14,9 @@ test('focusing a source point remains correct after quarter-turn rotation', () =
 
 test('zoom is bounded and area paths preserve separate closed hole rings', () => {
   assert.equal(clampZoom(0.1), 0.5);
-  assert.equal(clampZoom(8), 3);
+  assert.equal(clampZoom(8), 8);
+  assert.equal(clampZoom(10), 10);
+  assert.equal(clampZoom(12), 10);
   const path = areaPath(
     [
       [0, 0],

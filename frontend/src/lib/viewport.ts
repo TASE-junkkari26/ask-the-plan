@@ -1,5 +1,5 @@
 export function clampZoom(value: number): number {
-  return Math.min(3, Math.max(0.5, value));
+  return Math.min(10, Math.max(0.5, value));
 }
 export function polygonArea(points: number[][]): number {
   return Math.abs(

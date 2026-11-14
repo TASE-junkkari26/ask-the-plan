@@ -104,21 +104,22 @@ export function CandidatePanel({
     failed: fi ? 'Tarkistus ei onnistunut' : 'Check unavailable',
   };
   const status = {
-    ok: fi ? 'Tunnistus valmis' : 'Detection completed',
+    ok: fi ? 'Valmis' : 'Complete',
     partial: fi ? 'Osittainen tunnistus' : 'Partial detection',
     unreadable: fi ? 'Kuvaa ei voitu tulkita' : 'Image could not be read',
-    unsupported: fi ? 'Kysymystä ei tueta tässä kuvassa' : 'Question unsupported for this image',
+    unsupported: fi ? 'Kysymystä ei tueta' : 'Question unsupported',
   }[response.status];
   const heading = candidates.length
-    ? fi ? `${candidates.length} tarkistettavaa ehdokasta` : `${candidates.length} candidates to review`
+    ? fi
+      ? candidates.length === 1 ? '1 tarkistettava ehdokas' : `${candidates.length} tarkistettavaa ehdokasta`
+      : `${candidates.length} ${candidates.length === 1 ? 'candidate' : 'candidates'} to review`
     : fi ? 'Ei tunnistettuja ehdokkaita' : 'No candidates detected';
   return (
     <section className="candidate-panel" aria-label={fi ? 'Tunnistetut ehdokkaat' : 'Detected candidates'}>
       <p className="candidate-question">{question}</p>
       <div className={`candidate-summary candidate-summary-${response.status}`}>
-        <span className="candidate-eyebrow"><ScanLine size={14} />{fi ? 'KUVAN EHDOKKAAT' : 'IMAGE CANDIDATES'}</span>
         <h2>{response.status === 'unreadable' || response.status === 'unsupported' ? status : heading}</h2>
-        <p>{status} · {fi ? 'Vain valittu kuva' : 'Selected image only'}</p>
+        {response.status === 'partial' && <p>{status}</p>}
       </div>
       <ResponseMetrics
         model={response.provenance.returned_model}
@@ -168,7 +169,6 @@ export function CandidatePanel({
       {checks.length > 0 && (
         <details className="candidate-checks">
           <summary>{fi ? 'Ehdokkaiden tarkistukset' : 'Candidate checks'} <span>{checks.length}</span></summary>
-          <p>{fi ? 'Ehdokkaita tarkistettiin tämän kuvan lähikuvista.' : 'Candidates checked against close-ups of this image.'}</p>
           <ol>
             {checks.map((check) => (
               <li key={`${check.region_id}:${check.observation_ids.join(',')}`} className={`candidate-check candidate-check-${check.verdict}`}>
@@ -183,14 +183,14 @@ export function CandidatePanel({
           </ol>
         </details>
       )}
-      <p className="candidate-review-note"><CircleAlert size={15} /><span>{fi ? 'Tarkista ehdokkaat kuvasta. Kohteita voi puuttua, eikä luettelon kattavuutta ole vahvistettu.' : 'Review the highlights against the image. Candidates may be missing or ambiguous; inventory completeness is unverified.'}</span></p>
+      <p className="candidate-review-note"><CircleAlert size={15} /><span>{fi ? 'Tarkistamattomat ehdokkaat voivat olla puutteellisia tai epävarmoja.' : 'Unverified candidates may be incomplete or uncertain.'}</span></p>
       {(response.limitations ?? []).length > 0 && (
         <section className="candidate-limitations" aria-label={fi ? 'Rajoitukset' : 'Limitations'}>
           <h3>{fi ? 'Rajoitukset' : 'Limitations'}</h3>
           <ul>{response.limitations?.map((limitation, index) => <li key={index}>{limitation}</li>)}</ul>
         </section>
       )}
-      {candidates.length === 0 && response.status === 'ok' && <p className="candidate-empty-note">{fi ? 'Tyhjä luettelo ei vahvista, että kuvassa on nolla kohdetta.' : 'An empty candidate list does not establish that the image contains zero objects.'}</p>}
+      {candidates.length === 0 && response.status === 'ok' && <p className="candidate-empty-note">{fi ? 'Ehdokkaiden puuttuminen ei tarkoita nollaa kohdetta.' : 'No candidates does not mean zero objects.'}</p>}
       {candidate && <CandidateCloseUp candidate={candidate} response={response} imageUrl={imageUrl} language={language} onFocus={() => onFocus(candidate.id)} />}
       <div className="candidate-list">
         {candidates.map((item, index) => {

@@ -1,5 +1,26 @@
 # Sprint-one verification record
 
+## Minimal interface copy, 15 November 2026
+
+Removed repeated import instructions, subtitles, source filename cards and
+implementation explanations. Kept brief scope/upload notes, active model
+progress, incomplete-result warnings and inspectable source evidence.
+
+Checked on Linux with Node.js 24.22.3 and headless Firefox 160.0:
+
+- `npm run test:frontend`, `npm run build` and
+  `node frontend/scripts/smoke-render.mjs` passed. Existing Three/WebGPU export
+  and large-chunk build warnings remain.
+- A temporary browser check covered English/Finnish import and help, a synthetic
+  SVG import, streamed model handoff, candidate uncertainty/source close-ups,
+  partial/empty/unreadable/error states and a 390 px layout without horizontal
+  overflow. Selected-view scope stays visible in the combined upload note.
+  No uncaught application JavaScript errors were observed.
+- Documentation links and `git diff --check` passed.
+
+Browser analysis responses were mocked. This verifies the edited interface,
+without establishing live provider accuracy or new IFC viewer compatibility.
+
 ## Hydrogen-first routing and detailed-scan integration, 14 November 2026
 
 Integrated the routing correction with main through `f03eb50`, preserving its
@@ -77,6 +98,7 @@ The preceding timeout-only full suite passed 490 tests; that full-suite result
 predates v3 and is not a claim of final-policy coverage. Live evidence is ignored
 under `experiments/runs/routing-tuning/20261114T213230Z/`. Original images,
 reference answers and local credential files were unchanged.
+
 ## Integrated routing, detail, IFC and DXF, 14 November 2026
 
 Main was fast-forwarded from `89dbae1` to fetched `2bc9476`, then the preserved
@@ -1285,8 +1307,7 @@ synthetic drawings. They establish integration behavior, not real-dataset render
 fidelity, candidate accuracy or inference cost. Windows and physical mobile-device
 behavior were not tested in this pass.
 
-
-## Raster hardening and fresh validation ? 15 November 2026
+## Raster hardening and fresh validation — 15 November 2026
 
 Windows, Python 3.14.10, Node 24.22.3. The workbench now always requests Detailed
 scan. Only fitted-door detail requests receive higher image-reading resolution;
@@ -1294,12 +1315,12 @@ other targets retain the default payload. The layout prompt avoids independent
 legend detection for object inventories. No shared contracts or IFC operations
 changed. See the [full failure review](../experiments/image_questions/RASTER_HARDENING_20261115.md).
 
-- Original/final paired 50: 39/50 ? 40/50 reference-count matches, one repaired
-  and zero regressed; nominal cost $0.804803 ? $0.764502.
-- Further 40 distinct source drawings, excluded from that first set: 25/40 ?
+- Original/final paired 50: 39/50 → 40/50 reference-count matches, one repaired
+  and zero regressed; nominal cost $0.804803 → $0.764502.
+- Further 40 distinct source drawings, excluded from that first set: 25/40 →
   25/40, one repaired door and one lost window match. The window request's
-  model-visible inputs were unchanged, demonstrating stochastic variation.
-- Combined: 64/90 ? 65/90; nominal cost $1.319817 ? $1.316042, effectively flat.
+  model-visible inputs were unchanged, consistent with stochastic variation.
+- Combined: 64/90 → 65/90; nominal cost $1.319817 → $1.316042, effectively flat.
   These are candidate-count comparisons, not final-answer/localization scores
   or proof of broad accuracy improvement. All baseline/new-set mismatches were
   source-reviewed; duplicate native records and scope/grain conflicts remain
@@ -1321,7 +1342,7 @@ frozen code, source-bound inputs, provider requests/replies, every repeat, usage
 audits and per-question scores. No model received supplied reference answers.
 
 
-## OpenCV raster proof of concept ? 15 November 2026
+## OpenCV raster proof of concept — 15 November 2026
 
 Windows/Python 3.14.10, NumPy 2.5.4, OpenCV-headless 4.14.0.94.
 See [OpenCV window checks](OPENCV_WINDOW_CHECKS.md) for installation, inference
@@ -1329,7 +1350,7 @@ budgets and evidence limitations. All inference used Hydrogen-low; no stronger
 model or training was used.
 
 The first 12-case strip-rescue comparison had 4/12 count matches in both runs,
-14 ? 35 model calls and nominal cost $0.180746 ? $0.346957. Source review found
+14 → 35 model calls and nominal cost $0.180746 → $0.346957. Source review found
 false garage-door windows and repeated/clipped observations. The proposer is
 integrated but off by default; later safeguards prevent clipped-instance
 inflation and extra follow-up cascades, without claiming an improved score.
@@ -1338,7 +1359,7 @@ The retained default is a narrower CPU contradiction check. On 98 saved window
 boxes from the earlier 90 drawings, it flagged three boxes on one drawing;
 agent review found solid wall in all three. In a replay of the saved detector
 output, only one new Hydrogen verification ran and explicitly rejected one
-false window. The candidate count changed 12 ? 11, retaining partial status
+false window. The candidate count changed 12 → 11, retaining partial status
 and other unresolved flags. This is a causal single-case precision fix, not
 a fresh accuracy benchmark or a completeness claim. That call used 1,978 input
 and 493 output/thinking tokens (about $0.0067 at the recorded nominal tariff).
@@ -1349,3 +1370,31 @@ source/contract changed in this pass; the earlier frontend build remains the
 applicable check. Linux and browser interaction were not tested. Backend was
 restarted with CPU window checks enabled and strip rescue disabled; frontend,
 backend health and frontend API proxy were checked and left running.
+
+## 2D zoom range and rapid button clicks — 15 November 2026
+
+Checked on Linux with Node 24.22.3, npm 11.19.1 and headless Firefox 160.0.
+`npm run test:frontend` passed all 18 test files, `npm run build` passed with the
+existing optional WebGPU export and large SDK chunk warnings, and the
+server-rendering smoke check and local documentation link check passed.
+
+A temporary browser harness reproduced the original reset with two native clicks
+on the zoom icon by removing only the new toolbar double-click handler in memory.
+With the fix, rapid plus/minus clicks and alternating buttons accumulated correctly
+and preserved pan and rotation. Buttons, keyboard and wheel respected the
+50–1000% limits. The percentage button, Fit, keyboard `0` and drawing double-click
+still reset the viewport. Synthetic SVG and PDF imports passed, with no uncaught
+JavaScript errors. Owned browser and preview processes were stopped. DXF uses
+the same 2D controls but was not separately imported in this check; Windows and
+physical mobile devices were not tested.
+
+## Raster hardening merge verification — 15 November 2026
+
+Merged the raster hardening work with fetched `origin/main` at `0a6fd1f`, retaining
+its interface copy and zoom fixes while keeping Detailed scan always enabled.
+On Windows with Python 3.14.10 and Node 24.22.3, all 184 focused Python tests and
+126 frontend tests passed. The production build, dependency consistency check,
+local Markdown link check and diff whitespace check passed. The build required
+normal filesystem permissions after the restricted sandbox denied Vite access;
+existing optional WebGPU export and large-chunk warnings remain. No additional
+live inference, browser interaction or Linux runtime verification was performed.

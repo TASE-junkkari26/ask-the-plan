@@ -642,7 +642,6 @@ export default function IfcWorkbench({
               </span>
               <div>
                 <h2>Ask & verify</h2>
-                <p>Source answers, linked to model elements.</p>
               </div>
               <button
                 className="icon-button panel-close"
@@ -674,7 +673,7 @@ export default function IfcWorkbench({
               <div id="ifc-inspect-content" role="tabpanel" aria-labelledby="ifc-inspect-tab" style={{ display: tab === 'inspect' ? undefined : 'none' }}>
               <p className="ifc-note">
                 {source.file
-                  ? 'Viewing and property inspection run locally. Asking a question uploads the source to the local backend.'
+                  ? 'Preview and property inspection run locally.'
                   : 'Real model · FZK-Haus by KIT.'}{' '}
               </p>
               {ready &&
@@ -926,8 +925,7 @@ export default function IfcWorkbench({
                   </>
                 ) : (
                   <p className="ifc-note">
-                    Click the model or choose an item below. Selecting an object
-                    keeps the camera in place; Focus moves to it.
+                    Select an object to inspect its properties. Use Focus to move to it.
                   </p>
                 )}
               </section>
