@@ -24,9 +24,9 @@ boundary and protocol research. Image and IFC providers are selected independent
 see [IFC planner configuration](../docs/IFC_QUESTIONS.md#choose-the-ifc-planner).
 
 The [Gemini Decisions plan](DECISIONS_PLAN.md) records the experimental router:
-familiar tasks use Hydrogen-low and difficult, unfamiliar or uncertain cases go
-directly to Carbon-medium. Detailed scans then use the selected analyzer on
-native crops, with Hydrogen panel selection. It incorporates the
+Hydrogen-low is preferred; only a high-confidence explicit need for advanced
+interpretation selects Carbon-medium. Detailed scans then use the selected
+analyzer on native crops, with Hydrogen panel selection. It incorporates the
 [tooling/routing research](../docs/TOOLING_AND_ROUTING_PLAN.md) and
 [100-image report](../experiments/image_questions/GEMINI_100_RESULTS.md), keeping
 that capability-first order. The UI explains recorded decisions and evidence
@@ -41,10 +41,10 @@ Keep `GEMINI_API_KEY` on the backend. Set `IMAGE_API_PROVIDER=gemini` and choose
 | --- | --- |
 | `IMAGE_API_ROUTING_MODE=off` | Default; one explicitly configured image provider/profile. |
 | `IMAGE_API_ROUTING_MODE=shadow` | Decisions recommends a route; the configured baseline analyzer still runs once. |
-| `IMAGE_API_ROUTING_MODE=auto` | Selects Hydrogen-low for supported cases meeting the overall-fit threshold, otherwise Carbon-medium directly. No weak-model retry. |
+| `IMAGE_API_ROUTING_MODE=auto` | Prefers Hydrogen-low; selects Carbon-medium only for an explicit `needs_strong` assessment at or above the strong threshold. No automatic retry. |
 
 `GEMINI_MODEL=gemini-4-hydrogen` with `GEMINI_THINKING_LEVEL=low` remains the
-manual default; `gemini-4-carbon` accepts `low` or `medium`. Auto mode defaults
+manual default; `gemini-4-carbon` accepts `low` or `medium`. The strong profile defaults
 to Carbon medium; set `IMAGE_API_ROUTING_STRONG_THINKING_LEVEL=low` for lower
 thinking. High thinking is outside the image-profile allowlist. Profile selection
 preserves the configured output-token and timeout limits.
@@ -59,28 +59,31 @@ The full-image endpoint permits one analysis attempt. Detailed scan instead uses
 its bounded region/tiling/reconciliation/verification tools, with at most 12
 provider attempts plus one Decisions call and no transport retries. OCR stays
 optional/off; native IFC execution remains separate.
-Router errors/timeouts recommend Carbon; shadow mode records that recommendation
-while retaining the baseline. The total deadline includes preparation/routing;
+Router errors/timeouts select Hydrogen; shadow mode retains the configured
+baseline. The total deadline includes preparation/routing;
 five seconds are reserved for finalization before another call can run.
 
-`IMAGE_API_ROUTING_THRESHOLD=0.6` is the provisional default. Only the overall
-`normal_fit=supported` probability must meet it. Explicit `needs_strong` or
-`uncertain`, or an overall fit below the threshold, selects Carbon directly.
-Document type, operation, target, counting grain and scope labels are diagnostic:
-low confidence in one of those labels does not independently invoke Carbon.
+Policy `capability-routing-v4` prefers Hydrogen. Carbon requires
+`normal_fit=needs_strong` with probability at least
+`IMAGE_API_ROUTING_STRONG_THRESHOLD=0.8`. Uncertain assessments, lower confidence,
+router failures/timeouts and unavailable routing all use Hydrogen directly.
+One analyzer profile handles the request; a failed Hydrogen call does not switch to Carbon.
+The old `IMAGE_API_ROUTING_THRESHOLD` is accepted for configuration compatibility
+but does not control v4. Changing the policy invalidates cached decisions.
 
-Ordinary readable drawings, room/fixture/object discovery, labels, schedules and
-printed quantity regions can use Hydrogen. Several readable panels, a room filter,
-a non-count task or another ordinary object category do not automatically make
-a task difficult. Both analyzers retain the same submitted-image and candidate-only
-boundaries; Carbon does not add missing sources, calibration or execution tools.
-Policy `capability-routing-v3` retains the overall-fit gate and describes the
-available native detail tools. Its threshold is still a heuristic, not calibrated
-accuracy. Explicit environment overrides remain honored; remove an old `0.9`
-override or set `IMAGE_API_ROUTING_THRESHOLD=0.6` to use the new default. Restart
-the backend after changing settings. Use `shadow` to evaluate routing on your sources.
+Ordinary readable plans, room/object discovery, labels, schedules and printed
+quantity regions stay on Hydrogen. Either analyzer retains the same candidate-only
+and submitted-image boundaries; Carbon cannot add missing source evidence.
+This cost preference can send difficult cases to Hydrogen when the router is
+uncertain or unavailable; it deliberately reduces automatic escalation.
 
-`IMAGE_API_ROUTING_TIMEOUT_SECONDS=3` bounds Decisions. A bounded session-only
+`IMAGE_API_ROUTING_TIMEOUT_SECONDS=10` bounds Decisions, including upload and
+response time. Connection setup uses the same configured budget; there is no
+separate three-second connection cutoff. Timeout traces distinguish connection,
+upload, response-read and connection-pool failures when the transport reports
+the phase; an overall deadline has a generic timeout reason. A timeout means
+no classification was received, not that the source was judged difficult.
+A bounded session-only
 cache (`IMAGE_API_ROUTING_CACHE_ENTRIES=32`, zero disables it) keys on exact
 question/scope, preparation strategy, image hashes, profiles and policy/criteria
 versions. Cache hits
@@ -90,8 +93,9 @@ to the configured Gemini services when an uncached decision is needed.
 
 The expandable **How this was analyzed** panel shows recorded assessments,
 probabilities, thresholds, actual route/calls, selected preparation and failures.
-For v2/v3 it explains that only overall fit is thresholded; older v1 traces retain
-their original explanation. Policy and criteria changes invalidate cached routes.
+For v4 it shows the advanced-interpretation probability and Carbon threshold;
+historical v1/v2/v3 traces retain their original explanation. Policy and criteria
+changes invalidate cached routes.
 Scores are routing estimates, not answer accuracy. Exported candidate JSON retains
 the trace; failures retain it in the error state. Total cost estimates sum each
 call's timestamp/model/usage and mark missing information as unknown. IFC continues

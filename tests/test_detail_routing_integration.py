@@ -82,13 +82,18 @@ class DetailedRoutingIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
     @asynccontextmanager
 
-    async def api(self, *, fit="supported", mode="auto", handler=None, strong=True):
+    async def api(self, *, fit="supported", mode="auto", handler=None, strong=True,
+                  decision_handler=None, **settings):
 
         self.calls, self.paths = [], []
 
         async def decide(request):
 
             self.calls.append(("routing",json.loads(request.content)))
+
+            if decision_handler is not None:
+                result = decision_handler(request)
+                return await result if inspect.isawaitable(result) else result
 
             return httpx.Response(200,json={"answers":answers(normal_fit=fit),
 
@@ -129,7 +134,7 @@ class DetailedRoutingIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
             raise ConfigurationError("Synthetic unavailable provider")
 
-        app=create_app(ApiSettings(provider="gemini",routing_mode=mode,preprocess_mode="off",max_concurrent=12),
+        app=create_app(ApiSettings(provider="gemini",routing_mode=mode,preprocess_mode="off",max_concurrent=12, **settings),
 
             client_factory=unavailable,gemini_client_factory=lambda:sdk("normal"),
 
@@ -397,3 +402,86 @@ class DetailedRoutingIntegrationTests(unittest.IsolatedAsyncioTestCase):
             finally:
                 task.cancel()
                 await asyncio.gather(task,return_exceptions=True)
+
+    async def test_detail_handoff_and_crop_ledger_follow_hydrogen_first_gate(self):
+        for fit, probability, expected in (
+            ("uncertain", .99, "gemini-4-hydrogen"),
+            ("needs_strong", .799, "gemini-4-hydrogen"),
+            ("needs_strong", .8, "gemini-4-carbon"),
+        ):
+            with self.subTest(fit=fit, probability=probability):
+                def decide(_):
+                    values = answers(normal_fit=fit)
+                    values["normal_fit"]["probabilities"] = {
+                        "supported": 1 - probability, "needs_strong": probability if fit == "needs_strong" else 0,
+                        "uncertain": probability if fit == "uncertain" else 0,
+                    }
+                    values["normal_fit"]["confidence"] = probability
+                    return httpx.Response(200, json={"answers": values})
+
+                async with self.api(decision_handler=decide) as (http, _):
+                    response = await self.post(http, stream=True)
+                self.assertEqual(response.status_code, 200, response.text)
+                frames = [json.loads(line) for line in response.text.splitlines()]
+                self.assertEqual([frame["type"] for frame in frames], ["handoff", "result"])
+                body = frames[-1]["result"]
+                ImageCandidateResponse.model_validate(body)
+                self.assertEqual(frames[0]["progress"]["requested_model"], expected)
+                self.assertEqual(body["provenance"]["requested_model"], expected)
+                self.assertEqual(body["decision_trace"]["policy_version"], "capability-routing-v4")
+                calls = body["decision_trace"]["calls"]
+                self.assertEqual([call["purpose"] for call in calls], ["routing", "analysis"])
+                self.assertEqual(calls[-1]["requested_model"], expected)
+                self.assertEqual(calls[-1]["source_box"], [100, 50, 600, 450])
+                crop = base64.b64decode(self.calls[-1][1]["input"][1]["data"])
+                self.assertEqual(calls[-1]["input_sha256"], hashlib.sha256(crop).hexdigest())
+                self.assertEqual([kind for kind, _ in self.calls], ["routing", "analysis"])
+
+    async def test_detail_routing_failure_and_timeout_use_one_hydrogen_attempt(self):
+        for failure in ("timeout", "provider_error"):
+            with self.subTest(failure=failure):
+                cancelled = asyncio.Event()
+
+                async def decide(_):
+                    if failure == "provider_error":
+                        return httpx.Response(503, json={"error": {"message": KEY}})
+                    try:
+                        await asyncio.Future()
+                    finally:
+                        cancelled.set()
+
+                async with self.api(decision_handler=decide, routing_timeout_seconds=.02) as (http, _):
+                    response = await self.post(http, stream=True)
+                self.assertEqual(response.status_code, 200, response.text)
+                frames = [json.loads(line) for line in response.text.splitlines()]
+                self.assertEqual([frame["type"] for frame in frames], ["handoff", "result"])
+                body = frames[-1]["result"]
+                ImageCandidateResponse.model_validate(body)
+                trace = body["decision_trace"]
+                self.assertEqual(trace["selected_profile"], "normal")
+                self.assertEqual(trace["assessments"], {})
+                self.assertEqual(trace["nodes"][0]["state"], "failed")
+                self.assertEqual(trace["nodes"][1]["reason_code"], "routing_fallback_normal")
+                self.assertEqual(frames[0]["progress"]["requested_model"], "gemini-4-hydrogen")
+                self.assertEqual(trace["calls"][-1]["source_box"], [100, 50, 600, 450])
+                self.assertEqual(trace["calls"][-1]["requested_model"], "gemini-4-hydrogen")
+                self.assertEqual([kind for kind, _ in self.calls], ["routing", "analysis"])
+                self.assertNotIn(KEY, response.text)
+                if failure == "timeout":
+                    self.assertTrue(cancelled.is_set())
+
+    async def test_detail_preparation_mode_has_its_own_cached_decision(self):
+        async with self.api() as (http, _):
+            first = await self.post(http)
+            cached = await self.post(http)
+            tiled = await self.post(http, options={"mode": "tiles", "regions": [[100, 50, 600, 450]],
+                "max_calls": 1, "reinspect_edges": False, "verify_membership": False})
+        for response in (first, cached, tiled):
+            self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(cached.json()["decision_trace"]["nodes"][0]["state"], "reused")
+        self.assertEqual(tiled.json()["decision_trace"]["nodes"][0]["state"], "evaluated")
+        decisions = [body for kind, body in self.calls if kind == "routing"]
+        self.assertEqual(len(decisions), 2)
+        self.assertIn("Requested preparation: regions", decisions[0]["input"][0]["text"])
+        self.assertIn("Requested preparation: tiles", decisions[1]["input"][0]["text"])
+        self.assertEqual([kind for kind, _ in self.calls], ["routing", "analysis", "analysis", "routing", "analysis"])

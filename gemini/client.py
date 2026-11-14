@@ -33,7 +33,7 @@ PROVIDER_ERROR_CODES = frozenset({
 class GeminiError(RuntimeError):
     def __init__(self, message: str, *, status_code: int | None = None,
                  retryable: bool = False, code: str = "provider_error",
-                 provider_code: str | None = None):
+                 provider_code: str | None = None, timeout_phase: str | None = None):
         super().__init__(message)
         self.status_code = status_code
         self.retryable = retryable
@@ -44,6 +44,8 @@ class GeminiError(RuntimeError):
         self.returned_model: str | None = None
         self.provider_code = (provider_code if isinstance(provider_code, str)
                               and provider_code in PROVIDER_ERROR_CODES else None)
+        self.timeout_phase = (timeout_phase if isinstance(timeout_phase, str)
+                              and timeout_phase in {"connect", "write", "read", "pool"} else None)
 
 
 class GeminiRequestTooLarge(GeminiError):

@@ -98,7 +98,7 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(calls[0]['generation_config']['thinking_level'], 'medium')
         self.assertEqual(calls[0]['input'][0]['text'], 'Find windows')
 
-    async def test_router_timeout_selects_strong_and_preserves_failed_call_unknown_usage(self):
+    async def test_router_timeout_selects_hydrogen_and_preserves_failed_call_unknown_usage(self):
         cancelled = asyncio.Event()
         async def timeout(_):
             try:
@@ -113,7 +113,9 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(trace['nodes'][0]['reason_code'], 'router_timeout')
         self.assertEqual(trace['calls'][0]['outcome'], 'failed')
         self.assertIsNone(trace['calls'][0]['prompt_tokens'])
-        self.assertEqual(trace['selected_profile'], 'strong')
+        self.assertEqual(trace['selected_profile'], 'normal')
+        self.assertEqual(trace['nodes'][1]['reason_code'], 'routing_fallback_normal')
+        self.assertEqual(self.requests[-1][1]['model'], 'gemini-4-hydrogen')
 
     async def test_carbon_low_can_be_configured_for_strong_route(self):
         async def hard(_):
@@ -125,6 +127,37 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0]['model'], 'gemini-4-carbon')
         self.assertEqual(calls[0]['generation_config']['thinking_level'], 'low')
+
+    async def test_routing_errors_use_hydrogen_without_carbon_or_retry(self):
+        for status, body in ((503, {'error': {'message': KEY}}), (200, {'answers': {}})):
+            async def failed(_, status=status, body=body):
+                return httpx.Response(status, json=body)
+            async with self.api(decision_handler=failed) as http:
+                result = await self.post(http)
+            self.assertEqual(result.status_code, 200, result.text)
+            trace = result.json()['decision_trace']
+            self.assertEqual(trace['selected_profile'], 'normal')
+            self.assertEqual(trace['nodes'][1]['reason_code'], 'routing_fallback_normal')
+            self.assertEqual(trace['assessments'], {})
+            self.assertEqual([kind for kind, _ in self.requests], ['decision', 'analysis'])
+            self.assertEqual(self.requests[-1][1]['model'], 'gemini-4-hydrogen')
+            self.assertNotIn(KEY, result.text)
+
+    async def test_transport_timeout_phases_remain_failures_not_difficulty_assessments(self):
+        for error_type, phase in ((httpx.ConnectTimeout, 'connect'), (httpx.WriteTimeout, 'write'),
+                                  (httpx.ReadTimeout, 'read'), (httpx.PoolTimeout, 'pool')):
+            with self.subTest(phase=phase):
+                async def timeout(_):
+                    raise error_type('private provider details')
+                async with self.api(decision_handler=timeout) as http:
+                    result = await self.post(http)
+                self.assertEqual(result.status_code, 200, result.text)
+                trace = result.json()['decision_trace']
+                self.assertEqual(trace['nodes'][0]['reason_code'], f'router_{phase}_timeout')
+                self.assertEqual(trace['assessments'], {})
+                self.assertEqual(trace['selected_profile'], 'normal')
+                self.assertEqual([kind for kind, _ in self.requests], ['decision', 'analysis'])
+                self.assertNotIn('private provider details', result.text)
 
     async def test_incomplete_analysis_retains_reported_cost_inputs(self):
         async def hard(_):
@@ -170,7 +203,7 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_strong_unavailable_error_keeps_decision_without_weak_fallback(self):
         async def uncertain(_):
-            return httpx.Response(200, json={'answers': answers(normal_fit='uncertain')})
+            return httpx.Response(200, json={'answers': answers(normal_fit='needs_strong')})
         async with self.api(decision_handler=uncertain, strong=False) as http:
             result = await self.post(http)
         self.assertEqual(result.status_code, 503, result.text)
@@ -204,19 +237,17 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(options=options):
                 self.assertEqual(route_decision(answers(**options), 0.6)[0], 'normal')
 
-    def test_only_overall_fit_is_thresholded_with_explicit_difficulty_preserved(self):
-        self.assertEqual(ApiSettings().routing_threshold, 0.6)
-        for fit, expected in ((0.6, 'normal'), (0.599, 'strong'), (0.7, 'normal')):
-            value = answers()
-            value['normal_fit']['probabilities'] = dict(supported=fit, needs_strong=(1-fit)/2, uncertain=(1-fit)/2)
-            with self.subTest(fit=fit):
-                self.assertEqual(route_decision(value, 0.6)[0], expected)
-        for outcome in ('needs_strong', 'uncertain'):
-            self.assertEqual(route_decision(answers(normal_fit=outcome), 0.6)[:2],
-                             ('strong', 'difficult_or_uncertain'))
-        value = answers()
-        value['normal_fit']['probabilities'] = dict(supported=0.7, needs_strong=0.2, uncertain=0.1)
-        self.assertEqual(route_decision(value, 0.8)[:2], ('strong', 'overall_fit_below_threshold'))
+    def test_carbon_requires_explicit_difficulty_at_strong_threshold(self):
+        self.assertEqual(ApiSettings().routing_strong_threshold, 0.8)
+        for strong, expected in ((0.799, 'normal'), (0.8, 'strong'), (0.9, 'strong')):
+            value = answers(normal_fit='needs_strong')
+            value['normal_fit']['probabilities'] = dict(supported=1-strong, needs_strong=strong, uncertain=0)
+            self.assertEqual(route_decision(value, 0.8)[0], expected)
+        self.assertEqual(route_decision(answers(normal_fit='uncertain'), 0.8)[0], 'normal')
+        value = answers(normal_fit='needs_strong')
+        value['normal_fit']['probabilities'] = dict(supported=0.15, needs_strong=0.75, uncertain=0.1)
+        self.assertEqual(route_decision(value, 0.8)[0], 'normal')
+        self.assertEqual(route_decision(value, 0.7)[0], 'strong')
 
     def test_moderate_overall_fit_with_low_diagnostic_certainty_stays_normal(self):
         # Synthetic regression inspired by development scores, not model accuracy.
@@ -253,14 +284,14 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_policy_threshold_and_version_changes_invalidate_decision_cache(self):
         async def typical(_):
-            value = answers()
-            value['normal_fit'].update(probabilities=dict(supported=0.7, needs_strong=0.2, uncertain=0.1), confidence=0.7)
+            value = answers(normal_fit='needs_strong')
+            value['normal_fit'].update(probabilities=dict(supported=0.2, needs_strong=0.7, uncertain=0.1), confidence=0.7)
             return httpx.Response(200, json={'answers': value})
         async with self.api(decision_handler=typical) as http:
             first = await self.post(http)
             cached = await self.post(http)
             service = http._transport.app.state.service
-            service.settings = service.settings.model_copy(update={'routing_threshold': 0.8})
+            service.settings = service.settings.model_copy(update={'routing_strong_threshold': 0.6})
             stricter = await self.post(http)
             with patch('image_api.routing.POLICY_VERSION', POLICY_VERSION + '-test'):
                 versioned = await self.post(http)
@@ -301,7 +332,7 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(trace['assessment_probabilities']['task_kind'], 0.55)
         self.assertEqual(trace['selected_profile'], 'normal')
         self.assertEqual([body['model'] for kind, body in self.requests if kind == 'analysis'], ['gemini-4-hydrogen'])
-        self.assertEqual(trace['nodes'][0]['threshold'], 0.6)
+        self.assertEqual(trace['nodes'][0]['threshold'], 0.8)
         self.assertIsNone(trace['calls'][0]['returned_model'])
 
     async def test_shadow_records_recommendation_but_executes_baseline_once(self):
