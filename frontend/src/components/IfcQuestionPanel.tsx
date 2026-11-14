@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, Check, CircleAlert, Download, Focus, Search, X } from 'lucide-react';
 import type { IfcSource } from '../types';
 import type { IfcModelResponse } from '../contracts/IfcModelResponse';
+import type { IfcQuestionRequest } from '../contracts/IfcQuestionRequest';
 import type { EvidenceAnchor, IfcQuestionResponse } from '../contracts/IfcQuestionResponse';
 import type { Output } from '../contracts/QueryResult';
 import type { EvidenceElement, HighlightReport } from '../ifc/evidence';
@@ -84,17 +85,13 @@ function SourceAnchors({ anchorIds, anchors, onSelect }: {
 }
 
 export default function IfcQuestionPanel({
-  source, sourceHash, ready, viewBusy, section, viewRevision, viewLabel,
-  getViewStepIds, highlight, clearHighlights, focus, isolate, onSelect,
+  source, sourceHash, ready, section,
+  highlight, clearHighlights, focus, isolate, onSelect,
 }: {
   source: IfcSource;
   sourceHash: string;
   ready: boolean;
-  viewBusy: boolean;
   section: boolean;
-  viewRevision: number;
-  viewLabel: string;
-  getViewStepIds: () => Promise<number[]>;
   highlight: (elements: EvidenceElement[]) => Promise<HighlightReport | undefined>;
   clearHighlights: () => void;
   focus: (ids: number[]) => void;
@@ -102,28 +99,16 @@ export default function IfcQuestionPanel({
   onSelect: (id: number) => void;
 }) {
   const [question, setQuestion] = useState('');
-  const [scope, setScope] = useState<'view' | 'model'>('view');
   const [response, setResponse] = useState<IfcQuestionResponse | null>(null);
   const [report, setReport] = useState<HighlightReport | null>(null);
   const [phase, setPhase] = useState('');
   const [error, setError] = useState('');
-  const [stale, setStale] = useState(false);
   const modelRef = useRef<IfcModelResponse | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
-  const previousView = useRef(viewRevision);
   const clearRef = useRef(clearHighlights);
   clearRef.current = clearHighlights;
 
   useEffect(() => () => { controllerRef.current?.abort(); clearRef.current(); }, []);
-  useEffect(() => {
-    if (previousView.current === viewRevision) return;
-    previousView.current = viewRevision;
-    if (controllerRef.current) clearRef.current();
-    controllerRef.current?.abort();
-    controllerRef.current = null;
-    setPhase('');
-    setStale(response?.scope === 'view');
-  }, [viewRevision]);
   useEffect(() => {
     if (!ready) {
       controllerRef.current?.abort();
@@ -136,7 +121,7 @@ export default function IfcQuestionPanel({
 
   const ask = async () => {
     const text = question.trim();
-    if (!text || !source.file || !ready || viewBusy || (scope === 'view' && section)) return;
+    if (!text || !source.file || !ready || !sourceHash) return;
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -144,11 +129,8 @@ export default function IfcQuestionPanel({
     setError('');
     setResponse(null);
     setReport(null);
-    setStale(false);
     clearHighlights();
     try {
-      const visibleIds = scope === 'view' ? await getViewStepIds() : null;
-      signal.throwIfAborted();
       let model = modelRef.current;
       if (!model || model.source_sha256 !== sourceHash) {
         setPhase('Reading source with the IFC engine…');
@@ -157,7 +139,7 @@ export default function IfcQuestionPanel({
         modelRef.current = model;
       }
       setPhase('Planning the source query; the IFC engine computes the answer…');
-      const request = { model_id: model.model_id, source_sha256: sourceHash, question: text, scope, visible_step_ids: visibleIds, view_label: viewLabel };
+      const request: IfcQuestionRequest = { model_id: model.model_id, source_sha256: sourceHash, question: text, scope: 'model', visible_step_ids: null };
       let result: IfcQuestionResponse;
       try {
         result = await askIfcQuestion(request, signal);
@@ -187,13 +169,11 @@ export default function IfcQuestionPanel({
   const valueContext = { units, elements: new Map([
     ...(response?.excluded_elements ?? []), ...(response?.unresolved_elements ?? []), ...(response?.included_elements ?? []),
   ].map((element) => [element.entity_id, element])), onSelect };
-  const canAsk = ready && !viewBusy && !!source.file && !!sourceHash && !(section && scope === 'view');
+  const canAsk = ready && !!source.file && !!sourceHash;
   return <div className="ifc-questions">
     <div className="ifc-question-intro"><strong>Ask the model. Check every element.</strong><p>The configured planner interprets your question. The IFC engine calculates from source objects, stored properties and recorded relationships.</p></div>
     <form className="ifc-question-form" onSubmit={(event) => { event.preventDefault(); void ask(); }}>
-      <label className="ifc-question-scope">Answer scope<select aria-label="IFC answer scope" value={scope} disabled={!!phase} onChange={(event) => setScope(event.target.value as 'view' | 'model')}><option value="view">Current view</option><option value="model">Entire IFC model</option></select></label>
-      <p className="ifc-scope-description">{scope === 'view' ? `${viewLabel}. Includes drawable objects allowed by storey and visibility controls. Orbit, zoom and occlusion do not filter objects.` : 'All extracted objects in this IFC revision, including objects hidden in the preview.'}</p>
-      {section && scope === 'view' && <p className="ifc-question-warning" role="status"><CircleAlert size={14} />Reset the horizontal section before asking about this view, or choose Entire IFC model. The cut plane does not establish object membership.</p>}
+      <p className="ifc-scope-description">Questions use the entire IFC model, including objects hidden in the preview.</p>
       <textarea aria-label="Question about IFC model" placeholder="How many windows are there?" value={question} maxLength={4000} onChange={(event) => setQuestion(event.target.value)} disabled={!ready || !!phase} rows={3} />
       <div className="ifc-question-submit"><small>Asking uploads this IFC to the local backend. Your question and bounded source metadata go to the configured analysis provider.</small>{phase ? <button className="secondary-button" type="button" onClick={() => { controllerRef.current?.abort(); controllerRef.current = null; clearHighlights(); setPhase(''); }}><X size={14} />Cancel</button> : <button className="primary-button" type="submit" disabled={!canAsk || !question.trim()}><ArrowUp size={15} />Ask</button>}</div>
     </form>
@@ -206,7 +186,6 @@ export default function IfcQuestionPanel({
       {!!response.result.claims?.length && response.result.claims.map((claim) => <div className={`ifc-computed-answer ifc-computed-${claim.value.kind}`} key={claim.id}><div>{ifcQualityLabel(claim.quality) && <span>{ifcQualityLabel(claim.quality)} </span>}<Value value={claim.value} {...valueContext} /></div>{claim.count_policy && <small>{claim.count_policy.grain.replaceAll('_', ' ')} · {claim.count_policy.hierarchy.replaceAll('_', ' ')} · Each source object counted once</small>}</div>)}
       {response.result.explanation?.text && <p className="ifc-answer-narrative">{response.result.explanation.text}</p>}
       <p className="ifc-answer-scope"><strong>Scope</strong> {response.scope_label}</p>
-      {stale && <p className="ifc-question-warning"><CircleAlert size={14} />View changed. This answer describes its captured scope; ask again for the current view.</p>}
       {response.interpretation && <p className="ifc-answer-interpretation">{response.interpretation}</p>}
       {!!response.result.issues?.length && <ul className="ifc-answer-issues">{response.result.issues.map((issue, index) => <li key={index}>{issue.message.text}{!!issue.options?.length && <ul>{issue.options.map((option, optionIndex) => <li key={optionIndex}>{option.text}</li>)}</ul>}</li>)}</ul>}
       {!!response.warnings?.length && <details className="ifc-evidence-group"><summary>Source & execution notes <span>{response.warnings.length}</span></summary><ul>{response.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul></details>}
