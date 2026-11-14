@@ -156,6 +156,45 @@ the Vite server process's `IMAGE_API_PROXY_TARGET` to a different local backend;
 this value is server configuration, not a browser credential. A hosted build
 requires its hosting server to forward `/api` to the Python service.
 
+## Troubleshoot the frontend connection
+
+The frontend needs both servers: `npm run dev` starts Vite only. If the image API
+is stopped, Vite can return an empty HTTP 500, which older frontend versions
+describe as "The analysis service returned an unreadable response. Check that
+the backend is running." This is a connection/response-format error, separate
+from an API result with `status: "unreadable"` about the drawing itself.
+
+From the repository root, start the Python service and leave it running in a
+separate terminal:
+
+```sh
+.venv/bin/python -m uvicorn image_api.app:app --host 127.0.0.1 --port 8000
+```
+
+On Windows use `.\.venv\Scripts\python.exe`. If `uvicorn` is missing, install the
+`api` extra using the [setup commands](#install-and-run).
+
+Open <http://127.0.0.1:8000/health>. A configured service returns
+`{"status":"ok","configured":true}`. If it returns HTTP 503 with
+`"configured":false`, check `VERDA_INFERENCE_KEY` and the other backend settings
+in the existing root `.env`, then restart the API. This check makes no inference
+request and does not establish provider availability.
+
+To check routing through the running frontend without sending a drawing or
+spending an inference call, send an intentionally empty request:
+
+```sh
+curl -i -X POST http://127.0.0.1:5173/api/v1/candidates
+```
+
+Use `curl.exe` in Windows PowerShell and the actual Vite port if it differs.
+A configured API returns HTTP 415 with a JSON message asking for multipart image
+and question fields. An empty/plain-text HTTP 500 or a gateway error points to
+the backend connection; check the Vite terminal and `IMAGE_API_PROXY_TARGET`.
+An HTML page instead of API JSON points to missing `/api` routing. Restart Vite
+after changing its proxy environment variable; for hosted builds, configure the
+hosting server's `/api` forwarding. Once these checks pass, retry the question.
+
 ## Limits, settings and errors
 
 API settings load from the root `.env` with process environment taking
