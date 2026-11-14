@@ -1,5 +1,11 @@
 # Gemini Decisions: capability routing and optional preprocessing
 
+Current routing correction: `capability-routing-v3` prefers Hydrogen. Carbon
+requires an explicit `needs_strong` assessment with probability at least 0.8;
+uncertainty, routing failures and timeouts use Hydrogen. The configurable setting
+is `IMAGE_API_ROUTING_STRONG_THRESHOLD`. Earlier v1/v2 proposals and evaluation
+records below remain historical. Selective preprocessing remains planned.
+
 Date: 14 November 2026. Branch: `feature/gemini-decisions-routing`.
 Starting revision: `9db07ec` on `main`.
 Updated with the teammate's research from `main` revision `89dbae1` (14 November).
@@ -475,9 +481,9 @@ It is not permission to run every analyzer on every production request.
 
 Proposed initial limits, to validate and version with experiment settings:
 
-- One Decisions request, with a three-second timeout inside the existing
-  180-second request deadline. A timeout can select strong within the remaining
-  budget. Avoid a deliberately tiny thumbnail that hides fine-detail difficulty;
+- One Decisions request, with a ten-second timeout inside the existing
+  180-second request deadline. A timeout uses Hydrogen within the remaining
+  budget under policy v3. Avoid a deliberately tiny thumbnail that hides fine-detail difficulty;
   compare supported media resolutions and use original dimensions as metadata.
 - First release: one selected analysis call, so two external calls at most.
   Crop release: one whole-image plus up to four detail calls, so six including

@@ -17,6 +17,7 @@ export function DecisionTrace({ trace, language }: { trace?: ImageDecisionTrace 
   const percent = (n: number) => new Intl.NumberFormat(language, { style: 'percent', maximumFractionDigits: 1 }).format(n);
   const cost = trace ? estimateCallCosts(trace.calls ?? []) : null;
   const threshold = trace?.nodes?.find((node) => node.criterion === 'capability')?.threshold;
+  const strongEvidenceOnly = trace?.policy_version === 'capability-routing-v3';
   const overallFitOnly = trace?.policy_version === 'capability-routing-v2';
   const legacyGates = trace?.policy_version === 'capability-routing-v1';
   return <details className="decision-trace">
@@ -26,11 +27,16 @@ export function DecisionTrace({ trace, language }: { trace?: ImageDecisionTrace 
       {Object.entries(trace.assessments ?? {}).length > 0 && <dl className="decision-assessments">
         {Object.entries(trace.assessments ?? {}).map(([key, value]) => <div key={key}><dt>{({ document_kind: fi ? 'Kuvatyyppi' : 'Image type', task_kind: fi ? 'Tehtävä' : 'Task', count_grain: fi ? 'Laskennan kohde' : 'Counting unit', target_kind: fi ? 'Kohteet' : 'Targets', scope: fi ? 'Laajuus' : 'Scope', normal_fit: fi ? 'Soveltuvuus' : 'Standard fit' } as Record<string, string>)[key] ?? key}</dt><dd>{decisionValue(value, language)}{trace.assessment_probabilities?.[key] != null && <> · {percent(trace.assessment_probabilities[key])}</>}</dd></div>)}
       </dl>}
-      {threshold != null && <p>{overallFitOnly
+      {threshold != null && <p>{strongEvidenceOnly
+        ? fi ? 'Carbon-suositus vaatii selvän tarpeen vaativalle tulkinnalle ja vähintään tämän todennäköisyyden:' : 'A Carbon recommendation requires a clear need for advanced interpretation with probability at least:'
+        : overallFitOnly
         ? fi ? 'Vain kokonaisarviota soveltuvuudesta verrataan rajaan:' : 'Only overall capability fit is compared with the threshold:'
         : legacyGates
           ? fi ? 'Jokaisen vaaditun arvion on ylitettävä raja:' : 'Every required assessment must meet the threshold:'
           : fi ? 'Tallennettu reititysraja:' : 'Recorded routing threshold:'} {percent(threshold)}.</p>}
+      {strongEvidenceOnly && <p className="decision-score-note">{fi
+        ? 'Hydrogen on oletussuositus myös epävarmassa luokittelussa tai reitityksen aikakatkaisussa. Taustatietojen arviot eivät yksin valitse Carbonia.'
+        : 'Hydrogen is the default recommendation, including uncertain classifications or routing timeouts. Diagnostic scores do not independently select Carbon.'}</p>}
       {overallFitOnly && <p className="decision-score-note">{fi
         ? 'Kuvatyypin, tehtävän, kohteiden, laskentayksikön ja laajuuden arviot ovat taustatietoa. Ne eivät yksin valitse vaativaa mallia.'
         : 'Image type, task, target, counting unit and scope scores are descriptive. They do not independently select advanced analysis.'}</p>}
@@ -38,7 +44,9 @@ export function DecisionTrace({ trace, language }: { trace?: ImageDecisionTrace 
         <strong>{labels[node.criterion]}</strong> <span className="decision-state">{states[node.state]}</span>
         <p>{decisionReason(node, language)}</p>
         {node.value && <span className="decision-value">{decisionValue(node.value, language)}</span>}
-        {node.probability != null && <p>{fi ? 'Tavalliseen analyysiin soveltuvuuden todennäköisyys' : 'Probability of standard capability fit'}: {percent(node.probability)}{node.threshold != null && <> · {fi ? 'Vaadittu raja' : 'Required threshold'}: {percent(node.threshold)}</>}</p>}
+        {node.probability != null && <p>{strongEvidenceOnly
+          ? fi ? 'Vaativan tulkinnan tarpeen todennäköisyys' : 'Probability that advanced interpretation is needed'
+          : fi ? 'Tavalliseen analyysiin soveltuvuuden todennäköisyys' : 'Probability of standard capability fit'}: {percent(node.probability)}{node.threshold != null && <> · {fi ? 'Vaadittu raja' : 'Required threshold'}: {percent(node.threshold)}</>}</p>}
       </li>)}</ol>
       <p className="decision-score-note">{fi ? 'Reititysarviot eivät ole vastauksen oikeellisuusprosentteja.' : 'Routing scores are not answer accuracy percentages.'}</p>
       {(trace.calls?.length ?? 0) > 0 && <section aria-label={fi ? 'Toteutuneet mallikutsut' : 'Recorded model calls'}>

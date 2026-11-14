@@ -73,6 +73,34 @@ try {
     nodes: [{ ...ordinary.nodes[0], reason_code: 'overall_fit_below_threshold', probability: 0.55 }] };
   assert.match(renderToString(createElement(DecisionTrace, { trace: hard, language: 'en' })),
     /Overall standard capability fit was below the required threshold/);
+  const cautious = {
+    ...ordinary, policy_version: 'capability-routing-v3',
+    assessments: { ...ordinary.assessments, normal_fit: 'needs_strong' },
+    assessment_probabilities: { ...ordinary.assessment_probabilities, normal_fit: 0.79 },
+    nodes: [{ id: 'fit', criterion: 'capability', state: 'evaluated', reason_code: 'hydrogen_preferred',
+              value: 'needs_strong', probability: 0.79, threshold: 0.8 }],
+  };
+  const v3 = renderToString(createElement(DecisionTrace, { trace: cautious, language: 'en' }));
+  assert.match(v3, /Standard analysis/);
+  assert.match(v3, /Carbon recommendation requires a clear need.*80%/);
+  assert.match(v3, /Probability that advanced interpretation is needed.*79%/);
+  assert.match(v3, /Hydrogen is the default recommendation, including uncertain classifications or routing timeouts/);
+  assert.doesNotMatch(v3, /Probability of standard capability fit|Every required assessment|Only overall capability fit/);
+  const v3Fi = renderToString(createElement(DecisionTrace, { trace: cautious, language: 'fi' }));
+  assert.match(v3Fi, /Carbon-suositus vaatii selvän tarpeen/);
+  assert.match(v3Fi, /Vaativan tulkinnan tarpeen todennäköisyys/);
+  const confident = { ...cautious, selected_profile: 'strong', recommended_profile: 'strong',
+    assessment_probabilities: { ...cautious.assessment_probabilities, normal_fit: 0.91 },
+    nodes: [{ ...cautious.nodes[0], reason_code: 'strong_confident', probability: 0.91 }] };
+  assert.match(renderToString(createElement(DecisionTrace, { trace: confident, language: 'en' })),
+    /need for advanced interpretation meets the Carbon threshold/);
+  const fallback = { ...cautious, assessments: {}, assessment_probabilities: {},
+    nodes: [{ id: 'fit', criterion: 'capability', state: 'failed', reason_code: 'router_read_timeout' },
+      { id: 'route', parent_id: 'fit', criterion: 'route', state: 'selected', reason_code: 'routing_fallback_normal', value: 'normal' }] };
+  const fallbackHtml = renderToString(createElement(DecisionTrace, { trace: fallback, language: 'en' }));
+  assert.match(fallbackHtml, /Waiting for the routing response timed out; no classification was received/);
+  assert.match(fallbackHtml, /fallback recommendation is Hydrogen/);
+  assert.doesNotMatch(fallbackHtml, /Probability that advanced interpretation is needed/);
   const fi = renderToString(createElement(DecisionTrace, { trace, language: 'fi' }));
   assert.match(fi, /Näin kuva analysoitiin/);
   assert.match(fi, /Valittu näkymä/);
@@ -80,7 +108,7 @@ try {
   assert.match(fi, /96/);
   const pending = renderToString(createElement(DecisionTrace, { trace: { ...trace, selected_profile: 'pending', mode: 'auto', nodes: [{ id: 'timeout', criterion: 'capability', state: 'failed', reason_code: 'router_timeout' }] }, language: 'en' }));
   assert.match(pending, /Route not selected/);
-  assert.match(pending, /Routing timed out/);
+  assert.match(pending, /Routing reached its time limit; no classification was received/);
   assert.doesNotMatch(pending, /advanced analysis was selected/i);
   const legacy = renderToString(createElement(DecisionTrace, { language: 'en' }));
   assert.match(legacy, /No decision path was recorded/);

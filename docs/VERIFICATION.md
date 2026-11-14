@@ -1,5 +1,45 @@
 # Sprint-one verification record
 
+## Hydrogen-first routing, 14 November 2026
+
+At the user's request, policy `capability-routing-v3` now uses Carbon only when
+Decisions explicitly selects `needs_strong` with probability at least 0.8.
+`IMAGE_API_ROUTING_STRONG_THRESHOLD` configures that gate. Uncertain or lower
+confidence assessments, unavailable routing, failures and timeouts use Hydrogen.
+The previous normal-fit threshold remains accepted for configuration compatibility
+and no longer controls v3. Cache keys include the new policy and strong threshold.
+The UI shows the advanced-interpretation probability and Carbon gate, while
+retaining historical v1/v2 explanations. This cost preference can under-escalate
+hard cases when Decisions is uncertain or unavailable.
+
+The bounded live development exercise covered 12 unique images/questions: five
+ordinary plans, four technical/scope cases and three historical drawings. Two
+requests used the actual browser UI; the others used the same streaming endpoint.
+Nine completed Decisions classifications all selected Hydrogen. All three
+historical cases hit the ten-second routing deadline and selected Carbon under
+v2; two Carbon analyses returned partial candidates and one failed with provider
+unavailable. Three earlier localhost connection failures are preserved, for
+15 attempted app requests total. No additional paid followup was required for v3.
+Replaying those recorded outcomes under v3 changes the three timeout fallbacks to
+Hydrogen; it does not establish the quality of new Hydrogen outputs.
+
+One Astra-6 Max reviewer inspected all 12 sources. It preferred normal for nine,
+strong for one, and left two ambiguous. Labels are `agent_reviewed`, not human
+ground truth or a paired analyzer benchmark. An interruption delayed saving the
+source labels until after some unsolicited summary exposure; that blinding
+limitation is recorded. Five of the first nine successful routing calls took
+longer than the former three-second timeout. Default routing/transport timeout
+is now ten seconds with no hidden three-second connection cap; safe phase-specific
+reasons distinguish connection/upload/read/pool failures where reported.
+
+Focused Linux validation: 44 routing/stream/Decisions tests passed; frontend
+candidate API tests, v3 and historical SSR fixtures, TypeScript/production build
+passed. Existing optional Three/IFC export and bundle-size warnings remain.
+The preceding timeout-only full suite passed 490 tests; that full-suite result
+predates v3 and is not a claim of final-policy coverage. Live evidence is ignored
+under `experiments/runs/routing-tuning/20261114T213230Z/`. Original images,
+reference answers and local credential files were unchanged.
+
 ## Decisions routing and current main integration, 14 November 2026
 
 Integrated the routing/loading work with main through `361c639`, preserving its
