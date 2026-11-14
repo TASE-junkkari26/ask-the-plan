@@ -14,6 +14,11 @@ The remaining **3,946 rows (3.11%)** contain BIM queries and drawing-schedule qu
 
 **Coverage in this report means the fraction of supplied question rows assigned to a family. It does not mean measured answer accuracy, extraction success, or the expected distribution of the organizers' final evaluation.** Repeated wording across thousands of different drawings can still require substantial perception work.
 
+A later [generated question classification](QUESTION_CLASSIFICATION.md) assigns
+every row to an explicit 234-family analysis taxonomy. Its finer semantic groups
+serve a different purpose from the source/template concentration counts below;
+neither report measures implemented answer coverage.
+
 ## What was actually inspected
 
 The full archive's `junction-dataset/questions.jsonl` was retrieved using HTTP byte ranges: the ZIP64 directory and the compressed question member only. This transferred **3,075,232 bytes, about 3.08 MB**, including archive metadata, rather than downloading the **9,768,952,082-byte archive**. The decompressed question file is **26,233,461 bytes**. Its SHA-256 matches the existing [full dataset audit](../dataset/full_dataset_audit.json):
@@ -247,7 +252,7 @@ Examples that make the tail concrete are below. Line numbers refer to the hash-m
 | 89,414 | Width of door `121.A` in a schedule | Exact row lookup plus fractional imperial-unit parsing |
 | 89,447 / 89,459 | Window schedule total; N-wide assembly unit total | Sum declared quantities; multiply assembly widths/counts before summing |
 
-An exhaustive, manually adjudicated semantic partition of all 820 multi-part IFC-Bench prompts is not claimed here. Their source share is known exactly (0.65%); the capability list and source examples prevent that share from being mistaken for unneeded work. The 45-template concentration calculation does not depend on a speculative classification of this tail.
+This template-concentration investigation did not manually adjudicate an exhaustive semantic partition of all 820 multi-part IFC-Bench prompts. The later [classification report](QUESTION_CLASSIFICATION.md) supplies an explicit analysis taxonomy; it does not validate the answers or source geometry. Their source share is known exactly (0.65%); the capability list and source examples prevent that share from being mistaken for unneeded work. The 45-template concentration calculation does not depend on a speculative classification of this tail.
 
 A required family does not require inventing absent inputs. Some supplied references explicitly use external defaults or estimates: window unit prices, carbon factors, and an estimated egress distance are examples. The accessibility reference also lacks a documented rule basis. The correct supported behavior is source-backed computation when inputs exist, an explicitly qualified estimate when justified, or a precise missing-information outcome. Reproducing an ungrounded reference number is not evidence of a working capability.
 

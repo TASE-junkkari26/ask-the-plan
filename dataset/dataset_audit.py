@@ -1,6 +1,9 @@
-"""Audit the supplied preview without third-party dependencies or changing its data.
+"""Audit an extracted preview/full dataset using only the standard library.
 
-Run: python dataset_audit.py --output dataset_audit.json
+From the repository root:
+    python dataset/dataset_audit.py dataset/junction-dataset-preview --output build/preview-audit.json
+
+Create the output directory first. Sources are read only; an existing output is replaced.
 IFC entity counts inspect STEP records; they are not a substitute for an IFC parser.
 """
 
@@ -115,7 +118,8 @@ def audit(root):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("dataset", nargs="?", type=Path, default=Path("junction-dataset-preview/junction-dataset-preview"))
+    parser.add_argument("dataset", nargs="?", type=Path, default=Path(__file__).resolve().parent / "junction-dataset-preview",
+                        help="Dataset root containing questions.jsonl and data/; defaults to the checkout preview")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     result = audit(args.dataset)

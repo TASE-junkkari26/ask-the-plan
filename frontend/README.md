@@ -54,7 +54,7 @@ From `frontend/` (`npm` on Linux):
 npm.cmd run generate:contracts
 ```
 
-Mock result IDs/anchors/coverage references are presentation fixtures. They are structurally valid `QueryResult` records; this prototype does not provide a complete source `KnowledgeBundle` or establish real extraction completeness. The area example's geometric dimensions and subtraction are internally consistent, and matching plan/schedule doors share canonical identities.
+Mock result IDs/anchors/coverage references are presentation fixtures. Sample envelopes pass Pydantic `QueryResult` validation; this prototype does not provide the complete source `KnowledgeBundle` and matching plans needed for semantic `validate_result` checks, or establish real extraction completeness. The area example's geometric dimensions and subtraction are internally consistent, and matching plan/schedule doors share canonical identities.
 
 Preserve this separation during integration:
 
@@ -75,6 +75,6 @@ node scripts/smoke-render.mjs
 
 Tests cover per-drawing scope, multilingual object consistency, logical identity across source appearances, polygon/column area arithmetic, precise schedule lookup, missing information, cancellation, rotated focus coordinates, and bounded zoom. `scripts/export-demo-fixtures.ts` emits sample result envelopes for validation against the Python contracts.
 
-The initial implementation passed 11 frontend logic tests and 28 generated mock result envelopes passed shared Pydantic validation. A production build and a server-rendered initial-workspace smoke check passed. Automated visual browser QA was blocked because URL-policy enforcement is unsupported in this Windows browser; responsive appearance, file-upload controls, and exported artifacts need manual browser verification. Do not interpret the logic tests or server rendering as completed end-to-end UI tests.
+The latest checks are recorded in the [verification record](../docs/VERIFICATION.md). The 11 frontend logic tests and production build pass; server rendering and sample envelopes are checked separately. Earlier browser automation was reported blocked by the available Windows browser tooling. Responsive appearance, file-upload controls, and exported artifacts still need browser verification. Logic tests, Pydantic validation, and server rendering do not establish completed end-to-end UI tests.
 
-Keyboard shortcuts: `+`/`−` zoom, `0` fit, `R` rotate, `O` toggle marks, `/` source search, `Escape` clear selection/menus. Enter submits the question; Shift+Enter inserts a line break.
+Keyboard shortcuts: `+`/`-` zoom, `0` fit, `R` rotate, `O` toggle marks, `/` source search, `Escape` clear selection/menus. Enter submits the question; Shift+Enter inserts a line break.

@@ -59,7 +59,7 @@ Each record has `{path, question, answer, unit, type}`. `type` describes the ans
 
 The documented numeric scoring rule is exact counts and measurements within 2%; text answers are free-form. No executable scorer or text grading procedure is supplied. These rules are distinct from the four hackathon judging criteria.
 
-`unit: null` for text rows is intentional. Some text answers contain numbers or dimensions: for example, the width of door 121.A is returned as `5'-10 3/8"` and marked `text` ([questions.jsonl](junction-dataset-preview/junction-dataset-preview/questions.jsonl), line 5586). Thus `type` is not an object class or a complete intent taxonomy.
+`unit: null` for text rows is intentional. Some text answers contain numbers or dimensions: for example, the width of door 121.A is returned as `5'-10 3/8"` and marked `text` ([preview questions.jsonl, line 5586](junction-dataset-preview/questions.jsonl#L5586)). Thus `type` is not an object class or a complete intent taxonomy.
 
 ## Why questions do not cover every class
 
@@ -121,7 +121,7 @@ Some reference answers explicitly say the information is unavailable; others giv
 
 ### Preview limitations found
 
-- **Missing source model:** the FZK-Haus attic PDF/SVG has 24 questions, including whole-building counts, but `kit-fzk-haus_ac20-fzk-haus.ifc` is absent from the preview. Its SVG shows no doors on the attic floor, while a model-wide question asks for five doors. The existing `ifc_bench/ac20_arc.ifc` is a different office model, not a substitute. The full archive may contain the missing source; this is unverified.
+- **Missing source model:** the FZK-Haus attic PDF/SVG has 24 questions, including whole-building counts, but `kit-fzk-haus_ac20-fzk-haus.ifc` is absent from the preview. Its SVG shows no doors on the attic floor, while a model-wide question asks for five doors. The existing `ifc_bench/ac20_arc.ifc` is a different office model, not a substitute. This was unverified in the preview review; the later [full audit](FULL_DATASET_FINDINGS.md#improvements-over-the-preview) confirms that source is present in the full archive.
 - **Empty model content:** `ifc_models/resbim-388_model.ifc` is only 2,501 bytes. It contains project/site/building/storey and unit/context records, but no building-element or space occurrences. No questions reference it. Do not assume every IFC is a usable complete building.
 - **Other IFCs:** five IFC files in `opening_design` are unreferenced by questions. Some are details/test exports, including a file explicitly located under `bad IFC models - for autopsy only`. They should not be assumed to be equivalent training examples of complete buildings.
 - **Units:** the inspected Esplanades and Molio files declare millimetre length units and square-metre area units. Inspect the appropriate quantity/project units before summing or comparing to the JSONL's metres, square metres, cubic metres, or square feet.
@@ -145,11 +145,11 @@ a requirement for unknown evaluation classes from missing package metadata.
 
 ## Reproduce the local audit
 
-From the **repository root**, with the preview extracted in this checkout's
-nested layout:
+From the **repository root**, with the preview root containing `questions.jsonl`
+and `data/`:
 
 ```text
-python dataset/dataset_audit.py dataset/junction-dataset-preview/junction-dataset-preview --output dataset/dataset_audit.json
+python dataset/dataset_audit.py dataset/junction-dataset-preview --output dataset/dataset_audit.json
 ```
 
 Adjust the input path if your extraction layout differs. The script uses only

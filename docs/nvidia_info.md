@@ -10,19 +10,21 @@ question planner, object detector, annotation batch job, or drawing-analysis API
 Model predictions and syntactically valid JSON do not establish source truth,
 correct localization, or a complete object inventory.
 
-## One local setup step
+## Local setup
 
-In the prepared checkout, dependencies are installed in `.venv` and the local
-ignored **`.env` already exists**. Paste the inference key after:
+Install the project in a virtual environment using the platform commands in
+[README](../README.md#install-and-use-the-ifc-engine). Copy
+[.env.example](../.env.example) to `.env` only if that local file is absent; preserve
+existing settings and keys. Set the inference credential in the ignored file:
 
 ```dotenv
 VERDA_INFERENCE_KEY=
 ```
 
-No model/URL changes or shell exports are needed. For a fresh clone, install the
-project with `python -m pip install -e ".[test]"` in a virtual environment and copy
-[.env.example](../.env.example) to `.env` first. See [README](../README.md) for
-platform-specific installation commands. Never put the key in frontend code,
+The example supplies the hackathon URL, model, and request defaults. Availability
+and access depend on the deployment; change those values only for a deployment
+you intend to use. Existing process settings take precedence over the file.
+Never put the key in frontend code,
 `VITE_*`, command-line arguments, screenshots, or committed files.
 
 Settings load when a client is created, not at import time. In an editable
@@ -39,7 +41,7 @@ a different file with `python -m nemotron --env-file PATH check`.
 | `VERDA_INFERENCE_KEY` | Empty; required | Verda inference credential, sent as a Bearer token |
 | `VERDA_BASE_URL` | `https://containers.datacrunch.io/nemotron-3-5-super-vl-b300/v1` | Supplied Junction deployment's OpenAI-compatible base URL |
 | `VERDA_MODEL` | `nemotron-3.5-super-vl` | Supplied deployment's model ID |
-| `VERDA_TIMEOUT_SECONDS` | `120` | Per-attempt timeout, up to 600 seconds; connection timeout is at most 10 seconds |
+| `VERDA_TIMEOUT_SECONDS` | `120` | HTTPX network-phase timeout, up to 600 seconds; the connection phase is capped at 10 seconds |
 | `VERDA_MAX_RETRIES` | `2` | Retries after the initial attempt, bounded to 0-5 |
 | `VERDA_MAX_TOKENS` | `2048` | Output-token budget, sent as `max_tokens` |
 | `VERDA_TEMPERATURE` | `0.2` | Sampling temperature, 0-2 |
@@ -50,9 +52,12 @@ disabled by default to preserve the output budget for short answers and JSON.
 These are configurable request defaults, not measured accuracy/cost claims.
 
 The SDK retries connection failures, timeouts, HTTP 408/409/429 and server errors.
-Authentication errors do not retry. Timeouts apply to each attempt, so a retried
-request can take longer than `VERDA_TIMEOUT_SECONDS`. Reuse a client within a batch
-and bound concurrency at the worker level. Never retry indefinitely.
+Authentication errors do not retry. HTTPX applies separate connect/read/write/pool
+timeouts; the read timeout limits waiting for a response chunk. This setting is
+not a total wall-clock deadline. Multiple phases, retries, and backoff can make a
+request exceed `VERDA_TIMEOUT_SECONDS`. A worker needing a total deadline must
+supply one. Reuse a client within a batch and bound concurrency at the worker
+level. See [HTTPX timeout semantics](https://www.python-httpx.org/advanced/timeouts/).
 
 Verda's general inference documentation now uses `https://inference.verda.com/v1`.
 This project deliberately defaults to the separately supplied hackathon deployment;
@@ -138,7 +143,9 @@ ingestion/annotation pipeline, not to an unverified model claim.
 
 ## Verification and troubleshooting
 
-Credential-free tests:
+The [verification record](VERIFICATION.md) separates tests rerun during the latest
+hardening pass from the historical authenticated observations below. No live
+inference is needed for these credential-free tests:
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest tests.test_nemotron -v

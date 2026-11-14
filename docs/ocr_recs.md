@@ -4,8 +4,10 @@
 **Purpose:** Choose OCR and handwritten-text-recognition (HTR) components for the evidence-backed quantity engine described in [the stack recommendation](TECH_STACK_RECOMMENDATION.md), using [the shared contracts](SCHEMA.md).
 
 **Implementation status, 14 November:** This is a dated research and evaluation
-plan. No OCR, handwriting, raster detector, or model-routing pipeline is currently
-integrated. The repo contains a standalone [IFC engine](IFC_ENGINE.md) and a
+plan. No general OCR, handwriting, raster inventory, or model-routing pipeline is
+currently integrated. A separate [door-labeling pilot](../experiments/door_labeling/RESULTS.md)
+saves VLM proposals for one development image; it is not an evaluated inventory
+extractor or OCR benchmark. The repo contains a standalone [IFC engine](IFC_ENGINE.md) and a
 [mock frontend](../frontend/README.md). Model/version/benchmark statements below
 describe the original review, not measurements on this dataset; verify exact
 versions and checkpoint terms when implementing.
@@ -28,7 +30,7 @@ Use a **hybrid extraction system**, not one universal OCR model:
 5. Benchmark **Kraken 7.1 medium** only when a relevant handwriting failure slice emerges or an archival demonstration is deliberately in scope. Keep **TrOCR small/base** as a later fine-tuning alternative.
 6. If native schedule extraction fails on relevant examples, test **one** document parser: **Surya 2.5** or **PaddleOCR-VL 1.6**. Evaluate **Chandra OCR 2** only if unresolved cases justify another model and serving dependency.
 
-**Initial prototype: native extraction + PP-OCRv6 medium + the existing raster instance/room baseline + deterministic queries and evidence overlays.** Historical HTR and generative OCR are optional upgrades with evaluation gates. Cache extraction by source hash and pipeline/model configuration so OCR is reusable ingestion work.
+**Initial prototype: native extraction + PP-OCRv6 medium + a raster instance/room baseline to evaluate + deterministic queries and evidence overlays.** Historical HTR and generative OCR are optional upgrades with evaluation gates. Cache extraction by source hash and pipeline/model configuration so OCR is reusable ingestion work.
 
 ## 1. What the dataset tells us
 
@@ -114,7 +116,7 @@ Source: [Datalab — Open OCR models on OmniParseBench](https://www.datalab.to/b
 
 For the handwriting subset of that benchmark, reported scores were **66.8 for Chandra OCR 2**, **58.9 for dots.mocr**, and **52.0 for MinerU2.5-Pro**. These figures are **benchmark scores, not character recognition accuracy**, and they do not represent this construction-drawing dataset.
 
-The newer Surya 2.5 was released after that comparison; its reported overall OmniParseBench score is **85.9**. Treat this as a separate model report rather than a strictly controlled same-run comparison.
+The newer Surya 2.5 has a separately [publisher-reported OmniParseBench score of **85.9**](https://github.com/datalab-to/surya#omniparsebench). Treat this as a separate model report rather than a strictly controlled same-run comparison.
 
 **Use of these results:** This is a vendor-run document benchmark. Its headline combines text, table, and layout scores; it does not measure blueprint object counting, exact short dimension strings, or correct text-to-room association. It also does not compare the proposed PP-OCRv6 and Kraken baselines. Use it to choose a conditional experiment, not to require a model in the MVP.
 
@@ -161,7 +163,7 @@ The original TrOCR report lists approximately **4.22%**, **3.42%**, and **2.89%*
 
 **Role:** An alternative to compare with Kraken if sufficient verified line crops exist. A narrow vocabulary of room labels and dimensions may make adaptation tractable, but superiority must be measured rather than assumed.
 
-Source: [TrOCR handwritten checkpoint](https://huggingface.co/microsoft/trocr-base-handwritten).
+Sources: [TrOCR paper](https://arxiv.org/abs/2109.10282), [handwritten checkpoint](https://huggingface.co/microsoft/trocr-base-handwritten).
 
 ### 3.3 Reuse a planned or configured image endpoint first
 
@@ -188,7 +190,7 @@ Source: [Chandra OCR 2](https://huggingface.co/datalab-to/chandra-ocr-2).
 
 ### 3.5 Surya 2.5 and PaddleOCR-VL 1.6: conditional document-layout challengers
 
-The stack review's demonstrated Opening Design schedule lookups already work with native PDF text. Only if relevant schedules or layouts fail native extraction should the team select one challenger:
+The stack review recovered selected Opening Design schedule lookups from native PDF text during source investigation; no reusable PDF/schedule adapter is implemented. Only if relevant schedules or layouts fail native extraction should the team select one challenger:
 
 - **Surya 2.5:** OCR plus layout and reading-order parsing; potentially an integrated route for text localization and extraction.
 - **PaddleOCR-VL 1.6:** Compact vision-language document parser, potentially useful for complex pages and structured tables.
@@ -217,7 +219,7 @@ flowchart TD
     G --> H[Answer + highlighted source regions or BIM object IDs]
 ```
 
-**Visual branch:** Recover localized instances and room regions using the timeboxed existing floor-plan baseline in the stack recommendation. A whole-image classifier cannot supply object membership or complete counting evidence. Add a custom detector/segmenter only where annotations and held-out QA results justify it.
+**Visual branch:** Recover localized instances and room regions using a timeboxed floor-plan baseline as proposed in the stack recommendation. A whole-image classifier cannot supply object membership or complete counting evidence. Add a custom detector/segmenter only where annotations and held-out QA results justify it.
 
 **Text branch:** Find text regions; recognize room labels, annotations, dimensions, and specifications; retain bounding boxes and uncertainty.
 
@@ -283,7 +285,7 @@ Emit [the existing contract records](SCHEMA.md) from [contracts/models.py](../co
 | Boxes/polygons and coordinate alignment | `Geometry` referencing a `CoordinateFrame`; explicit `Transform` records for rendering, scaling, tiling, deskewing, and crop rotation back to the original view |
 | Recognition method and score | Feature `Provenance(method="ocr")`, run/anchor IDs, and a named recognition score when available; native text uses `method="native"` |
 | Object association and interpretation | Link source features through `Representation` to canonical entities; keep a normalized room classification or parsed quantity as a separate provenanced assertion using the relevant catalogs |
-| Schedules | Table/row/cell features, row/column indices and header links, with exact cell anchors and schedule-row counting semantics |
+| Schedules | Table/row/cell `SourceFeature` records with `table_id`, row/column indices, spans and `header_feature_ids`; exact cell anchors can also carry native row/column indices. Use an explicit schedule-row counting policy |
 | Missing or conflicting evidence | Explicit fact status, scoped `Coverage`, and result issues such as `incomplete_coverage` or `conflicting_evidence` |
 
 For `MH 12.5 m²`, the OCR observation remains the literal text. The inferred bedroom class and parsed area are separate assertions; neither changes the source transcription. Preserve competing fallback observations and abstain when association or numeric interpretation is unresolved.
@@ -396,7 +398,7 @@ Record the exact weights, revision, runtime, and applicable license terms for an
 | Stage | Deliverable | Gate before expanding |
 |---|---|---|
 | Foundation | Representative development views, frozen project test split, contract adapter, source/crop transforms | One native query and one raster text region can be traced to the correct original view |
-| Baseline | Native extraction + PP-OCRv6 medium, existing visual baseline, spatial associations, cached facts | Measure exact labels/dimensions, detector recall, final QA, and evidence alignment against native-only |
+| Baseline | Native extraction + PP-OCRv6 medium, evaluated visual baseline, spatial associations, cached facts | Measure exact labels/dimensions, detector recall, final QA, and evidence alignment against native-only |
 | Crop fallback, if needed | Bounded comparison using the planned Qwen path or configured Nemotron endpoint | Verify actual image support and cost; retain only a measured improvement on relevant unresolved crops |
 | Handwriting, if needed | Kraken 7.1 medium comparison on the identified failure slice or scoped archival demo | Recognition and full-path results justify segmentation/runtime effort; fine-tune one model only if curated data and residual errors warrant it |
 | Schedules, if needed | One parser or table extractor on relevant native-extraction failures | Requested row/cell content and locations improve; add Chandra only if residual failures justify it |
@@ -404,7 +406,7 @@ Record the exact weights, revision, runtime, and applicable license terms for an
 
 ### Final decision
 
-**Start with native extraction + PP-OCRv6 medium + the existing localized raster baseline.** Historical HTR, fine-tuning, and extra document VLMs remain optional until a measured task failure justifies them. Recognition uncertainty can trigger crop review; independently measured detection coverage must handle text that was missed entirely.
+**Evaluate native extraction + PP-OCRv6 medium + a localized raster baseline.** No retained general raster baseline is implemented yet. Historical HTR, fine-tuning, and extra document VLMs remain optional until a measured task failure justifies them. Recognition uncertainty can trigger crop review; independently measured detection coverage must handle text that was missed entirely.
 
 The durable contribution is the link between source text/geometry, canonical objects, deterministic calculations, and inspectable evidence. A construction-specific handwriting recognizer is a possible later optimization if held-out QA and cost results support it; improved frontier models can also be adopted through the same adapter.
 
@@ -435,4 +437,4 @@ The durable contribution is the link between source text/geometry, canonical obj
 - [Datalab — Open OCR models: OmniParseBench comparison](https://www.datalab.to/blog/open-ocr-models-omniparsebench)
 - [CubiCasa5K upstream repository](https://github.com/CubiCasa/CubiCasa5k)
 
-**Evidence boundary:** Dataset counts and structural observations come from the repository audits; sampled visual/native-extraction findings come from the stack recommendation. Model capabilities, benchmarks, and license summaries come from the linked publisher documentation checked during the assessment. Endpoint configuration establishes a candidate, not measured service behavior. **No OCR model was trained or benchmarked on the project's drawings for this plan, and no endpoint was exercised.**
+**Evidence boundary:** Dataset counts and structural observations come from the repository audits; sampled visual/native-extraction findings come from the stack recommendation. Model capabilities, benchmarks, and license summaries come from the linked publisher documentation checked during the assessment. The [Nemotron guide](nvidia_info.md) and [door pilot](../experiments/door_labeling/RESULTS.md) separately record small live observations; they do not benchmark OCR or inventory completeness. **No OCR model was trained or benchmarked on the project's drawings as part of this plan.**

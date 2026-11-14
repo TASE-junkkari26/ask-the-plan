@@ -15,7 +15,7 @@ The [current frontend](../frontend/README.md) is a mock 2D workbench with prepar
 
 The product should be a browser application available to users on either OS, with a common backend API and stable evidence artifacts. Most CPU components can also be developed natively on either platform. GPU inference should remain a separate deployment concern.
 
-This table describes the intended platform architecture. FastAPI/SQLite, the GPU workers, model adapters, CAD/PDF extraction, and IFC viewing are proposed components; available packages do not establish an installed integration. External platform references below were consulted for the original 13 November design and must be rechecked when selecting exact versions.
+This table describes the intended platform architecture. FastAPI/SQLite, GPU workers, planner routing, CAD/PDF extraction, and IFC viewing are proposed components. The backend [Nemotron client](nvidia_info.md) is implemented independently. Available packages do not establish an installed integration. External platform references below were consulted for the original 13 November design and must be rechecked when selecting exact versions.
 
 | Layer | Linux | Windows | Decision |
 |---|---|---|---|
@@ -26,7 +26,7 @@ This table describes the intended platform architecture. FastAPI/SQLite, the GPU
 | IfcOpenShell/ezdxf/Shapely/PyMuPDF | Supported packages/builds | Supported packages/builds | Choose matching Python/architecture wheels and pin a tested dependency combination. |
 | GPU OCR/detection/HTR | Recommended worker environment | Possible for selected runtimes; installation/runtime compatibility varies | Invoke through an API or job queue; an optional specialist must not block the viewer startup. |
 | vLLM self-hosted model serving | Supported deployment OS | No official native support; WSL is an option | Use a Linux worker if self-hosting. |
-| Supplied Nemotron service | HTTP client in backend | HTTP client in backend | Implement and verify an adapter for the supplied endpoint; keep credentials on the backend. No local frontier-model serving is required. |
+| Supplied Nemotron service | HTTP client in backend | HTTP client in backend | The sync/async adapter and mocked HTTP tests are implemented; dated live checks are recorded in the guide. Planner integration remains pending. Keep credentials on the backend. |
 
 IfcOpenShell documents Windows/Linux builds; Shapely provides binary wheels for both, and PyMuPDF documents both platforms. ezdxf also documents cross-platform dependency installation. These establish available packaging routes, not a tested application release. [IfcOpenShell](https://docs.ifcopenshell.org/ifcopenshell-python/installation.html), [Shapely](https://shapely.readthedocs.io/en/stable/installation.html), [PyMuPDF](https://pymupdf.readthedocs.io/en/latest/installation.html), [ezdxf](https://ezdxf.readthedocs.io/en/stable/setup.html).
 
@@ -36,7 +36,7 @@ Three.js's current WebGL renderer requires WebGL 2. Test the actual model viewer
 
 Use API resource URLs/opaque IDs rather than transmitting `C:\...` or `/home/...` paths as browser resources. Keep source hashes, units, coordinate frames, fonts, artifact/converter versions, and model-origin transforms consistent across machines. Use one authoritative computed result; clients must not independently recalculate geometry and produce different platform-dependent answers.
 
-The supported browser list and release dependency versions need to be fixed after integration. Reported Linux backend checks used Python 3.12.3. On Windows, Python 3.14 with IfcOpenShell 0.9.0.post1 and Pydantic 2.14.3 passed 63 tests, with one optional real-model test skipped because its expected preview layout differs. The frontend logic tests and production build passed with Node 24 LTS on Windows. Browser/end-to-end integration remains unverified. Native DWG conversion and legacy model runtimes remain optional adapters whose platform support must be verified separately.
+The supported browser list and release dependency versions need to be fixed after integration. The [verification record](VERIFICATION.md) gives the current Windows commands, versions, passing checks, and dataset layout. Earlier Linux backend checks reported Python 3.12.3; this pass did not rerun Linux or browser/end-to-end checks. Native DWG conversion and legacy model runtimes remain optional adapters whose platform support must be verified separately.
 
 ## What showing reasoning means
 

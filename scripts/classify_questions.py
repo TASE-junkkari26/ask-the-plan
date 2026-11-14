@@ -275,6 +275,7 @@ def report(rows: list[Classified], digest: str, blanks: int, dataset: Path, repo
     lines = [
         '# Exact question classification of the full Junction dataset', '',
         f'Generated {report_date} from the supplied full dataset, excluding the preview.', '',
+        'Regenerate this report with [the classifier](../scripts/classify_questions.py); edit its taxonomy/generator rather than this generated file.', '',
         f'**{total:,} question rows; {texts:,} distinct verbatim question texts; {len(families):,} semantic question families; every row classified exactly once.**', '',
         'These are counts of **questions**, not counts of physical windows, doors, or other objects. No reference answers were summed.', '',
         '## Counting and classification rules', '',
@@ -369,9 +370,9 @@ def report(rows: list[Classified], digest: str, blanks: int, dataset: Path, repo
               'python scripts/classify_questions.py --report-date ' + report_date,
               'python scripts/classify_questions.py --report-date ' + report_date + ' --check',
               '# Optional: export every source row with its family (analysis data, no answers).',
-              'python scripts/classify_questions.py --rows-out /tmp/junction-question-classification.jsonl',
+              'python scripts/classify_questions.py --report-date ' + report_date + ' --check --rows-out question-classification.jsonl',
               'python scripts/check_docs.py', '```', '',
-              'On Windows, replace `/tmp/junction-question-classification.jsonl` with a writable local path.', '',
+              'Use the configured Python interpreter on either OS. The optional row export writes the named JSONL even with `--check`; the tracked Markdown report stays unchanged. No reference answers are exported.', '',
               'Sources: [classifier](../scripts/classify_questions.py), [reviewed taxonomy](../scripts/question_classification_taxonomy.json), '
               '[dataset question file](../dataset/junction-dataset/questions.jsonl), [dataset README](../dataset/junction-dataset/README.md), '
               '[full dataset findings](../dataset/FULL_DATASET_FINDINGS.md), and [project scope](PROJECT_SCOPE.md).', '']

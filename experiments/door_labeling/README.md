@@ -21,7 +21,9 @@ asks for a list of logical door instances and normalized `xyxy` coordinates over
 the entire image. The count is calculated from that list. The source is uploaded
 unmodified; no crop/resize transformation is applied in this first baseline.
 
-Each timestamped directory under `experiments/runs/door-labeling/` contains:
+Successful runs under `experiments/runs/door-labeling/` contain the following
+artifacts. Early setup/file errors can leave only a partial directory; handled
+inference/schema errors write `error.json` instead of a successful summary:
 
 - `input.png`, source credit and licence: exact input and attribution.
 - `request.json`: source hash, code revision/runner hash, dimensions, settings,
@@ -31,7 +33,7 @@ Each timestamped directory under `experiments/runs/door-labeling/` contains:
 - `annotated.png` and `proposal-crops.jpg`: original-coordinate overlays and context crops.
 - `reference-check.json`, if requested: count comparison performed only after
   saving the prediction. It does not verify localization.
-- `summary.json`, or `error.json` if the request/validation fails.
+- `summary.json` for a successful run.
 - `cost-estimate.json` and `README.md`: token-cost arithmetic, dated reference
   rates/source, effective project cost, and a visible result/overlay summary.
 - `runner-source.py.txt`: the exact runner source matching the recorded hash.
@@ -55,7 +57,9 @@ use the output rate. Discounts, taxes and separate image charges are excluded.
 The project's effective access cost is recorded separately as zero, as reported
 by the owner, without claiming verification against a billing account.
 
-To recompute the report from saved usage without calling the model:
+To recompute the report from saved usage without calling the model, run the
+following. It replaces that run's `cost-estimate.json`, `summary.json`, and
+`README.md`; raw requests/responses/predictions are preserved:
 
 ```powershell
 .\.venv\Scripts\python.exe -m experiments.door_labeling.reporting experiments/runs/door-labeling/20261113T234605960384Z

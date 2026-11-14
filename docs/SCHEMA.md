@@ -73,7 +73,7 @@ The semantic validator requires a resolved length unit for physical frames. Keep
 
 Transforms specify `from_frame_id`, `to_frame_id`, kind, matrix, and provenance. They map column vectors in homogeneous coordinates: the target is `M × source`, followed by homogeneous division when required. An affine 2D mapping is 3×3; 3D is 4×4; a 3D-to-2D projection is 3×4. An inverse map must be explicitly computed and validated; a projection is not invertible by assumption. Matrix shape and frame dimensionality must agree. Do not infer an object-to-view mapping from a label or shared filename.
 
-Polygon shells and holes are closed rings. A room can contain column holes or disconnected components; these must survive through measurement and evidence rendering. Ring closure alone does not prove valid topology, containment, nonintersection, or planarity. Those checks belong to geometry processing. Meshes and large rendered assets are stored externally by URI and content hash.
+Polygon shells and holes are closed rings. A room can contain column holes or disconnected components; these must survive through measurement and evidence rendering. Ring closure alone does not prove topology. The semantic validator additionally rejects zero-area/self-intersecting simple 2D rings, holes outside or touching their shell, and overlapping/nested holes. It does not validate intersections between separate multipolygon parts, arbitrary 3D topology/planarity, or measurement correctness. Geometry processing still owns those checks. Meshes and large rendered assets are stored externally by URI and content hash.
 
 A page may contain a floor plan, a site inset, and a legend at different scales. Use separate views and calibration IDs; never establish one metres-per-pixel conversion for the whole page unless that fact is supported. `Calibration` links its view, a transformation, method, and supporting provenance. Cropped/rotated tiles keep their own frames and mappings back to the original view. A drawing marked not to scale can still support symbol counts while metric measurement remains unsupported.
 
@@ -129,7 +129,11 @@ Traversal stays within the explicit scope. To query a floor's doors through mode
 
 `required_capabilities` and the executor's `CapabilityManifest` make representability distinct from implementation support. `operations` contains specific capability IDs such as `select`, `aggregate.count`, `aggregate.sum`, `measure.union_area`, and `arithmetic.divide`. Both declared requirements and the operations actually used must be supported. Relation/property/concept names must also be allowlisted against the manifest and catalog. A parsed `measure.volume` request does not prove a volume engine is installed. Report `unsupported_operation` when its executor is unavailable, and `insufficient_calibration` when measurement lacks the necessary physical mapping.
 
-### Concise end-to-end example
+### Illustrative request-to-evidence flow
+
+This schema example is not an executable IFC-engine recipe: its IDs and
+`door.opening_with_leaf.v1` rule are illustrative. The IFC engine accepts only its
+[registered occurrence/assembly/leaf rules](../ifc_engine/catalog.py).
 
 After ingestion has established `project:demo`, `document:demo:r1`, `storey:ground`, `concept:door`, their source anchors, and complete door coverage, this request can be resolved:
 
@@ -224,7 +228,8 @@ Issues preserve localized messages, entity/fact/anchor references, and clarifica
 
 ## Storage mapping
 
-Every source uses the same contract with different extractors:
+The intended adapters can use the same contract. Only IFC extraction is
+implemented; this table describes proposed mappings for the other sources:
 
 | Source category | Primary contract records |
 |---|---|

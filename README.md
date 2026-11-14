@@ -26,27 +26,34 @@ optional extensions unless a supplied question needs them. See the
 | Frontend | React workbench, synthetic drawings/answers, selectable overlays, calculations, local image/PDF preview, export | Mock adapter; no backend/model calls or IFC 3D viewer. Uploaded files are not analysed. |
 | IFC engine | CPU extraction, structured selection/traversal, scalar properties/quantities, counts, grouping/ranking, evidence and caching | Standalone Python/CLI; no natural-language planner, HTTP API, or geometry-measurement engine. |
 | Shared contracts | Pydantic models, generated JSON Schemas/TypeScript, reference/unit/scope/evidence validation | Validation cannot prove source completeness or correctness. |
-| Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI | Live text and synthetic image/JSON checks passed; drawing analysis and query planning remain to implement. |
-| Perception and services | Research and capability plans | OCR, raster detection/reconstruction, model routing, and frontend/backend HTTP integration remain work to implement. |
+| Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI | Dated live checks are recorded in the guide; no connected question planner or frontend integration. |
+| Perception and services | Research plans and a saved one-image door-labeling experiment | No general OCR, raster inventory/reconstruction, model routing, or frontend/backend HTTP integration. |
 
 ## Configure Nemotron
 
-In this prepared checkout, the client dependencies are installed in `.venv` and
-the ignored **`.env` file is already created**. Paste your key after
-`VERDA_INFERENCE_KEY=`. The supplied Verda endpoint, model, and request defaults
-are already configured. Credentials stay on the backend.
+First [install the Python project](#install-and-use-the-ifc-engine). The frontend
+demo runs independently and does not need credentials. From the repository root,
+create `.env` from [.env.example](.env.example) only if it does not already exist:
 
-From the repository root, check the connection with one short live request:
+```powershell
+if (-not (Test-Path -LiteralPath .env)) { Copy-Item -LiteralPath .env.example -Destination .env }
+```
+
+On Linux, use `test -f .env || cp .env.example .env`. Set `VERDA_INFERENCE_KEY`
+in that local file. It is ignored by Git; the endpoint/model defaults are supplied
+hackathon settings, not a guarantee of deployment availability. Existing shell
+settings override file values. Credentials stay on the backend.
+
+Check the connection with one short live inference request:
 
 ```powershell
 .\.venv\Scripts\python.exe -m nemotron check
 ```
 
-On Linux, use `.venv/bin/python -m nemotron check`. For a fresh clone, install the
-Python project as described below, then copy `.env.example` to `.env` once.
-The normal Python installation includes the client dependencies and `nemotron`
-console command. See [Nemotron setup and usage](docs/nvidia_info.md) for image,
-JSON, and async examples. The frontend continues to use its prepared demo adapter.
+On Linux, use `.venv/bin/python -m nemotron check`. This sends a request to Verda;
+local tests do not require a key or make inference calls. Installation also
+provides the `nemotron` console command. See [Nemotron setup and usage](docs/nvidia_info.md)
+for image, JSON, and async examples.
 
 ## Start the frontend
 
@@ -113,18 +120,18 @@ python3 -m venv .venv
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-The dataset is optional for the synthetic IFC regression fixtures. Tests using
-real model files may skip if their expected dataset layout is absent. See the
-[IFC engine guide](docs/IFC_ENGINE.md) for real-file commands, supported operations,
+The dataset is optional for the synthetic IFC regression fixtures. The real-model
+test uses `dataset/junction-dataset-preview/data/ifc_models/` and skips if its
+Esplanades file is absent. A full-only or nested extraction does not satisfy that
+particular test path. See the [IFC engine guide](docs/IFC_ENGINE.md) for real-file commands, supported operations,
 scope/unit semantics, and limitations. This CLI is independent of the mock UI.
 
-Checks on 14 November 2026: Windows Python 3.14 passed 90 tests with one optional
-dataset-layout skip; separate full-dataset IFC CLI checks reproduced the selected
-door counts and stored-area total in the guide. Frontend logic tests and the
-production build passed with Node 24 LTS. Reported Linux backend checks used
-Python 3.12.3. Browser/end-to-end UI verification remains outstanding.
-Nemotron's 24 HTTP adapter tests use mocked responses; separate live text and
-synthetic image/JSON requests passed against the configured Verda deployment.
+The [verification record](docs/VERIFICATION.md) gives the latest commands,
+platform versions, results, and limits. Windows Python, frontend logic, schema,
+and build checks passed on 14 November 2026, including the installed preview's
+real-model test. Browser/end-to-end UI verification remains outstanding.
+Nemotron's HTTP tests use mocked responses; earlier live text/image observations
+and the saved door-labeling pilot are recorded separately from this offline pass.
 
 ## Checks and generated contracts
 
@@ -135,13 +142,14 @@ From the root, use `npm.cmd` on Windows and `npm` on Linux:
 | `npm.cmd run test:frontend` | Frontend fixture, cancellation, identity, and viewport logic tests |
 | `npm.cmd run build` | TypeScript checks and production frontend bundle |
 | `npm.cmd run preview` | Serve the production build after building |
-| `python scripts/check_docs.py` | Check project Markdown links and heading anchors, without network access |
+| `python scripts/check_docs.py` | Check project Markdown links/images, heading and source-line anchors offline |
 | `python -m contracts.export --check` | Detect stale generated JSON Schemas |
 
 For Python checks, `python` in this table means the configured interpreter
 (for example `.venv/bin/python` or `.\.venv\Scripts\python.exe`). If only editing
 contracts, install `contracts/requirements.txt` and run
-`python -m unittest tests.test_contracts -v`; the full suite also needs IfcOpenShell.
+`python -m unittest tests.test_contracts -v`; the full suite needs the project's
+`.[test]` installation, including IfcOpenShell and the Nemotron client dependencies.
 
 After modifying `contracts/models.py`, regenerate both schema and frontend types:
 
@@ -162,23 +170,27 @@ ifc_engine/     Local IFC extraction and structured query execution
 nemotron/       Backend Verda text/vision client and connection-check CLI
 experiments/    Reproducible model experiments, prompts, and findings
 contracts/      Shared models, validation, JSON Schemas, synthetic examples
-tests/          Python contract and IFC regression tests
-scripts/        Repository maintenance checks
+tests/          Contract, IFC, Nemotron, reporting, and documentation checks
+scripts/        Repository maintenance and dataset-question analysis
 docs/           Implementation guides and dated design/research notes
 dataset/        Challenge brief, audit reports, optional local drawing archives
 ```
 
 The drawing archives are excluded from Git. See the brief for download links;
 keep each source's attribution/license and leave original drawings/reference
-answers unchanged. Extracted archive layouts can differ: this checkout has the
-full dataset at `dataset/junction-dataset/` and the preview nested under
-`dataset/junction-dataset-preview/junction-dataset-preview/`.
+answers unchanged. The examples use `dataset/junction-dataset/` for the full data
+and `dataset/junction-dataset-preview/` for the preview. Each root must contain
+`questions.jsonl` and `data/`. Some extraction tools add another directory level;
+adjust commands to the actual root rather than assuming that layout.
 
 ## Documentation
 
 | Guide | Role |
 |---|---|
 | [Project scope](docs/PROJECT_SCOPE.md) | Dataset-defined acceptance boundary and required work versus extensions |
+| [Verification record](docs/VERIFICATION.md) | Checks rerun for this hardening pass and remaining verification gaps |
+| [Question classification](docs/QUESTION_CLASSIFICATION.md) | Generated, exhaustive analysis taxonomy; no runtime answers |
+| [Dataset research](docs/DATASET_RESEARCH.md) | Template concentration and proposed answering pipeline |
 | [Schema](docs/SCHEMA.md) | Contract structure, invariants, query/result types, and validation boundaries |
 | [IFC engine](docs/IFC_ENGINE.md) | Current backend/CLI behavior and supported operations |
 | [Frontend](frontend/README.md) | Current mock UI, startup, testing, and integration boundary |

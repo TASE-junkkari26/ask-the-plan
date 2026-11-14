@@ -38,11 +38,12 @@ matching `python3-venv` package. Network access is needed to install dependencie
 model extraction and query execution run offline afterward.
 
 The initial Linux checks used Python 3.12.3, IfcOpenShell 0.9.0.post1, and
-Pydantic 2.14.3. On 14 November, Windows checks used Python 3.14, IfcOpenShell
-0.9.0.post1, and Pydantic 2.14.3: 63 tests passed and one optional dataset test
-skipped because its expected preview layout differs. The full-dataset CLI
-examples below separately returned the documented door counts and area sum.
-Browser/viewer integration remains untested. The implementation follows the
+Pydantic 2.14.3. The latest Windows commands, versions, and results are in the
+[verification record](VERIFICATION.md); the real preview-model test passed on
+14 November. Earlier full-dataset CLI examples below separately returned the
+documented door counts and area sum. These are selected checks, not a complete
+question-family benchmark. Browser/viewer integration remains untested.
+The implementation follows the
 [frontend evidence requirements](FRONTEND_EVIDENCE_REQUIREMENTS.md)
 for source identity and trace data; browser resource endpoints remain future work.
 
@@ -53,9 +54,10 @@ Output parent directories must exist before using `--output`, `--plan-out`, or
 
 The dataset is optional and is not included in the Python package. These examples
 use the full extraction at `dataset/junction-dataset/`. For this checkout's
-preview, replace that prefix with
-`dataset/junction-dataset-preview/junction-dataset-preview/`; archive layouts can
-differ. The model and storey counts below are actual selected checks.
+preview, replace that prefix with `dataset/junction-dataset-preview/`. Both
+example roots contain `questions.jsonl` and `data/`; adjust the prefix if your
+archive tool adds a directory level. The model and storey counts below are
+actual selected checks.
 
 ```sh
 python -c "from pathlib import Path; Path('build/ifc-examples').mkdir(parents=True, exist_ok=True)"
@@ -68,15 +70,19 @@ python -m ifc_engine count dataset/junction-dataset/data/ifc_models/bsc-esplanad
 ```
 
 The model-wide answer is 211; the fourth-storey answer is 42. The result's scope
-distinguishes them. All output is JSON. Exit codes are 0 for an answered query
-or successful catalog export, 1 for a structured non-answer outcome, and 2 for
-invalid input or a loading/CLI error. Input paths cannot be reused as outputs.
+distinguishes them. Successful commands and query outcomes write JSON. Exit
+codes are 0 for an
+answered query or successful catalog/bundle export, 1 for a structured non-answer
+outcome, and 2 for invalid input or a loading/CLI error. Help and argparse/path
+validation errors are text; other caught loading/CLI errors are JSON on stderr.
+Input paths cannot be reused as outputs; output paths must also be distinct.
 
 ## Operations and catalogs
 
-`inspect` lists schema, actual class counts, resolved storeys, native property
-paths, supported operations, and extraction warnings. `ingest` exports the
-knowledge bundle. Query shortcuts are `count`, `sum`, `mean`, `min`, `max`,
+`inspect` lists schema, extracted entity-class counts, resolved storeys, native
+property paths, supported operations, and extraction warnings. Its class counts
+cover extracted products/types/systems/zones/materials, not every STEP record in
+the file. `ingest` exports the knowledge bundle. Query shortcuts are `count`, `sum`, `mean`, `min`, `max`,
 `lookup`, and `rank`; `execute --plan PATH` accepts a shared-contract plan.
 
 The following are templates: replace `building.ifc`, the storey/entity values,
@@ -201,9 +207,10 @@ and use deterministic tie order; they do not imply a unique maximum.
 The regression suite creates tiny IFC fixtures for scope, overrides, assemblies,
 unit conversion, duplicates, missing inputs, predicates, grouping, traversal,
 cache invalidation, and CLI exports. An additional real-model test verifies
-the Esplanades counts when its expected optional preview path is present. A
-different extraction layout can skip that test even when another copy of the
-model exists; run the real-file commands above to check that copy explicitly.
+the Esplanades counts at
+`dataset/junction-dataset-preview/data/ifc_models/bsc-esplanades_1807-ep-ar-v18.ifc`.
+A full-only or nested extraction can skip that test even when another copy exists;
+run the real-file commands above to check that copy explicitly.
 
 Additional manual checks on the preview found 119 sanitary fixtures through
 IFC2X3 type relationships in the clinic model, and 579 stair occurrences versus
