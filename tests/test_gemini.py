@@ -107,6 +107,31 @@ class GeminiSettingsTests(unittest.TestCase):
             GeminiSettings(api_key=f"{TEST_KEY} private")
         self.assertNotIn(TEST_KEY, str(raised.exception))
 
+    def test_allowlisted_profiles_preserve_settings_without_mutation(self):
+        settings = GeminiSettings(api_key=TEST_KEY, timeout_seconds=50, max_output_tokens=1024)
+        strong = settings.profile("strong")
+        self.assertEqual((strong.model, strong.thinking_level), ("gemini-4-carbon", "medium"))
+        self.assertEqual((strong.timeout_seconds, strong.max_output_tokens), (50, 1024))
+        self.assertEqual(strong.api_key, settings.api_key)
+        self.assertEqual(settings.profile("strong", thinking_level="low").thinking_level, "low")
+        self.assertEqual(settings.model, "gemini-4-hydrogen")
+        self.assertEqual(strong.profile("normal"), settings)
+        for model, thinking in (("gemini-4-hydrogen", "medium"), ("gemini-4-carbon", "high")):
+            with self.assertRaises(ValidationError):
+                GeminiSettings(api_key=TEST_KEY, model=model, thinking_level=thinking)
+        with self.assertRaises(ValueError):
+            settings.profile("arbitrary")
+
+    def test_carbon_profile_environment_allows_medium_thinking(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / ".env"
+            path.write_text("", encoding="utf-8")
+            settings = GeminiSettings.from_env(path, environ={
+                "GEMINI_API_KEY": TEST_KEY, "GEMINI_MODEL": "gemini-4-carbon",
+                "GEMINI_THINKING_LEVEL": "medium",
+            })
+            self.assertEqual(settings.model, "gemini-4-carbon")
+
 
 class GeminiClientTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -162,6 +187,42 @@ class GeminiClientTests(unittest.IsolatedAsyncioTestCase):
                     self.assertIsNone(reply.usage.completion_tokens)
         reply = await self.make_request(lambda request: httpx.Response(200, json=interaction(usage={"total_output_tokens": 0, "total_thought_tokens": 0})))
         self.assertEqual(reply.usage.completion_tokens, 0)
+
+    async def test_carbon_uses_medium_thinking_with_same_candidate_contract(self):
+        calls = []
+
+        def handler(request):
+            calls.append(json.loads(request.content))
+            return httpx.Response(200, json=interaction(model="gemini-4-carbon"))
+
+        reply = await self.make_request(handler, settings=self.settings.profile("strong"))
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["model"], "gemini-4-carbon")
+        self.assertEqual(calls[0]["generation_config"]["thinking_level"], "medium")
+        self.assertEqual(calls[0]["response_format"]["schema"], SCHEMA)
+        self.assertEqual(reply.model, "gemini-4-carbon")
+
+    async def test_incomplete_response_retains_only_validated_usage_and_model(self):
+        raw = {"status": "incomplete", "model": "gemini-4-carbon",
+               "continuation_token": TEST_KEY,
+               "usage": {"total_input_tokens": 2188, "total_output_tokens": 3,
+                         "total_thought_tokens": 4093}}
+        with self.assertRaises(GeminiError) as raised:
+            await self.make_request(lambda _: httpx.Response(200, json=raw))
+        error = raised.exception
+        self.assertEqual(error.code, "invalid_model_output")
+        self.assertEqual(error.returned_model, "gemini-4-carbon")
+        self.assertEqual(error.usage.prompt_tokens, 2188)
+        self.assertEqual(error.usage.completion_tokens, 4096)
+        self.assertNotIn(TEST_KEY, str(error))
+        self.assertFalse(hasattr(error, "continuation_token"))
+        with self.assertRaises(GeminiError) as unknown_model:
+            await self.make_request(lambda _: httpx.Response(200, json={**raw, "model": TEST_KEY}))
+        self.assertIsNone(unknown_model.exception.returned_model)
+        for usage in (None, {"total_input_tokens": -1}, {"total_output_tokens": True}):
+            with self.subTest(usage=usage), self.assertRaises(GeminiError) as invalid:
+                await self.make_request(lambda _: httpx.Response(200, json={**raw, "usage": usage}))
+            self.assertIsNone(invalid.exception.usage)
 
     async def test_only_model_text_is_joined(self):
         steps = [

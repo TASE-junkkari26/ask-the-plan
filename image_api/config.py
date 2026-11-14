@@ -7,7 +7,7 @@ from typing import Literal, Mapping
 from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from nemotron.config import ConfigurationError, default_env_file
 from nemotron.client import MAX_IMAGE_BYTES
@@ -17,6 +17,11 @@ class ApiSettings(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
 
     provider: Literal["nemotron", "gemini"] = "nemotron"
+    routing_mode: Literal["off", "shadow", "auto"] = "off"
+    routing_threshold: float = Field(default=0.6, ge=0.5, le=1, allow_inf_nan=False)
+    routing_timeout_seconds: float = Field(default=3, gt=0, le=30, allow_inf_nan=False)
+    routing_cache_entries: int = Field(default=32, ge=0, le=256)
+    routing_strong_thinking_level: Literal["low", "medium"] = "medium"
     max_image_bytes: int = Field(default=MAX_IMAGE_BYTES, gt=0, le=MAX_IMAGE_BYTES)
     max_pixels: int = Field(default=40_000_000, gt=0, le=80_000_000)
     max_body_bytes: int = Field(default=22 * 1024 * 1024, gt=0)
@@ -30,6 +35,17 @@ class ApiSettings(BaseModel):
     origins: list[str] = Field(default_factory=lambda: [
         "http://127.0.0.1:5173", "http://localhost:5173",
     ])
+
+    @model_validator(mode="after")
+    def routing_configuration(self):
+        if self.routing_mode != "off":
+            if self.provider != "gemini":
+                raise ValueError("routing requires the Gemini image provider")
+            if self.preprocess_mode == "overview":
+                raise ValueError("initial routing requires original full-image pixels")
+            if self.max_concurrent > 2:
+                raise ValueError("routing permits at most two concurrent provider calls")
+        return self
 
     @field_validator("origins")
     @classmethod

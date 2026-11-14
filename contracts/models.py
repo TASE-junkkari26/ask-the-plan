@@ -969,6 +969,76 @@ class CandidateMetrics(Model):
     preparation_cache_hit: bool | None = None
 
 
+class AnalysisDecisionNode(Model):
+    id: Id
+    parent_id: Id | None = None
+    criterion: Literal["capability", "route", "preparation", "analysis", "evidence"]
+    state: Literal["evaluated", "selected", "skipped", "reused", "completed", "failed", "unavailable"]
+    reason_code: Annotated[str, Field(min_length=1, max_length=120)]
+    value: Annotated[str, Field(min_length=1, max_length=120)] | None = None
+    probability: float | None = Field(default=None, ge=0, le=1)
+    threshold: float | None = Field(default=None, ge=0, le=1)
+    call_id: Id | None = None
+
+
+class AnalysisCall(Model):
+    id: Id
+    purpose: Literal["routing", "analysis"]
+    requested_model: Id
+    returned_model: Id | None = None
+    completed_at: Annotated[str, Field(max_length=40)]
+    outcome: Literal["completed", "failed", "cancelled"]
+    elapsed_ms: float = Field(ge=0)
+    input_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    input_width: PositiveInt
+    input_height: PositiveInt
+    prompt_tokens: NonnegativeInt | None = None
+    completion_tokens: NonnegativeInt | None = None
+
+    @model_validator(mode="after")
+    def check_timestamp(self):
+        value = datetime.fromisoformat(self.completed_at.replace("Z", "+00:00"))
+        if value.tzinfo is None:
+            raise ValueError("call timestamp must include its timezone")
+        return self
+
+
+class ImageDecisionTrace(Model):
+    """Host-recorded routing path, never a model's hidden reasoning."""
+
+    request_id: Id
+    question_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    image: CandidateImage
+    mode: Literal["off", "shadow", "auto"]
+    policy_version: Id
+    capability_version: Id
+    selected_profile: Literal["normal", "strong", "manual", "pending"]
+    recommended_profile: Literal["normal", "strong"] | None = None
+    assessments: dict[Id, Annotated[str, Field(min_length=1, max_length=120)]] = Field(default_factory=dict, max_length=8)
+    assessment_probabilities: dict[Id, Annotated[float, Field(ge=0, le=1)]] = Field(default_factory=dict, max_length=8)
+    nodes: list[AnalysisDecisionNode] = Field(default_factory=list, max_length=20)
+    calls: list[AnalysisCall] = Field(default_factory=list, max_length=2)
+
+    @model_validator(mode="after")
+    def check_trace(self):
+        if not set(self.assessment_probabilities).issubset(self.assessments):
+            raise ValueError("assessment probabilities must reference recorded choices")
+        call_ids = [call.id for call in self.calls]
+        if len(call_ids) != len(set(call_ids)):
+            raise ValueError("trace call IDs must be unique")
+        for call in self.calls:
+            if call.input_sha256 != self.image.inference_sha256:
+                raise ValueError("single-image calls must reference the inference image")
+        seen = set()
+        for node in self.nodes:
+            if node.id in seen or (node.parent_id is not None and node.parent_id not in seen):
+                raise ValueError("trace nodes need unique IDs and preceding parents")
+            if node.call_id is not None and node.call_id not in call_ids:
+                raise ValueError("trace node references an unknown call")
+            seen.add(node.id)
+        return self
+
+
 class ImageCandidateResponse(Contract):
     """Image-bound proposals; an empty list does not establish a zero count."""
 
@@ -981,9 +1051,14 @@ class ImageCandidateResponse(Contract):
     limitations: list[Annotated[str, Field(min_length=1, max_length=2000, pattern=r"\S")]] = Field(default_factory=list, max_length=100)
     provenance: CandidateProvenance
     metrics: CandidateMetrics
+    decision_trace: ImageDecisionTrace | None = None
 
     @model_validator(mode="after")
     def check_candidate_response(self):
+        if self.decision_trace is not None and (
+                self.decision_trace.request_id != self.request_id
+                or self.decision_trace.image != self.image):
+            raise ValueError("decision trace must match response request and source")
         if self.status != "ok" and not self.limitations:
             raise ValueError("non-ok candidate outcomes require an explanation")
         if self.status in {"unreadable", "unsupported"} and self.candidates:
@@ -1011,6 +1086,37 @@ class ImageCandidateError(Contract):
     code: Id
     message: Annotated[str, Field(min_length=1, pattern=r"\S")]
     retryable: bool
+    decision_trace: ImageDecisionTrace | None = None
+
+    @model_validator(mode="after")
+    def check_error_trace(self):
+        if self.decision_trace is not None and self.decision_trace.request_id != self.request_id:
+            raise ValueError("decision trace must match error request")
+        return self
+
+
+class ImageCandidateProgress(Contract):
+    """Actual analyzer dispatch, sent before waiting for candidate output."""
+
+    request_id: Id
+    question_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    image: CandidateImage
+    requested_model: Annotated[str, Field(min_length=1, max_length=200)]
+
+
+class ImageCandidateStreamEvent(Contract):
+    type: Literal["handoff", "result", "error"]
+    progress: ImageCandidateProgress | None = None
+    result: ImageCandidateResponse | None = None
+    error: ImageCandidateError | None = None
+
+    @model_validator(mode="after")
+    def check_payload(self):
+        selected = {"handoff": "progress", "result": "result", "error": "error"}[self.type]
+        if any((getattr(self, field) is not None) != (field == selected)
+               for field in ("progress", "result", "error")):
+            raise ValueError("stream event requires exactly its matching payload")
+        return self
 
 
 class DxfPreviewResponse(Contract):

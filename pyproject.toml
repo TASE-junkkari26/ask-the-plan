@@ -30,7 +30,7 @@ drawing-preprocess = "drawing_preprocessor.cli:main"
 include = ["contracts*", "ifc_engine*", "ifc_api*", "dxf_api*", "nemotron*", "gemini*", "image_api*", "drawing_preprocessor*"]
 
 [tool.setuptools.package-data]
-image_api = ["prompt.txt", "gemini_prompt.txt"]
+image_api = ["prompt.txt", "gemini_prompt.txt", "decision_questions.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

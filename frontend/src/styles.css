@@ -1988,7 +1988,7 @@ kbd {
   letter-spacing: -0.5px;
   line-height: 1.4;
 }
-.local-preview-state p {
+.local-preview-state > p {
   color: #7d8f73;
   font-size: 12px;
   line-height: 1.9;

@@ -29,9 +29,9 @@ optional extensions unless a supplied question needs them. See the
 | Shared contracts | Pydantic models, generated JSON Schemas/TypeScript, reference/unit/scope/evidence validation | Validation cannot prove source completeness or correctness. |
 | Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI, bounded IFC question planning | The IFC engine computes answers from validated plans; image detections remain candidate proposals. Credentials stay on the backend. |
 | IFC question API | Revision-bound session uploads, independently selected Nemotron/Gemini planning, bounded source discovery and plan repair, spatial prerequisites, exterior-door queries and deterministic answers | Uses the same local server as image analysis. Exact view scope and explicit model scope remain authoritative. Original sources remain temporary session artifacts for bounded geometry checks. Unknown exterior classifications stay separate; partial counts show lower bounds. Unsupported operations remain non-answers. |
-| Image candidate API | Local HTTP image/question endpoint returning candidate boxes from Nemotron or Gemini Hydrogen-low, with uncertainty, image hashes and display coordinates | Connected to imported 2D drawings; one selected image provider per request, candidate proposals only, with no final counts/answers or IFC analysis. |
+| Image candidate API | Local HTTP image/question endpoint returning candidate boxes from Nemotron or Gemini Hydrogen-low/Carbon-medium, with uncertainty, image hashes, display coordinates and optional capability routing | Connected to imported 2D drawings; one selected analyzer per request, candidate proposals only, with no final counts/answers or IFC analysis. |
 | Raster preprocessing | Standalone source/crop/overview artifacts, coordinate transforms, optional local Tesseract OCR, inspection-tool adapter, and bounded image-API session preparation | API defaults to unchanged model input with OCR off; optional full-source overview mode preserves page layout. No semantic room segmentation, physical calibration, or agent tool loop. |
-| Perception | Research plans and a saved one-image door-labeling experiment | No evaluated general raster inventory/reconstruction or model routing. Standalone optional OCR is documented separately. |
+| Perception | Experimental opt-in Gemini capability routing, recorded expandable decision path, research plans and saved image experiments | Routing is off by default pending paired evaluation/calibration. No evaluated general raster inventory/reconstruction. Standalone optional OCR is documented separately. |
 
 ## Configure Nemotron
 
@@ -74,6 +74,13 @@ use the separate `IFC_API_PROVIDER` selector, defaulting to Nemotron. To use
 Hydrogen for IFC planning, set `IFC_API_PROVIDER=gemini`; its independent
 `IFC_GEMINI_THINKING_LEVEL` defaults to `high`. Preserve both
 keys and existing settings; see [provider setup](image_api/README.md#choose-the-image-provider).
+
+Experimental [capability routing](image_api/README.md#experimental-capability-routing)
+can recommend or select Hydrogen-low versus Carbon-medium from the selected image
+and question. It is off by default; its threshold is provisional. The UI exposes
+the recorded decision path, including failures, with per-call cost accounting.
+During analysis the loading screen also shows the actual selected model as soon
+as routing dispatches it, before its candidate response finishes.
 
 Install the API extra and start the service:
 

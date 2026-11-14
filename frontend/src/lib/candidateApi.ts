@@ -1,5 +1,16 @@
-import type { ImageCandidateResponse } from '../contracts/ImageCandidateResponse';
+import type { ImageCandidateResponse, ImageDecisionTrace } from '../contracts/ImageCandidateResponse';
+import type { ImageCandidateProgress } from '../contracts/ImageCandidateStreamEvent';
 import type { ImportedDrawing } from '../types';
+import { validateDecisionTrace } from './decisionTrace.ts';
+
+export class CandidateApiError extends Error {
+  readonly decisionTrace: ImageDecisionTrace | null;
+  constructor(message: string, decisionTrace: ImageDecisionTrace | null = null) {
+    super(message);
+    this.name = 'CandidateApiError';
+    this.decisionTrace = decisionTrace;
+  }
+}
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const MAX_IMAGE_PIXELS = 40_000_000;
@@ -132,7 +143,7 @@ function optionalTokens(value: unknown) {
 }
 
 /** Check the wire boundary before attaching server regions to a local source. */
-function validateResponse(value: unknown, submitted: PreparedCandidateImage): ImageCandidateResponse {
+function validateResponse(value: unknown, submitted: PreparedCandidateImage, questionSha256: string): ImageCandidateResponse {
   const invalid = () => new Error('The analysis service returned invalid candidate data. Please try again.');
   if (!object(value) || value.schema_version !== '0.1.0' || value.scope !== 'submitted_image'
       || value.inventory_completeness !== 'unverified' || !text(value.request_id)
@@ -171,28 +182,134 @@ function validateResponse(value: unknown, submitted: PreparedCandidateImage): Im
       || !optionalTokens(value.metrics.prompt_tokens) || !optionalTokens(value.metrics.completion_tokens)
       || !object(value.provenance) || !text(value.provenance.requested_model)
       || !text(value.provenance.returned_model) || !text(value.provenance.prompt_version)) throw invalid();
+  validateDecisionTrace(value.decision_trace, value.request_id, submitted, questionSha256, value.image.inference_sha256);
   return value as unknown as ImageCandidateResponse;
+}
+
+const MAX_STREAM_BYTES = 4 * 1024 * 1024;
+const MAX_STREAM_LINE_CHARS = 1024 * 1024;
+
+function candidateError(value: unknown, image: PreparedCandidateImage, questionSha256: string): CandidateApiError {
+  if (object(value) && value.schema_version === '0.1.0' && text(value.code)
+      && text(value.request_id) && text(value.message) && value.message.length <= 2000
+      && typeof value.retryable === 'boolean')
+    return new CandidateApiError(value.message, validateDecisionTrace(value.decision_trace, value.request_id, image, questionSha256));
+  throw new Error('The analysis service returned an invalid error response. Please try again.');
+}
+
+function validateProgress(value: unknown, requestId: string, image: PreparedCandidateImage, questionSha256: string): ImageCandidateProgress {
+  if (!object(value) || value.schema_version !== '0.1.0'
+      || value.request_id !== requestId || value.question_sha256 !== questionSha256
+      || !text(value.requested_model) || value.requested_model.length > 200
+      || !object(value.image) || value.image.sha256 !== image.sha256
+      || value.image.width !== image.width || value.image.height !== image.height
+      || value.image.coordinate_system !== 'display_pixels_top_left' || !hash(value.image.inference_sha256))
+    throw new Error('The analysis service returned progress for a different request or source. Please ask again.');
+  return value as unknown as ImageCandidateProgress;
+}
+
+async function readCandidateStream(
+  response: Response, image: PreparedCandidateImage, questionSha256: string,
+  signal: AbortSignal, onProgress?: (progress: ImageCandidateProgress) => void,
+): Promise<ImageCandidateResponse> {
+  const invalid = () => new Error('The analysis service returned an invalid or incomplete progress stream. Please try again.');
+  const requestId = response.headers.get('X-Request-ID');
+  if (!response.body || !text(requestId) || requestId.length > 200) throw invalid();
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let buffered = '';
+  let totalBytes = 0;
+  let frameCount = 0;
+  let progress: ImageCandidateProgress | null = null;
+  const state: { terminal: ImageCandidateResponse | CandidateApiError | null } = { terminal: null };
+  const cancel = () => { void reader.cancel(signal.reason).catch(() => {}); };
+  signal.addEventListener('abort', cancel, { once: true });
+  const consume = (line: string) => {
+    if (!line.trim()) return;
+    if (line.length > MAX_STREAM_LINE_CHARS || state.terminal || ++frameCount > 3) throw invalid();
+    let frame: unknown;
+    try { frame = JSON.parse(line); } catch { throw invalid(); }
+    if (!object(frame) || frame.schema_version !== '0.1.0'
+        || Object.keys(frame).some((key) => !['schema_version', 'type', 'progress', 'result', 'error'].includes(key))) throw invalid();
+    if (frame.type === 'handoff') {
+      if (progress || frame.result != null || frame.error != null) throw invalid();
+      progress = validateProgress(frame.progress, requestId, image, questionSha256);
+      aborted(signal);
+      onProgress?.(progress);
+    } else if (frame.type === 'result') {
+      if (!response.ok || !progress || frame.progress != null || frame.error != null || !object(frame.result)
+          || frame.result.request_id !== requestId) throw invalid();
+      const result = validateResponse(frame.result, image, questionSha256);
+      if (progress && (result.image.inference_sha256 !== progress.image.inference_sha256
+          || result.provenance.requested_model !== progress.requested_model)) throw invalid();
+      state.terminal = result;
+    } else if (frame.type === 'error') {
+      if (frame.progress != null || frame.result != null || !object(frame.error)
+          || frame.error.request_id !== requestId) throw invalid();
+      const error = candidateError(frame.error, image, questionSha256);
+      if (progress && error.decisionTrace
+          && error.decisionTrace.image.inference_sha256 !== progress.image.inference_sha256) throw invalid();
+      state.terminal = error;
+    } else throw invalid();
+  };
+  try {
+    aborted(signal);
+    while (true) {
+      let part: ReadableStreamReadResult<Uint8Array>;
+      try { part = await reader.read(); }
+      catch { aborted(signal); throw new Error('The analysis progress connection was interrupted. Please try again.'); }
+      aborted(signal);
+      if (part.done) break;
+      totalBytes += part.value.byteLength;
+      if (totalBytes > MAX_STREAM_BYTES) throw invalid();
+      try { buffered += decoder.decode(part.value, { stream: true }); } catch { throw invalid(); }
+      let end: number;
+      while ((end = buffered.indexOf('\n')) !== -1) {
+        consume(buffered.slice(0, end));
+        buffered = buffered.slice(end + 1);
+      }
+      if (buffered.length > MAX_STREAM_LINE_CHARS) throw invalid();
+    }
+    try { buffered += decoder.decode(); } catch { throw invalid(); }
+    if (buffered.trim()) consume(buffered);
+    if (!state.terminal) throw invalid();
+    if (state.terminal instanceof CandidateApiError) throw state.terminal;
+    return state.terminal;
+  } finally {
+    signal.removeEventListener('abort', cancel);
+    void reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
 }
 
 export async function requestCandidates(
   image: PreparedCandidateImage,
   question: string,
   signal: AbortSignal,
+  onProgress?: (progress: ImageCandidateProgress) => void,
 ): Promise<ImageCandidateResponse> {
   aborted(signal);
   const trimmed = question.trim();
   if (!trimmed || trimmed.length > 4000) throw new Error('Enter a question with 1 to 4000 characters.');
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(trimmed));
+  aborted(signal);
+  const questionSha256 = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
   const body = new FormData();
   body.append('image', image.blob, 'drawing.png');
   body.append('question', trimmed);
   let response: Response;
   try {
-    response = await fetch('/api/v1/candidates', { method: 'POST', body, signal });
+    response = await fetch('/api/v1/candidates', { method: 'POST', body, signal,
+      headers: { Accept: 'application/x-ndjson' } });
   } catch {
     aborted(signal);
     throw new Error('The analysis service is unavailable. Start the backend and try again.');
   }
   aborted(signal);
+  const mediaType = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
+  if (mediaType === 'application/x-ndjson')
+    return readCandidateStream(response, image, questionSha256, signal, onProgress);
+  // Older backends can still return JSON; the same request is never resubmitted.
   let value: unknown;
   try {
     value = await response.json();
@@ -200,7 +317,7 @@ export async function requestCandidates(
     aborted(signal);
     if (!response.ok)
       throw new Error(`The analysis request failed (HTTP ${response.status}). Check that the image API backend is running and the frontend /api proxy can reach it.`);
-    if (response.headers.get('content-type')?.split(';')[0].trim().toLowerCase() === 'text/html')
+    if (mediaType === 'text/html')
       throw new Error('The analysis endpoint returned a web page instead of JSON. Configure the frontend /api proxy to reach the image API backend.');
     throw new Error('The analysis service returned unreadable JSON. Check the image API backend logs and try again.');
   }
@@ -208,8 +325,8 @@ export async function requestCandidates(
   if (!response.ok) {
     if (object(value) && value.schema_version === '0.1.0' && text(value.code)
         && text(value.request_id) && text(value.message) && value.message.length <= 2000)
-      throw new Error(value.message);
+      throw candidateError(value, image, questionSha256);
     throw new Error('The analysis request failed. Please try again.');
   }
-  return validateResponse(value, image);
+  return validateResponse(value, image, questionSha256);
 }

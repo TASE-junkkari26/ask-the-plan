@@ -41,9 +41,11 @@ import {
 } from 'lucide-react';
 import { CandidateLayer } from './components/CandidateLayer';
 import { CandidatePanel } from './components/CandidatePanel';
-import type { ImageCandidateResponse } from './contracts/ImageCandidateResponse';
-import { prepareCandidateImage, requestCandidates } from './lib/candidateApi';
+import { DecisionTrace } from './components/DecisionTrace';
+import type { ImageCandidateResponse, ImageDecisionTrace } from './contracts/ImageCandidateResponse';
+import { CandidateApiError, prepareCandidateImage, requestCandidates } from './lib/candidateApi';
 import { candidateBounds } from './lib/candidateGeometry';
+import { modelName } from './lib/responseMetrics';
 import {
   ImportedDrawingList,
   fileSize,
@@ -171,7 +173,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
           preview; other formats open in the browser. Submitting a drawing
           question sends the selected image, PDF page or DXF layout to the configured image model;
           highlights are candidates for review. Asking about an IFC uploads it
-          to the local backend. Nemotron plans the query, the IFC engine computes
+          to the local backend. The selected IFC planner proposes the query, the IFC engine computes
           the answer, and matching source elements are highlighted for inspection.
         </span>
       </div>
@@ -255,10 +257,17 @@ export default function App() {
     completedAt: string;
   } | null>(null);
   const [candidateError, setCandidateError] = useState('');
+  const [candidateErrorTrace, setCandidateErrorTrace] = useState<ImageDecisionTrace | null>(null);
   const [analysisUrl, setAnalysisUrl] = useState<string | null>(null);
   const analysisUrlRef = useRef<string | null>(null);
   const requestRef = useRef<AbortController | null>(null);
   const [asking, setAsking] = useState(false);
+  const [candidateProgress, setCandidateProgress] = useState<{ phase: 'preparing' | 'routing' | 'handoff'; model?: string } | null>(null);
+  const candidateLoadingText = candidateProgress?.phase === 'handoff' && candidateProgress.model
+    ? `${language === 'fi' ? 'Siirretään mallille' : 'Handing to'} ${modelName(candidateProgress.model)}…`
+    : candidateProgress?.phase === 'preparing'
+      ? language === 'fi' ? 'Valmistellaan kuvaa…' : 'Preparing image…'
+      : language === 'fi' ? 'Valitaan analyysimallia…' : 'Choosing analysis model…';
   const [selected, setSelected] = useState<string | null>(null);
   const [showMarks, setShowMarks] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
@@ -418,6 +427,8 @@ export default function App() {
   function clearCandidates() {
     setCandidateResponse(null);
     setCandidateError('');
+    setCandidateErrorTrace(null);
+    setCandidateProgress(null);
     setSelected(null);
     if (analysisUrlRef.current) URL.revokeObjectURL(analysisUrlRef.current);
     analysisUrlRef.current = null;
@@ -439,6 +450,7 @@ export default function App() {
     const controller = new AbortController();
     requestRef.current = controller;
     setAsking(true);
+    setCandidateProgress({ phase: 'preparing' });
     setShowMarks(true);
     try {
       const image = await prepareCandidateImage(imported, controller.signal);
@@ -447,10 +459,15 @@ export default function App() {
       const snapshot = URL.createObjectURL(image.blob);
       analysisUrlRef.current = snapshot;
       setAnalysisUrl(snapshot);
+      setCandidateProgress({ phase: 'routing' });
       const result = await requestCandidates(
         image,
         questionText,
         controller.signal,
+        (progress) => {
+          if (requestRef.current === controller && !controller.signal.aborted)
+            setCandidateProgress({ phase: 'handoff', model: progress.requested_model });
+        },
       );
       if (requestRef.current !== controller || controller.signal.aborted)
         return;
@@ -462,16 +479,19 @@ export default function App() {
       setQuery('');
       resetViewport();
     } catch (error) {
-      if (requestRef.current === controller && !controller.signal.aborted)
+      if (requestRef.current === controller && !controller.signal.aborted) {
+        setCandidateErrorTrace(error instanceof CandidateApiError ? error.decisionTrace : null);
         setCandidateError(
           error instanceof Error
             ? error.message
             : 'Candidate analysis failed. Please try again.',
         );
+      }
     } finally {
       if (requestRef.current === controller) {
         requestRef.current = null;
         setAsking(false);
+        setCandidateProgress(null);
       }
     }
   }
@@ -1243,7 +1263,7 @@ export default function App() {
                       </button>
                     )}
                     {(importing || asking) && (
-                      <div className="viewer-loading" role="status">
+                      <div className="viewer-loading" role="status" aria-live="polite">
                         <span className="spinner" />
                         {importProgress
                           ? `${language === 'fi' ? 'Tuodaan' : 'Importing'} ${importProgress.current} / ${importProgress.total} · ${importProgress.name}`
@@ -1255,9 +1275,7 @@ export default function App() {
                               : imported?.kind === 'dxf'
                                 ? 'Opening DXF layout…'
                                 : 'Opening PDF page…'
-                            : language === 'fi'
-                              ? 'Paikannetaan ehdokkaita…'
-                              : 'Locating candidates…'}
+                            : candidateLoadingText}
                       </div>
                     )}
                     <div className="zoom-controls">
@@ -1449,14 +1467,10 @@ export default function App() {
                     <span className="empty-state-icon">
                       <FileImage size={28} />
                     </span>
-                    <h3>
-                      {language === 'fi'
-                        ? asking
-                          ? 'Paikannetaan ehdokkaita…'
-                          : 'Piirustuksesi on valmis tutkittavaksi.'
-                        : asking
-                          ? 'Locating candidates…'
-                          : 'Your drawing is ready to analyse.'}
+                    <h3 role={asking ? 'status' : undefined} aria-live="polite">
+                      {asking ? candidateLoadingText : language === 'fi'
+                        ? 'Piirustuksesi on valmis tutkittavaksi.'
+                        : 'Your drawing is ready to analyse.'}
                     </h3>
                     <p>
                       {language === 'fi'
@@ -1464,9 +1478,10 @@ export default function App() {
                         : 'Ask about visible objects and review the detected candidates against your drawing.'}
                     </p>
                     {candidateError && (
-                      <p role="alert" className="candidate-api-error">
-                        {candidateError}
-                      </p>
+                      <div className="candidate-failure">
+                        <p role="alert" className="candidate-api-error">{candidateError}</p>
+                        <DecisionTrace trace={candidateErrorTrace} language={language} />
+                      </div>
                     )}
                     {asking && (
                       <button
@@ -1520,7 +1535,10 @@ export default function App() {
                       aria-label="Question about the drawing"
                       aria-describedby="chat-availability"
                       value={query}
-                      onChange={(event) => setQuery(event.target.value)}
+                      onChange={(event) => {
+                        setQuery(event.target.value);
+                        if (candidateError) { setCandidateError(''); setCandidateErrorTrace(null); }
+                      }}
                       placeholder={t.placeholder}
                       disabled={importing || asking}
                       maxLength={4000}

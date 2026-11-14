@@ -58,8 +58,9 @@ component guide before changing behavior.
   See [its guide](docs/nvidia_info.md). Loads local `.env` settings; model outputs
   are proposals, not validated source evidence. IFC planning uses this client by
   default; the native executor computes the answer.
-- `gemini/`: backend-only native Gemini Interactions transport. Images use low
-  thinking; independently configured IFC planning uses `IFC_API_PROVIDER` and
+- `gemini/`: backend-only native Gemini Interactions transport. Images use
+  Hydrogen-low or Carbon-low/medium with optional capability routing;
+  independently configured Hydrogen IFC planning uses `IFC_API_PROVIDER` and
   `IFC_GEMINI_THINKING_LEVEL`. Keep image/IFC settings and client lifetimes separate.
   Use the same source discovery, plan validation, executor and evidence for both
   planners. Never interpret top-k search results as a complete count inventory.

@@ -5,11 +5,11 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
-from typing import Annotated, Literal, Protocol
+from typing import Annotated, Callable, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from contracts.models import ImageCandidateResponse
+from contracts.models import ImageCandidateResponse, ImageDecisionTrace
 from gemini import AsyncGeminiClient, GeminiError, GeminiRequestTooLarge
 from nemotron import AsyncNemotronClient, NemotronError, completion_text
 
@@ -92,9 +92,11 @@ class CandidateProvider(Protocol):
     async def propose(self, image: PreparedImage, question: str) -> _ProviderResult: ...
 
 
-def _invalid_output() -> ApiError:
+def _invalid_output(*, usage=None, returned_model: str | None = None) -> ApiError:
     return ApiError(502, "invalid_model_output",
-                    "The inference response was incomplete or did not contain valid candidates.")
+                    "The inference response was incomplete or did not contain valid candidates.",
+                    usage=usage, returned_model=(returned_model if returned_model in
+                        ("gemini-4-hydrogen", "gemini-4-carbon") else None))
 
 
 class NemotronCandidateProvider:
@@ -196,7 +198,7 @@ class GeminiCandidateProvider:
                            "The prepared image and question exceed Gemini's inline request limit. Use a smaller image.") from None
         except GeminiError as exc:
             if exc.code == "invalid_model_output":
-                raise _invalid_output() from None
+                raise _invalid_output(usage=exc.usage, returned_model=exc.returned_model) from None
             if exc.status_code in {401, 402, 403, 404}:
                 raise ApiError(503, "provider_configuration",
                                "Check Gemini API key, model access, and billing on the backend.") from None
@@ -221,7 +223,7 @@ class GeminiCandidateProvider:
                 completion_tokens=reply.usage.completion_tokens if reply.usage else None,
             )
         except (ValidationError, ValueError):
-            raise _invalid_output() from None
+            raise _invalid_output(usage=reply.usage, returned_model=reply.model) from None
 
 
 class CandidateService:
@@ -230,8 +232,13 @@ class CandidateService:
         self.provider = provider if provider is not None else NemotronCandidateProvider(client, settings)
 
     async def extract(self, image: PreparedImage, question: str,
-                      request_id: str) -> ImageCandidateResponse:
+                      request_id: str, *,
+                      on_trace: Callable[[ImageDecisionTrace], None] | None = None,
+                      on_handoff: Callable[[str], None] | None = None,
+                      deadline: float | None = None) -> ImageCandidateResponse:
         started = perf_counter()
+        if on_handoff:
+            on_handoff(self.provider.client.settings.model)
         result = await self.provider.propose(image, question)
         batch = result.batch
         try:

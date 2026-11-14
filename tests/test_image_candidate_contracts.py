@@ -38,6 +38,40 @@ def candidate_response_data():
 
 
 class ImageCandidateContractTests(unittest.TestCase):
+    def test_decision_trace_rejects_mismatched_source_question_call_and_scores(self):
+        data = candidate_response_data()
+        trace = {
+            "request_id": data["request_id"], "question_sha256": "c" * 64,
+            "image": deepcopy(data["image"]), "mode": "auto", "policy_version": "test-v1",
+            "capability_version": "test-v1", "selected_profile": "normal",
+            "assessments": {"normal_fit": "supported"},
+            "assessment_probabilities": {"normal_fit": 0.95},
+            "calls": [{"id": "a", "purpose": "analysis", "requested_model": "test-model",
+                       "completed_at": "2026-11-14T12:00:00+00:00", "outcome": "completed",
+                       "elapsed_ms": 1, "input_sha256": "b" * 64,
+                       "input_width": 1600, "input_height": 1200}],
+            "nodes": [{"id": "n", "criterion": "analysis", "state": "completed",
+                       "reason_code": "analysis_completed", "call_id": "a"}],
+        }
+        data["decision_trace"] = trace
+        ImageCandidateResponse.model_validate(data)
+        mutations = [
+            lambda t: t.update(request_id="another-request"),
+            lambda t: t.update(question_sha256="invalid"),
+            lambda t: t["image"].update(sha256="d" * 64),
+            lambda t: t["calls"][0].update(input_sha256="d" * 64),
+            lambda t: t["calls"][0].update(completed_at="not-a-date"),
+            lambda t: t["assessment_probabilities"].update(unrecorded=0.9),
+            lambda t: t["assessment_probabilities"].update(normal_fit=float("nan")),
+            lambda t: t["nodes"][0].update(call_id="missing"),
+            lambda t: t["nodes"][0].update(parent_id="n"),
+        ]
+        for change in mutations:
+            changed = deepcopy(data)
+            change(changed["decision_trace"])
+            with self.assertRaises(ValidationError):
+                ImageCandidateResponse.model_validate(changed)
+
     def test_round_trip_keeps_source_identity_and_literal_label(self):
         result = ImageCandidateResponse.model_validate(candidate_response_data())
         self.assertEqual(ImageCandidateResponse.model_validate_json(result.model_dump_json()), result)

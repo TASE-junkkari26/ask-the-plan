@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
+import hashlib
+import anyio
+from contextlib import AsyncExitStack, asynccontextmanager
 from copy import deepcopy
 from tempfile import TemporaryDirectory
 from pathlib import Path
+from time import perf_counter
 from typing import Callable
 from uuid import uuid4
 
@@ -14,12 +17,15 @@ from fastapi.exceptions import RequestValidationError
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, StreamingResponse
 
-from contracts.models import ImageCandidateError, ImageCandidateResponse
+from contracts.models import (CandidateImage, ImageCandidateError, ImageCandidateResponse,
+                              ImageDecisionTrace, ImageCandidateProgress, ImageCandidateStreamEvent)
 from dxf_api.render import MAX_DXF_BODY_BYTES
 from dxf_api.routes import install_dxf_routes
-from gemini import AsyncGeminiClient
+from gemini import AsyncGeminiClient, GeminiSettings
+from gemini.decisions import AsyncDecisionsClient
+from gemini.decisions_config import DecisionsSettings
 from ifc_api.config import IfcSettings
 from ifc_api.providers import GeminiPlanner, NemotronPlanner, Planner
 from ifc_api.routes import install_ifc_routes
@@ -29,13 +35,39 @@ from .config import ApiSettings
 from .errors import ApiError
 from .preprocessing import ImagePreprocessor
 from .service import CandidateService, GeminiCandidateProvider
+from .routing import RoutedCandidateService
 
 
 def _error(request_id: str, status: int, code: str, message: str,
-           retryable: bool = False) -> JSONResponse:
+           retryable: bool = False, decision_trace: ImageDecisionTrace | None = None) -> JSONResponse:
     value = ImageCandidateError(request_id=request_id, code=code, message=message,
-                                retryable=retryable)
+                                retryable=retryable, decision_trace=decision_trace)
     return JSONResponse(value.model_dump(mode="json"), status_code=status)
+
+
+class _CandidateStreamResponse(StreamingResponse):
+    """Release admission even if the client disconnects before iteration starts."""
+
+    def __init__(self, content, release, cleanup):
+        super().__init__(content, media_type="application/x-ndjson",
+                         headers={"X-Accel-Buffering": "no"})
+        self.release = release
+        self.cleanup = cleanup
+
+    async def __call__(self, scope, receive, send):
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            try:
+                # Sending may fail while the iterator is suspended at yield.
+                # Stop its worker and close prepared files before admitting more work.
+                with anyio.CancelScope(shield=True):
+                    try:
+                        await self.body_iterator.aclose()
+                    finally:
+                        await self.cleanup()
+            finally:
+                self.release()
 
 
 class BodyLimitMiddleware:
@@ -99,11 +131,12 @@ class BodyLimitMiddleware:
             if response_started:
                 raise
             await _error(request_id, exc.status_code, exc.code, exc.message,
-                         exc.retryable)(scope, receive, send_with_id)
+                         exc.retryable, scope.get("state", {}).get("decision_trace"))(scope, receive, send_with_id)
         except Exception:
             if response_started:
                 raise
-            await _error(request_id, 500, "internal_error", "Internal analysis service error.")(
+            await _error(request_id, 500, "internal_error", "Internal analysis service error.",
+                         decision_trace=scope.get("state", {}).get("decision_trace"))(
                 scope, receive, send_with_id)
 
 
@@ -126,6 +159,8 @@ _REQUEST_BODY = {
 def create_app(settings: ApiSettings | None = None, *,
                client_factory: Callable[[], AsyncNemotronClient] | None = None,
                gemini_client_factory: Callable[[], AsyncGeminiClient] | None = None,
+               strong_client_factory: Callable[[], AsyncGeminiClient] | None = None,
+               decisions_client_factory: Callable[[], AsyncDecisionsClient] | None = None,
                ifc_settings: IfcSettings | None = None,
                ifc_planner_factory: Callable[[], Planner] | None = None,
                ifc_gemini_client_factory: Callable[[], AsyncGeminiClient] | None = None) -> FastAPI:
@@ -150,6 +185,7 @@ def create_app(settings: ApiSettings | None = None, *,
     async def lifespan(app: FastAPI):
         client = None
         gemini_client = None
+        extra_clients = []
         ifc_gemini_client = None
         app.state.service = None
         app.state.in_flight = 0
@@ -176,7 +212,7 @@ def create_app(settings: ApiSettings | None = None, *,
                     planner = NemotronPlanner(client, ifc_settings)
                 elif ifc_settings.provider == "gemini":
                     ifc_gemini_client = (ifc_gemini_client_factory() if ifc_gemini_client_factory is not None
-                                         else AsyncGeminiClient())
+                                         else AsyncGeminiClient(GeminiSettings.from_env().profile("normal")))
                     planner = GeminiPlanner(ifc_gemini_client, ifc_settings)
             except ConfigurationError:
                 # IFC provider configuration is independent of image readiness.
@@ -192,26 +228,47 @@ def create_app(settings: ApiSettings | None = None, *,
                                      else AsyncGeminiClient())
                     app.state.service = CandidateService(
                         None, settings, provider=GeminiCandidateProvider(gemini_client))
+                    if settings.routing_mode != "off":
+                        baseline = app.state.service
+                        # Reuse an already configured Hydrogen client, including injected transports.
+                        if gemini_client.settings.model == "gemini-4-hydrogen":
+                            normal_client = gemini_client
+                        else:
+                            normal_client = AsyncGeminiClient(gemini_client.settings.profile("normal"))
+                            extra_clients.append(normal_client)
+                        try:
+                            strong_client = (strong_client_factory() if strong_client_factory is not None
+                                             else AsyncGeminiClient(gemini_client.settings.profile(
+                                                 "strong", thinking_level=settings.routing_strong_thinking_level)))
+                            extra_clients.append(strong_client)
+                            strong = CandidateService(None, settings, provider=GeminiCandidateProvider(strong_client))
+                        except ConfigurationError:
+                            strong = None
+                        try:
+                            decisions = (decisions_client_factory() if decisions_client_factory is not None
+                                         else AsyncDecisionsClient(DecisionsSettings(
+                                             api_key=gemini_client.settings.api_key,
+                                             timeout_seconds=settings.routing_timeout_seconds)))
+                            extra_clients.append(decisions)
+                        except ConfigurationError:
+                            decisions = None
+                        app.state.service = RoutedCandidateService(
+                            settings, decisions=decisions,
+                            normal=CandidateService(None, settings, provider=GeminiCandidateProvider(normal_client)),
+                            strong=strong, baseline=baseline)
                 except ConfigurationError:
                     pass
             yield
         finally:
-            # A timeout shields a running preparation worker. Drain it before
-            # removing the session cache, just as request temp cleanup waits for
-            # its preparation worker below.
-            await asyncio.to_thread(app.state.preprocessor.close)
-            if hasattr(app.state, "ifc_service"):
-                await asyncio.to_thread(app.state.ifc_service.close)
-            try:
-                try:
-                    if ifc_gemini_client is not None:
-                        await ifc_gemini_client.close()
-                finally:
-                    if gemini_client is not None:
-                        await gemini_client.close()
-            finally:
-                if client is not None:
-                    await client.close()
+            # Attempt every owned cleanup even if an earlier one fails. The
+            # stack drains source workers before closing provider transports.
+            async with AsyncExitStack() as cleanup:
+                for owned in (client, gemini_client, ifc_gemini_client, *extra_clients):
+                    if owned is not None:
+                        cleanup.push_async_callback(owned.close)
+                if hasattr(app.state, "ifc_service"):
+                    cleanup.push_async_callback(asyncio.to_thread, app.state.ifc_service.close)
+                cleanup.push_async_callback(asyncio.to_thread, app.state.preprocessor.close)
 
     app = FastAPI(title="Ask the Plan analysis", version="0.1.0", lifespan=lifespan,
                   description="Image candidate regions, local DXF layout previews and model-planned, engine-computed IFC answers with source evidence.")
@@ -222,7 +279,8 @@ def create_app(settings: ApiSettings | None = None, *,
 
     @app.exception_handler(ApiError)
     async def api_error(request: Request, exc: ApiError):
-        return _error(request.state.request_id, exc.status_code, exc.code, exc.message, exc.retryable)
+        return _error(request.state.request_id, exc.status_code, exc.code, exc.message, exc.retryable,
+                      getattr(request.state, "decision_trace", None))
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError):
@@ -238,7 +296,7 @@ def create_app(settings: ApiSettings | None = None, *,
         return JSONResponse({"status": "ok" if configured else "unconfigured", "configured": configured},
                             status_code=200 if configured else 503)
 
-    async def process(request: Request, request_id: str):
+    async def read_input(request: Request):
         if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != "multipart/form-data":
             raise ApiError(415, "unsupported_media_type", "Send multipart/form-data with image and question fields.")
         # Read under the ASGI byte cap before multipart parsing allocates temp files.
@@ -260,23 +318,18 @@ def create_app(settings: ApiSettings | None = None, *,
             raise ApiError(422, "invalid_multipart", "Malformed multipart form or repeated/oversized fields.") from None
         if len(content) > settings.max_image_bytes:
             raise ApiError(413, "image_too_large", "Image exceeds the upload byte limit.")
+        return content, question
+
+    @asynccontextmanager
+    async def prepared_input(request: Request, input_data):
+        content, question = input_data
         directory = TemporaryDirectory(prefix="ask-plan-image-")
         preparation = asyncio.create_task(asyncio.to_thread(
             request.app.state.preprocessor.prepare, content, Path(directory.name)))
         try:
             # Shield the worker so a timeout cannot remove files it is still writing.
             image = await asyncio.shield(preparation)
-            inference = asyncio.create_task(request.app.state.service.extract(image, question, request_id))
-            disconnected = asyncio.create_task(until_disconnect(request))
-            try:
-                done, _ = await asyncio.wait((inference, disconnected), return_when=asyncio.FIRST_COMPLETED)
-                if inference in done:
-                    return await inference
-                return await disconnected
-            finally:
-                for task in (inference, disconnected):
-                    task.cancel()
-                await asyncio.gather(inference, disconnected, return_exceptions=True)
+            yield image, question
         finally:
             if preparation.done():
                 directory.cleanup()
@@ -287,14 +340,94 @@ def create_app(settings: ApiSettings | None = None, *,
                     directory.cleanup()
                 preparation.add_done_callback(cleanup_after_preparation)
 
+    async def analyze(request: Request, request_id: str, prepared, *, on_handoff=None,
+                      monitor_disconnect=True):
+        image, question = prepared
+        def handoff(model):
+            if on_handoff:
+                on_handoff(ImageCandidateProgress(
+                    request_id=request_id, question_sha256=hashlib.sha256(question.encode()).hexdigest(),
+                    image=CandidateImage(sha256=image.sha256, inference_sha256=image.inference_sha256,
+                                         width=image.width, height=image.height), requested_model=model))
+        inference = asyncio.create_task(request.app.state.service.extract(
+            image, question, request_id,
+            on_trace=lambda trace: setattr(request.state, "decision_trace", trace),
+            on_handoff=handoff if on_handoff else None,
+            deadline=request.state.analysis_deadline))
+        disconnected = asyncio.create_task(until_disconnect(request)) if monitor_disconnect else None
+        try:
+            if disconnected is None:
+                return await inference
+            done, _ = await asyncio.wait((inference, disconnected), return_when=asyncio.FIRST_COMPLETED)
+            if inference in done:
+                return await inference
+            return await disconnected
+        finally:
+            tasks = [task for task in (inference, disconnected) if task is not None]
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def process(request: Request, request_id: str):
+        async with prepared_input(request, await read_input(request)) as prepared:
+            return await analyze(request, request_id, prepared)
+
     async def until_disconnect(request: Request):
         while not await request.is_disconnected():
             await asyncio.sleep(0.1)
         raise ApiError(499, "client_disconnected", "Client disconnected before inference completed.", retryable=True)
 
+    async def stream_events(request: Request, prepared):
+        # A single handoff plus one terminal frame. No provider work is retried.
+        queue = asyncio.Queue(maxsize=2)
+        handoff_sent = False
+
+        def handoff(progress):
+            nonlocal handoff_sent
+            if handoff_sent:
+                raise RuntimeError("Analyzer handoff already sent")
+            handoff_sent = True
+            queue.put_nowait(ImageCandidateStreamEvent(type="handoff", progress=progress))
+
+        async def run():
+            try:
+                # Starlette listens for disconnects itself on older ASGI specs;
+                # on 2.4+ it relies on send errors, so monitor while analysis waits.
+                spec = tuple(int(part) for part in request.scope.get("asgi", {}).get("spec_version", "2.0").split("."))
+                result = await asyncio.wait_for(analyze(
+                    request, request.state.request_id, prepared,
+                    on_handoff=handoff, monitor_disconnect=spec >= (2, 4)),
+                    timeout=max(0.001, request.state.analysis_deadline - perf_counter()))
+                event = ImageCandidateStreamEvent(type="result", result=result)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                if isinstance(exc, asyncio.TimeoutError):
+                    exc = ApiError(504, "deadline_exceeded", "Candidate request exceeded its total deadline.", retryable=True)
+                elif not isinstance(exc, ApiError):
+                    exc = ApiError(500, "internal_error", "Internal analysis service error.")
+                event = ImageCandidateStreamEvent(type="error", error=ImageCandidateError(
+                    request_id=request.state.request_id, code=exc.code, message=exc.message,
+                    retryable=exc.retryable, decision_trace=getattr(request.state, "decision_trace", None)))
+            queue.put_nowait(event)
+
+        worker = asyncio.create_task(run())
+        try:
+            while True:
+                event = await queue.get()
+                yield event.model_dump_json(exclude_none=True) + "\n"
+                if event.type != "handoff":
+                    break
+        finally:
+            with anyio.CancelScope(shield=True):
+                worker.cancel()
+                await asyncio.gather(worker, return_exceptions=True)
+
     @app.post("/api/v1/candidates", response_model=ImageCandidateResponse,
-              responses={status: {"model": ImageCandidateError} for status in
-                         (413, 415, 422, 429, 499, 500, 502, 503, 504)},
+              responses={200: {"content": {"application/x-ndjson": {"schema": {
+                  "type": "string", "description": "Newline-delimited ImageCandidateStreamEvent frames: handoff, then result/error."}}}},
+                  **{status: {"model": ImageCandidateError} for status in
+                     (413, 415, 422, 429, 499, 500, 502, 503, 504)}},
               openapi_extra=request_body)
     async def candidates(request: Request):
         if request.app.state.service is None:
@@ -303,13 +436,42 @@ def create_app(settings: ApiSettings | None = None, *,
         if request.app.state.in_flight >= settings.max_concurrent:
             raise ApiError(429, "busy", "Candidate service is busy; try again later.", retryable=True)
         request.app.state.in_flight += 1
+        request.state.analysis_deadline = perf_counter() + settings.deadline_seconds
+        streaming = False
+        preparation_context = None
+        prepared = None
+        released = False
+        def release():
+            nonlocal released
+            if not released:
+                released = True
+                request.app.state.in_flight -= 1
         try:
+            accepts = [part.split(";", 1)[0].strip().lower()
+                       for part in request.headers.get("accept", "").split(",")]
+            if "application/x-ndjson" in accepts:
+                # Consume and validate the bounded upload before streaming headers;
+                # body reading must not race StreamingResponse's disconnect listener.
+                input_data = await asyncio.wait_for(read_input(request), timeout=settings.deadline_seconds)
+                preparation_context = prepared_input(request, input_data)
+                prepared = await asyncio.wait_for(preparation_context.__aenter__(),
+                    timeout=max(0.001, request.state.analysis_deadline - perf_counter()))
+                async def cleanup():
+                    await preparation_context.__aexit__(None, None, None)
+                response = _CandidateStreamResponse(stream_events(request, prepared), release, cleanup)
+                streaming = True
+                return response
             return await asyncio.wait_for(process(request, request.state.request_id),
                                           timeout=settings.deadline_seconds)
         except asyncio.TimeoutError:
             raise ApiError(504, "deadline_exceeded", "Candidate request exceeded its total deadline.", retryable=True) from None
         finally:
-            request.app.state.in_flight -= 1
+            if not streaming:
+                try:
+                    if prepared is not None:
+                        await preparation_context.__aexit__(None, None, None)
+                finally:
+                    release()
 
     install_ifc_routes(app)
     install_dxf_routes(app)

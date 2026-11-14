@@ -219,7 +219,7 @@ class ImageApiLifecycleTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_unexpected_failure_has_safe_envelope_cors_and_request_id(self):
         async with self.api() as (client, app, requests, paths):
-            async def crash(image, question, request_id):
+            async def crash(image, question, request_id, *, on_trace=None, on_handoff=None, deadline=None):
                 paths.append(image.path)
                 raise RuntimeError(f"private {TEST_KEY} /tmp/private-image {question}")
 

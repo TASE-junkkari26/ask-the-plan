@@ -1,14 +1,15 @@
+import type { ImageDecisionTrace } from '../contracts/ImageCandidateResponse';
 import { CircleDollarSign, Clock3, Cpu } from 'lucide-react';
 import type { Language } from '../types';
 import {
-  estimateTokenCost, formatEstimatedUsd, formatResponseTime, modelName,
+  estimateCallCosts, estimateTokenCost, formatEstimatedUsd, formatResponseTime, modelName,
   modelRates, PRICING_SOURCE_URL, PRICING_VERIFIED_ON,
 } from '../lib/responseMetrics';
 import './ResponseMetrics.css';
 
 export function ResponseMetrics({
   model, requestedModel, responseTimeMs, modelTimeMs, preparationTimeMs,
-  inputTokens, outputTokens, completedAt, language,
+  inputTokens, outputTokens, completedAt, language, decisionTrace,
 }: {
   model: string;
   requestedModel: string;
@@ -19,10 +20,13 @@ export function ResponseMetrics({
   outputTokens?: number | null;
   completedAt: string;
   language: Language;
+  decisionTrace?: ImageDecisionTrace | null;
 }) {
   const fi = language === 'fi';
   const rates = modelRates(model, completedAt);
   const cost = estimateTokenCost(model, inputTokens, outputTokens, completedAt);
+  const allCalls = decisionTrace ? estimateCallCosts(decisionTrace.calls ?? []) : null;
+  const routingCalls = decisionTrace?.calls?.filter((call) => call.purpose === 'routing') ?? [];
   const tokens = (value: number | null | undefined) => value == null
     ? fi ? 'Ei raportoitu' : 'Not reported'
     : value.toLocaleString(language);
@@ -42,14 +46,15 @@ export function ResponseMetrics({
       </div>
       <div>
         <dt><CircleDollarSign size={12} />{fi ? 'Hinta-arvio' : 'Estimated cost'}</dt>
-        <dd>{cost ? formatEstimatedUsd(cost.totalUsd, language) : fi ? 'Ei saatavilla' : 'Unavailable'}</dd>
+        <dd>{allCalls ? <>{formatEstimatedUsd(allCalls.knownUsd, language)}{allCalls.unknownCalls > 0 && <> + {fi ? 'tuntematon osuus' : 'unknown component'}</>}</> : cost ? formatEstimatedUsd(cost.totalUsd, language) : fi ? 'Ei saatavilla' : 'Unavailable'}</dd>
       </div>
     </dl>
     <details className="response-metrics-details">
       <summary>{fi ? 'Tokenit ja hinnoittelu' : 'Tokens & pricing'}</summary>
       <dl>
-        <div><dt>{fi ? 'Syötetokenit' : 'Input tokens'}</dt><dd>{tokens(inputTokens)}</dd></div>
-        <div><dt>{fi ? 'Tulostokenit' : 'Output tokens'}</dt><dd>{tokens(outputTokens)}</dd></div>
+        <div><dt>{fi ? 'Analyysin syötetokenit' : 'Analysis input tokens'}</dt><dd>{tokens(inputTokens)}</dd></div>
+        <div><dt>{fi ? 'Analyysin tulostokenit' : 'Analysis output tokens'}</dt><dd>{tokens(outputTokens)}</dd></div>
+        {routingCalls.map((call) => <div key={call.id}><dt>{fi ? 'Reitityksen syötetokenit' : 'Routing input tokens'}</dt><dd>{tokens(call.prompt_tokens)}</dd></div>)}
         {rates && <>
           <div><dt>{fi ? 'Syöte / 1 milj. tokenia' : 'Input / 1M tokens'}</dt><dd>{rate(rates.inputUsdPerMillion)}</dd></div>
           <div><dt>{fi ? 'Tuloste / 1 milj. tokenia' : 'Output / 1M tokens'}</dt><dd>{rate(rates.outputUsdPerMillion)}</dd></div>
@@ -61,6 +66,7 @@ export function ResponseMetrics({
         <div><dt>{fi ? 'Mallikutsun aika' : 'Model request time'}</dt><dd>{formatResponseTime(modelTimeMs, language)}</dd></div>
         {preparationTimeMs != null && Number.isFinite(preparationTimeMs) && preparationTimeMs >= 0 && <div><dt>{fi ? 'Kuvan esikäsittely' : 'Image preprocessing'}</dt><dd>{formatResponseTime(preparationTimeMs, language)}</dd></div>}
       </dl>
+      {decisionTrace && <p>{fi ? 'Hinta-arvio sisältää tallennetut reititys- ja analyysikutsut. Raportoimattomat veloitukset jäävät tuntemattomiksi.' : 'The total estimate includes recorded routing and analysis calls. Unreported charges remain unknown.'}</p>}
       <p>{fi
         ? 'Vastausaika sisältää kuvan valmistelun, lähetyksen ja analyysin.'
         : 'Response time includes image preparation, upload and analysis.'}</p>

@@ -1,6 +1,7 @@
 import { CircleAlert, Focus, ScanLine } from 'lucide-react';
 import type { ImageCandidate, ImageCandidateResponse } from '../contracts/ImageCandidateResponse';
 import type { Language } from '../types';
+import { DecisionTrace } from './DecisionTrace';
 import { ResponseMetrics } from './ResponseMetrics';
 import './CandidatePanel.css';
 
@@ -92,7 +93,9 @@ export function CandidatePanel({
         outputTokens={response.metrics.completion_tokens}
         completedAt={completedAt}
         language={language}
+        decisionTrace={response.decision_trace}
       />
+      <DecisionTrace trace={response.decision_trace} language={language} />
       <p className="candidate-review-note"><CircleAlert size={15} /><span>{fi ? 'Tarkista ehdokkaat kuvasta. Kohteita voi puuttua, eikä luettelon kattavuutta ole vahvistettu.' : 'Review the highlights against the image. Candidates may be missing or ambiguous; inventory completeness is unverified.'}</span></p>
       {(response.limitations ?? []).length > 0 && (
         <section className="candidate-limitations" aria-label={fi ? 'Rajoitukset' : 'Limitations'}>

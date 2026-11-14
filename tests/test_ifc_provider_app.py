@@ -13,11 +13,14 @@ import httpx
 import ifcopenshell.guid
 
 from gemini import AsyncGeminiClient, ConfigurationError, GeminiSettings
+from gemini.decisions import AsyncDecisionsClient
+from gemini.decisions_config import DecisionsSettings
 from ifc_api.config import IfcSettings
 from image_api.app import create_app
 from image_api.config import ApiSettings
 from nemotron import AsyncNemotronClient, NemotronSettings
 from tests.test_gemini_image_api import interaction
+from tests.test_decision_routing import answers
 from tests.test_ifc_api import completion, proposal
 from tests.test_ifc_engine import sample_model
 from tests.test_image_api import completion as image_completion, image_bytes
@@ -146,6 +149,94 @@ class IfcProviderAppTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.requests["nemotron"]), 1)
         self.assertTrue("image_url" in json.dumps(self.requests["nemotron"][0]))
         self.assertEqual(self.requests["gemini_ifc"], [])
+
+    async def test_carbon_image_profile_does_not_change_hydrogen_ifc_planning(self):
+        image_settings = GeminiSettings(api_key=KEY, model="gemini-4-carbon", thinking_level="medium")
+        for routing_mode in ("off", "auto"):
+            with self.subTest(routing_mode=routing_mode):
+                requests, clients = [], []
+
+                def handler(request):
+                    body = json.loads(request.content)
+                    requests.append(body)
+                    is_image = any(part["type"] == "image" for part in body["input"])
+                    value = interaction() if is_image else interaction(proposal())
+                    payload = value.json()
+                    payload["model"] = body["model"]
+                    return httpx.Response(200, json=payload)
+
+                def factory(settings=None):
+                    sdk = AsyncGeminiClient(settings or image_settings, transport=httpx.MockTransport(handler))
+                    clients.append(sdk)
+                    return sdk
+
+                decisions = AsyncDecisionsClient(DecisionsSettings(api_key=KEY),
+                    transport=httpx.MockTransport(lambda _: httpx.Response(200, json={
+                        "answers": answers(normal_fit="needs_strong")})))
+                with patch("image_api.app.GeminiSettings.from_env", return_value=image_settings), \
+                     patch("image_api.app.AsyncGeminiClient", side_effect=factory):
+                    app = create_app(ApiSettings(provider="gemini", preprocess_mode="off", routing_mode=routing_mode),
+                        client_factory=lambda: None, ifc_settings=IfcSettings(provider="gemini"),
+                        decisions_client_factory=lambda: decisions)
+                    try:
+                        async with app.router.lifespan_context(app):
+                            async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://test") as http:
+                                image_response = await http.post("/api/v1/candidates", data={"question": "Find windows"},
+                                    files={"image": ("drawing.png", image_bytes(), "image/png")},
+                                    headers={"Accept": "application/x-ndjson"})
+                                self.assertEqual(image_response.status_code, 200, image_response.text)
+                                events = [json.loads(line) for line in image_response.text.splitlines()]
+                                self.assertEqual([event["type"] for event in events], ["handoff", "result"])
+                                self.assertEqual(events[0]["progress"]["requested_model"], "gemini-4-carbon")
+                                self.assertEqual(events[1]["result"]["provenance"]["requested_model"], "gemini-4-carbon")
+                                response = await self.question(http)
+                                self.assertEqual(response.status_code, 200, response.text)
+                                self.assertEqual(response.json()["planning"]["requested_model"], "gemini-4-hydrogen")
+                                self.assertEqual(response.json()["result"]["claims"][0]["value"]["value"], 1)
+                    finally:
+                        await decisions.close()
+                self.assertEqual([body["model"] for body in requests], ["gemini-4-carbon", "gemini-4-hydrogen"])
+                self.assertEqual([body["generation_config"]["thinking_level"] for body in requests], ["medium", "high"])
+                self.assertTrue(all(sdk._http.is_closed for sdk in clients))
+
+    async def test_routing_and_ifc_clients_all_close_if_one_close_fails(self):
+        clients = []
+
+        def no_network(_):
+            self.fail("Lifecycle check must not make provider requests")
+
+        def gemini_factory(settings=None):
+            sdk = AsyncGeminiClient(settings or GeminiSettings(api_key=KEY), transport=httpx.MockTransport(no_network))
+            sdk.close = AsyncMock(wraps=sdk.close)
+            clients.append(sdk)
+            return sdk
+
+        nemotron = AsyncNemotronClient(NemotronSettings(api_key=KEY),
+            http_client=httpx.AsyncClient(transport=httpx.MockTransport(no_network)))
+        nemotron.close = AsyncMock(wraps=nemotron.close)
+        clients.append(nemotron)
+        baseline = gemini_factory(GeminiSettings(api_key=KEY).profile("strong"))
+        decisions = AsyncDecisionsClient(DecisionsSettings(api_key=KEY), transport=httpx.MockTransport(no_network))
+        close_decisions = decisions.close
+
+        async def failing_close():
+            await close_decisions()
+            raise RuntimeError("Synthetic close failure")
+
+        decisions.close = AsyncMock(side_effect=failing_close)
+        with patch("image_api.app.AsyncGeminiClient", side_effect=gemini_factory):
+            app = create_app(ApiSettings(provider="gemini", routing_mode="auto", preprocess_mode="off"),
+                client_factory=lambda: nemotron, gemini_client_factory=lambda: baseline,
+                ifc_settings=IfcSettings(provider="gemini"), ifc_gemini_client_factory=gemini_factory,
+                decisions_client_factory=lambda: decisions)
+            with self.assertRaisesRegex(RuntimeError, "Synthetic close failure"):
+                async with app.router.lifespan_context(app):
+                    pass
+        self.assertEqual(len(clients), 5)  # Nemotron, baseline, IFC, normal and strong.
+        for sdk in [*clients, decisions]:
+            sdk.close.assert_awaited_once()
+        self.assertTrue(decisions._http.is_closed)
+        self.assertTrue(all(sdk._http.is_closed for sdk in clients if isinstance(sdk, AsyncGeminiClient)))
 
     async def test_explicit_nemotron_ifc_does_not_construct_gemini_ifc_client(self):
         async with self.api(image_provider="nemotron", ifc_provider="nemotron") as (client, _):

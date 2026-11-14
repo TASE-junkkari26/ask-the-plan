@@ -1,6 +1,231 @@
 {
   "$comment": "Generated from contracts.models; do not edit manually. JSON Schema checks structure. Pydantic and semantic validators also enforce local invariants, references, units, scope, and evidence.",
   "$defs": {
+    "AnalysisCall": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_at": {
+          "maxLength": 40,
+          "title": "Completed At",
+          "type": "string"
+        },
+        "completion_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completion Tokens"
+        },
+        "elapsed_ms": {
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "number"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "input_height": {
+          "exclusiveMinimum": 0,
+          "title": "Input Height",
+          "type": "integer"
+        },
+        "input_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Sha256",
+          "type": "string"
+        },
+        "input_width": {
+          "exclusiveMinimum": 0,
+          "title": "Input Width",
+          "type": "integer"
+        },
+        "outcome": {
+          "enum": [
+            "completed",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "prompt_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Tokens"
+        },
+        "purpose": {
+          "enum": [
+            "routing",
+            "analysis"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "requested_model": {
+          "minLength": 1,
+          "title": "Requested Model",
+          "type": "string"
+        },
+        "returned_model": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Returned Model"
+        }
+      },
+      "required": [
+        "id",
+        "purpose",
+        "requested_model",
+        "completed_at",
+        "outcome",
+        "elapsed_ms",
+        "input_sha256",
+        "input_width",
+        "input_height"
+      ],
+      "title": "AnalysisCall",
+      "type": "object"
+    },
+    "AnalysisDecisionNode": {
+      "additionalProperties": false,
+      "properties": {
+        "call_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Call Id"
+        },
+        "criterion": {
+          "enum": [
+            "capability",
+            "route",
+            "preparation",
+            "analysis",
+            "evidence"
+          ],
+          "title": "Criterion",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id"
+        },
+        "probability": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Probability"
+        },
+        "reason_code": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "evaluated",
+            "selected",
+            "skipped",
+            "reused",
+            "completed",
+            "failed",
+            "unavailable"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threshold"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "id",
+        "criterion",
+        "state",
+        "reason_code"
+      ],
+      "title": "AnalysisDecisionNode",
+      "type": "object"
+    },
     "BoxShape": {
       "additionalProperties": false,
       "properties": {
@@ -305,6 +530,123 @@
       ],
       "title": "ImageCandidate",
       "type": "object"
+    },
+    "ImageDecisionTrace": {
+      "additionalProperties": false,
+      "description": "Host-recorded routing path, never a model's hidden reasoning.",
+      "properties": {
+        "assessment_probabilities": {
+          "additionalProperties": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "maxProperties": 8,
+          "propertyNames": {
+            "minLength": 1
+          },
+          "title": "Assessment Probabilities",
+          "type": "object"
+        },
+        "assessments": {
+          "additionalProperties": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxProperties": 8,
+          "propertyNames": {
+            "minLength": 1
+          },
+          "title": "Assessments",
+          "type": "object"
+        },
+        "calls": {
+          "items": {
+            "$ref": "#/$defs/AnalysisCall"
+          },
+          "maxItems": 2,
+          "title": "Calls",
+          "type": "array"
+        },
+        "capability_version": {
+          "minLength": 1,
+          "title": "Capability Version",
+          "type": "string"
+        },
+        "image": {
+          "$ref": "#/$defs/CandidateImage"
+        },
+        "mode": {
+          "enum": [
+            "off",
+            "shadow",
+            "auto"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/AnalysisDecisionNode"
+          },
+          "maxItems": 20,
+          "title": "Nodes",
+          "type": "array"
+        },
+        "policy_version": {
+          "minLength": 1,
+          "title": "Policy Version",
+          "type": "string"
+        },
+        "question_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Question Sha256",
+          "type": "string"
+        },
+        "recommended_profile": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "strong"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recommended Profile"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "selected_profile": {
+          "enum": [
+            "normal",
+            "strong",
+            "manual",
+            "pending"
+          ],
+          "title": "Selected Profile",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "question_sha256",
+        "image",
+        "mode",
+        "policy_version",
+        "capability_version",
+        "selected_profile"
+      ],
+      "title": "ImageDecisionTrace",
+      "type": "object"
     }
   },
   "$id": "urn:stoa:contracts:0.1.0:ImageCandidateResponse",
@@ -319,6 +661,17 @@
       "maxItems": 100,
       "title": "Candidates",
       "type": "array"
+    },
+    "decision_trace": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ImageDecisionTrace"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "image": {
       "$ref": "#/$defs/CandidateImage"

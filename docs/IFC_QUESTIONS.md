@@ -35,9 +35,9 @@ IFC_API_PROVIDER=gemini
 IFC_GEMINI_THINKING_LEVEL=high
 ```
 
-Gemini uses the existing `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-4-hydrogen` and
-network timeout. Its IFC reasoning level is independent of image analysis's low
-thinking setting. Keep `GEMINI_THINKING_LEVEL=low` for the image client. Default
+Gemini IFC planning uses Hydrogen with the existing `GEMINI_API_KEY` and network
+timeout. Its model and reasoning level are independent of the image profile:
+selecting Carbon for images does not change the IFC planner. Default
 IFC planning remains `nemotron`, using `VERDA_*`. Restart the backend after changing
 settings. `IMAGE_API_PROVIDER` continues to control image candidates separately;
 there is no automatic provider fallback.

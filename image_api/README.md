@@ -1,7 +1,7 @@
 # Image candidate API
 
 An internal Python HTTP service for locating question-relevant objects in one
-image using Nemotron or Gemini Hydrogen with low thinking. It returns unreviewed
+image using Nemotron or an allowlisted Gemini profile. It returns unreviewed
 candidate boxes, literal labels, visual cues, and uncertainty. It does not return a final answer
 or object count. The React frontend uses this endpoint for imported 2D drawings;
 IFC viewing and the CPU executor also connect through the separate
@@ -17,6 +17,107 @@ dataset coverage is claimed. See the [implementation plan](PLAN.md) and
 The [Gemini Hydrogen implementation plan](GEMINI_PLAN.md) records the provider
 boundary and protocol research. Image and IFC providers are selected independently;
 see [IFC planner configuration](../docs/IFC_QUESTIONS.md#choose-the-ifc-planner).
+
+The [Gemini Decisions plan](DECISIONS_PLAN.md) records the experimental router:
+familiar tasks use Hydrogen-low and difficult, unfamiliar or uncertain cases go
+directly to Carbon-medium. Selective preprocessing follows in a later stage. It incorporates the new
+[tooling/routing research](../docs/TOOLING_AND_ROUTING_PLAN.md) and
+[100-image report](../experiments/image_questions/GEMINI_100_RESULTS.md), keeping
+that capability-first order. Review tasks use one Astra-6 Max subagent each;
+the UI explains recorded decisions and evidence limits, including failures,
+in an expandable panel. Routing is off by default pending dataset evaluation.
+
+## Experimental capability routing
+
+Keep `GEMINI_API_KEY` on the backend. Set `IMAGE_API_PROVIDER=gemini` and choose:
+
+| Setting | Behavior |
+| --- | --- |
+| `IMAGE_API_ROUTING_MODE=off` | Default; one explicitly configured image provider/profile. |
+| `IMAGE_API_ROUTING_MODE=shadow` | Decisions recommends a route; the configured baseline analyzer still runs once. |
+| `IMAGE_API_ROUTING_MODE=auto` | Selects Hydrogen-low for supported cases meeting the overall-fit threshold, otherwise Carbon-medium directly. No weak-model retry. |
+
+`GEMINI_MODEL=gemini-4-hydrogen` with `GEMINI_THINKING_LEVEL=low` remains the
+manual default; `gemini-4-carbon` accepts `low` or `medium`. Auto mode defaults
+to Carbon medium; set `IMAGE_API_ROUTING_STRONG_THINKING_LEVEL=low` for lower
+thinking. High thinking is outside the image-profile allowlist. Profile selection
+preserves the configured output-token and timeout limits.
+Carbon model access is required for the strong route. If it is unavailable,
+return a traced error rather than silently using Hydrogen.
+
+Routing requires `IMAGE_API_PREPROCESS_MODE=original` or `off`, preserving the
+canonical whole raster. It rejects `overview` and more than two concurrent
+requests. No crops, OCR or source-tool loop is selected by this initial version.
+One decision attempt and one analyzer attempt are allowed, without retries.
+Router errors/timeouts recommend Carbon; shadow mode records that recommendation
+while retaining the baseline. The total deadline includes preparation/routing;
+five seconds are reserved for finalization before another call can run.
+
+`IMAGE_API_ROUTING_THRESHOLD=0.6` is the provisional default. Only the overall
+`normal_fit=supported` probability must meet it. Explicit `needs_strong` or
+`uncertain`, or an overall fit below the threshold, selects Carbon directly.
+Document type, operation, target, counting grain and scope labels are diagnostic:
+low confidence in one of those labels does not independently invoke Carbon.
+
+Ordinary readable drawings, room/fixture/object discovery, labels, schedules and
+printed quantity regions can use Hydrogen. Several readable panels, a room filter,
+a non-count task or another ordinary object category do not automatically make
+a task difficult. Both analyzers retain the same submitted-image and candidate-only
+boundaries; Carbon does not add missing sources, calibration or execution tools.
+Policy `capability-routing-v2` replaces v1's 90%-on-every-label gate and narrow
+door/window/fixture vetoes. Its threshold is still a heuristic, not calibrated
+accuracy. Explicit environment overrides remain honored; remove an old `0.9`
+override or set `IMAGE_API_ROUTING_THRESHOLD=0.6` to use the new default. Restart
+the backend after changing settings. Use `shadow` to evaluate routing on your sources.
+
+`IMAGE_API_ROUTING_TIMEOUT_SECONDS=3` bounds Decisions. A bounded session-only
+cache (`IMAGE_API_ROUTING_CACHE_ENTRIES=32`, zero disables it) keys on exact
+question/scope, image hashes, profiles and policy/criteria versions. Cache hits
+reuse routing assessments without billing them as a new call. No source bytes or
+reference answers are cached there. Both modes still send the image and question
+to the configured Gemini services when an uncached decision is needed.
+
+The expandable **How this was analyzed** panel shows recorded assessments,
+probabilities, thresholds, actual route/calls, skipped preparation and failures.
+For v2 it explains that only overall fit is thresholded; older v1 traces retain
+their original explanation. Policy and criteria changes invalidate cached routes.
+Scores are routing estimates, not answer accuracy. Exported candidate JSON retains
+the trace; failures retain it in the error state. Total cost estimates sum each
+call's timestamp/model/usage and mark missing information as unknown. IFC continues
+through its independently configured Nemotron/Hydrogen planner and native executor.
+See [.env.example](../.env.example).
+
+## Live model handoff while loading
+
+The workbench shows **Preparing image…**, then **Choosing analysis model…**.
+Immediately before the chosen analyzer is invoked, both loading areas show
+**Handing to Gemini 4 Hydrogen…** or **Handing to Gemini 4 Carbon…** (with Finnish
+equivalents). This uses the actual dispatch, including cache hits and the
+configured baseline in shadow/manual mode; it does not wait for candidate output.
+Cancellation, source/page changes and a new request clear the previous model.
+
+The frontend opts into streaming on the same multipart
+`POST /api/v1/candidates` with `Accept: application/x-ndjson`. The ordinary JSON
+response remains the default for existing callers. A stream contains one
+`ImageCandidateStreamEvent` of type `handoff`, followed by a terminal `result`
+or `error`, newline-delimited UTF-8. An error before dispatch has no handoff.
+Successful streams require the handoff. Each frame has schema version `0.1.0`;
+the handoff includes request ID, source identity/dimensions, question hash and
+requested model. Terminal responses retain the existing contracts and full trace.
+See the [generated event schema](../contracts/jsonschema/ImageCandidateStreamEvent.schema.json).
+
+Upload and image preparation/validation complete before streaming headers, so
+their HTTP validation errors remain JSON. After streaming starts, errors travel
+as terminal error frames under HTTP 200; consumers must read the terminal frame.
+The stream uses `X-Request-ID`, `Cache-Control: no-store` and
+`X-Accel-Buffering: no`. Clients reject source/request/question mismatches,
+inconsistent handoff/result models, malformed/truncated streams and stale updates.
+An older JSON-only backend is accepted without resubmitting or inventing progress.
+
+Streaming adds no provider call or polling request. Deadlines, admission limits
+and cancellation still apply. Disconnect cleanup stops owned analysis workers,
+awaits asynchronous cancellation cleanup, then removes request files and releases
+admission. An unavailable strong profile is reported before any model handoff.
 
 ## Install and run
 
@@ -57,9 +158,10 @@ GEMINI_API_KEY=
 ```
 
 Restart the Python server after changing settings. Images use the native Google
-Interactions API with `gemini-4-hydrogen`, explicit low thinking, structured JSON
-output, and `store=false`. One image request makes one provider call; no retries,
-repair requests, or provider fallback are enabled. The same current UI displays
+Interactions API with `gemini-4-hydrogen`/low by default, structured JSON output,
+and `store=false`. With routing off, one image request makes one provider call;
+experimental routing adds at most one Decisions call before one selected analyzer.
+No retries or repair requests are enabled. The same current UI displays
 the returned candidates and actual model provenance.
 
 The image provider defaults to `nemotron`. To select it explicitly, set
@@ -79,8 +181,8 @@ Credentials, images, and provider error bodies are omitted from API errors.
 | Gemini setting | Default and meaning |
 | --- | --- |
 | `GEMINI_API_KEY` | Empty; required when Gemini is selected. |
-| `GEMINI_MODEL` | `gemini-4-hydrogen`; this implementation accepts that exact model. |
-| `GEMINI_THINKING_LEVEL` | `low`; this implementation accepts that exact setting. |
+| `GEMINI_MODEL` | `gemini-4-hydrogen` by default; also accepts `gemini-4-carbon`. |
+| `GEMINI_THINKING_LEVEL` | `low` for Hydrogen; `low` or `medium` for Carbon. |
 | `GEMINI_MAX_OUTPUT_TOKENS` | `65536`; range 1–65536, shared by thinking and final output. |
 | `GEMINI_TIMEOUT_SECONDS` | `120`; HTTP network-phase timeout, bounded by the total API deadline. |
 
@@ -332,9 +434,10 @@ under the image limit may therefore still exceed the Gemini limit and receive
 a separate Files API request. Its private normalized `[ymin, xmin, ymax, xmax]`
 boxes are converted to the same public X/Y display pixels described above.
 
-One inference attempt is made per accepted request; SDK retries are disabled for
-this endpoint, with no change to CLI defaults. The deadline covers body receipt,
-preparation and inference. Preparation runs in a worker thread; a timed-out
+One analyzer attempt is made per accepted request; routing optionally adds one
+decision attempt. SDK retries are disabled for this endpoint, with no change to
+CLI defaults. The deadline covers body receipt, preparation, routing and analysis.
+Preparation runs in a worker thread; a timed-out
 worker finishes its bounded local work and then removes its files. Inference is
 cancelled on timeout/disconnect; this does not guarantee the remote provider
 stops processing. Request-specific upload/normalization files are cleaned after
