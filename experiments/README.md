@@ -8,6 +8,9 @@ future runs stay ignored. Keep original drawing assets and reference answers unc
 
 - [Door labeling with Nemotron](door_labeling/README.md): one-image, zero-shot
   bounding-box proposals, saved model output, overlays, and post-inference review.
+- [Live 2D question evaluation](image_questions/README.md): eight production-API
+  questions, six diagnostic calls, source-derived PDF/DXF comparisons, and a
+  [recommended hybrid direction](image_questions/RESULTS.md). No IFC cases.
 
 Record the source hash, input dimensions, exact instructions/schema, model and
 sampling settings, token usage, elapsed time, and code revision. Preserve source
