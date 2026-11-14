@@ -1,0 +1,85 @@
+.response-metrics {
+  margin: 12px 0 16px;
+  border: 1px solid #dce5dc;
+  border-radius: 8px;
+  color: #405647;
+  background: #fafcf8;
+  font-variant-numeric: tabular-nums;
+}
+.response-metrics-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+  margin: 0;
+  padding: 13px 14px;
+}
+.response-metrics-summary > div {
+  min-width: 0;
+}
+.response-metrics-summary .response-metrics-model {
+  grid-column: 1 / -1;
+}
+.response-metrics-summary dt {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 5px;
+  font-size: 10px;
+  color: #708172;
+}
+.response-metrics-summary dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 550;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.response-metrics-model dd {
+  font-size: 12px;
+}
+.response-metrics-details {
+  border-top: 1px solid #e3eae0;
+  padding: 0 14px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: #718073;
+}
+.response-metrics-details > summary {
+  padding: 9px 0;
+  cursor: pointer;
+  color: #4e705d;
+  font-weight: 550;
+}
+.response-metrics-details > summary:focus-visible {
+  outline: 2px solid #137567;
+  outline-offset: 2px;
+}
+.response-metrics-details dl {
+  margin: 2px 0 10px;
+}
+.response-metrics-details dl > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 4px 0;
+}
+.response-metrics-details dd {
+  margin: 0;
+  text-align: right;
+  color: #405647;
+}
+.response-metrics-details p {
+  margin: 8px 0;
+}
+.response-metrics-details a {
+  color: #376c55;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.response-metrics-details .response-metrics-id {
+  overflow-wrap: anywhere;
+}
+.response-metrics-id code {
+  font-size: 9px;
+}

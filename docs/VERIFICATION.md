@@ -1,5 +1,30 @@
 # Sprint-one verification record
 
+## Frontend response metrics, 14 November 2026
+
+Checked on Windows with Node 24.22.3 and Python 3.14.10. This frontend-only
+change adds actual-model display, browser-measured total response time, and a
+token-based USD estimate for image/PDF responses. Shared wire contracts and
+backend model selection are unchanged.
+
+- All **97 frontend tests** passed, including six pricing/timing regressions:
+  model-specific arithmetic, the Carbon December rate change, missing versus
+  zero usage, unknown model IDs, sub-cent amounts and localized timings.
+- TypeScript and production build passed. Existing optional Three/WebGPU export
+  and large-chunk warnings remain. Markdown links and whitespace checks passed.
+- Server-rendering checks passed for Hydrogen with live token usage, Carbon
+  pricing before/after 1 December, missing usage, unknown models, Finnish labels,
+  candidate-panel integration and the initial import screen. These checks do
+  not establish browser layout or interaction behavior.
+- One live synthetic 256 × 256 PNG request through the running Vite proxy
+  returned HTTP 200 from `gemini-4-hydrogen`: 2,181 input tokens, 349 output
+  tokens (including thinking), and a 2,324 ms backend model-request time. The
+  standard-rate calculator estimated $0.005889 USD, displayed as $0.0059.
+  This was a connectivity/usage check, not a drawing-accuracy evaluation.
+- Browser automation could not proceed: the browser connector was unavailable
+  and native Firefox access was not approved by the computer-use tool. No
+  Windows visual browser verification is claimed for this change.
+
 ## Gemini and main integration, 14 November 2026
 
 Completed the interrupted merge of Gemini branch `e3fba25` with main `e68301f`.

@@ -1,6 +1,7 @@
 import { CircleAlert, Focus, ScanLine } from 'lucide-react';
 import type { ImageCandidate, ImageCandidateResponse } from '../contracts/ImageCandidateResponse';
 import type { Language } from '../types';
+import { ResponseMetrics } from './ResponseMetrics';
 import './CandidatePanel.css';
 
 function CandidateCloseUp({
@@ -48,6 +49,8 @@ export function CandidatePanel({
   onFocus,
   imageUrl,
   language,
+  responseTimeMs,
+  completedAt,
 }: {
   response: ImageCandidateResponse;
   question: string;
@@ -56,6 +59,8 @@ export function CandidatePanel({
   onFocus: (id: string) => void;
   imageUrl: string;
   language: Language;
+  responseTimeMs: number;
+  completedAt: string;
 }) {
   const fi = language === 'fi';
   const candidates = response.candidates ?? [];
@@ -73,10 +78,21 @@ export function CandidatePanel({
     <section className="candidate-panel" aria-label={fi ? 'Tunnistetut ehdokkaat' : 'Detected candidates'}>
       <p className="candidate-question">{question}</p>
       <div className={`candidate-summary candidate-summary-${response.status}`}>
-        <span className="candidate-eyebrow"><ScanLine size={14} />{response.provenance.returned_model} · {fi ? 'KUVAN EHDOKKAAT' : 'IMAGE CANDIDATES'}</span>
+        <span className="candidate-eyebrow"><ScanLine size={14} />{fi ? 'KUVAN EHDOKKAAT' : 'IMAGE CANDIDATES'}</span>
         <h2>{response.status === 'unreadable' || response.status === 'unsupported' ? status : heading}</h2>
         <p>{status} · {fi ? 'Vain valittu kuva' : 'Selected image only'}</p>
       </div>
+      <ResponseMetrics
+        model={response.provenance.returned_model}
+        requestedModel={response.provenance.requested_model}
+        responseTimeMs={responseTimeMs}
+        modelTimeMs={response.metrics.elapsed_ms}
+        preparationTimeMs={response.metrics.preparation_ms}
+        inputTokens={response.metrics.prompt_tokens}
+        outputTokens={response.metrics.completion_tokens}
+        completedAt={completedAt}
+        language={language}
+      />
       <p className="candidate-review-note"><CircleAlert size={15} /><span>{fi ? 'Tarkista ehdokkaat kuvasta. Kohteita voi puuttua, eikä luettelon kattavuutta ole vahvistettu.' : 'Review the highlights against the image. Candidates may be missing or ambiguous; inventory completeness is unverified.'}</span></p>
       {(response.limitations ?? []).length > 0 && (
         <section className="candidate-limitations" aria-label={fi ? 'Rajoitukset' : 'Limitations'}>
@@ -101,7 +117,7 @@ export function CandidatePanel({
           </div>
         ))}
       </div>
-      <p className="candidate-provenance">{response.provenance.returned_model} · {response.image.width} × {response.image.height} px</p>
+      <p className="candidate-provenance">{response.image.width} × {response.image.height} px</p>
     </section>
   );
 }

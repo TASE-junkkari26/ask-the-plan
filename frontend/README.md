@@ -64,6 +64,7 @@ still needs verification on the target demo devices.
 - Local image/SVG/PDF previews with pan, zoom, fit, quarter-turn rotation, and PDF page navigation.
 - IFC imports with a separate 3D renderer, original object properties/IDs, storey filtering, visibility controls, sectioning, and engine-backed questions. Questions and the inspector share the right panel for models.
 - Chat panel opens automatically after an image/PDF loads or is selected. It displays the original filename and preview details, and sends the selected image/page for candidate analysis when a question is submitted.
+- Completed image/PDF responses show the returned model, total response time, and estimated USD token cost, with an expandable usage and pricing breakdown.
 - Searchable drawing picker containing only imported files, with thumbnails and removal. The native dialog supports focus containment, Escape, and the `/` or Ctrl/Cmd+K shortcuts.
 - English/Finnish core UI labels; original filenames and source text stay unchanged.
 - Current-drawing scope by default, following the organizer clarification reported on 14 November 2026. Whole-building requests do not aggregate unseen drawings.
@@ -148,6 +149,30 @@ fixture is separate from startup: `npm --prefix frontend run prepare:ifc-demo`
 from the root requires its optional dataset source.
 
 ## Backend integration boundary
+
+### Response metrics and cost estimates
+
+Image/PDF responses show elapsed time measured in the browser, from question
+submission through image preparation, upload and the validated response. The
+details also show the backend's model-request and raster-preparation timings.
+These timings measure different parts of the request and are not added together.
+
+Cost is an estimate for the image analysis call: `(input tokens × input rate +
+output tokens × output rate) / 1,000,000`. The existing Gemini adapter includes
+thinking tokens in output usage. Missing usage or an unpriced model displays
+**Unavailable**, while explicitly reported zero usage remains zero.
+
+[The pricing catalog](src/lib/responseMetrics.ts) uses the actual returned model
+ID and the response's completion timestamp. Standard paid Gemini API rates were
+verified against [Google's pricing](https://ai.google.dev/gemini-api/docs/pricing)
+on 14 November 2026: Hydrogen is $1.50 input / $7.50 output per million tokens;
+Carbon is $2 / $10 through 30 November, then $4 / $20 from 1 December UTC.
+Estimates precede cache discounts, credits and taxes. Update this catalog when
+rates change. Both model IDs are priced so a future backend router can use the
+same display; this frontend change does not implement model routing or enable
+Carbon in the current Hydrogen-only backend.
+
+### API and source evidence
 
 The application does not call `src/demo/engine.ts`. Its `askDemo` adapter and
 synthetic sources remain for offline fixture and contract checks. Imported

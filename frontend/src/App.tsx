@@ -250,6 +250,8 @@ export default function App() {
   const [candidateResponse, setCandidateResponse] = useState<{
     result: ImageCandidateResponse;
     question: string;
+    responseTimeMs: number;
+    completedAt: string;
   } | null>(null);
   const [candidateError, setCandidateError] = useState('');
   const [analysisUrl, setAnalysisUrl] = useState<string | null>(null);
@@ -430,6 +432,7 @@ export default function App() {
 
   async function ask(question: string) {
     if (!question.trim() || !imported || importing || asking) return;
+    const startedAt = performance.now();
     const questionText = question.trim();
     cancelAnalysis();
     const controller = new AbortController();
@@ -450,7 +453,11 @@ export default function App() {
       );
       if (requestRef.current !== controller || controller.signal.aborted)
         return;
-      setCandidateResponse({ result, question: questionText });
+      setCandidateResponse({
+        result, question: questionText,
+        responseTimeMs: performance.now() - startedAt,
+        completedAt: new Date().toISOString(),
+      });
       setQuery('');
       resetViewport();
     } catch (error) {
@@ -1371,6 +1378,8 @@ export default function App() {
                     <CandidatePanel
                       response={candidateResponse.result}
                       question={candidateResponse.question}
+                      responseTimeMs={candidateResponse.responseTimeMs}
+                      completedAt={candidateResponse.completedAt}
                       selected={selected}
                       onSelect={(id) => {
                         setSelected((value) => (value === id ? null : id));
