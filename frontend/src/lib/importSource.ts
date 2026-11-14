@@ -8,7 +8,7 @@ import {
 } from './importDocument.ts';
 import { forgetIfc } from '../ifc/cache.ts';
 
-export const MAX_IFC_BYTES = 100 * 1024 * 1024;
+export const MAX_IFC_BYTES = 512 * 1024 * 1024;
 export const SOURCE_ACCEPT = `${IMPORT_ACCEPT},.ifc`;
 export const SOURCE_FORMATS = `${IMPORT_FORMATS}, IFC`;
 
@@ -17,7 +17,7 @@ export function sourceKind(file: File) {
     if (!file.size) throw new Error('This file is empty.');
     if (file.size > MAX_IFC_BYTES)
       throw new Error(
-        'Choose an IFC file no larger than 100 MiB for browser conversion.',
+        'Choose an IFC file no larger than 512 MiB for browser conversion.',
       );
     return 'ifc';
   }

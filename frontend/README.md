@@ -39,6 +39,10 @@ extra and configure the backend `.env` as described in the
 [API guide](../image_api/README.md#install-and-run). Vite proxies `/api` to that
 local server; the browser never receives the inference key.
 
+`npm run dev` starts only the frontend. If asking a question fails with an
+unreadable response or an HTTP/proxy error, keep the Python API running too;
+see [analysis connection troubleshooting](../image_api/README.md#troubleshoot-the-frontend-connection).
+
 On Linux, use `npm` instead of `npm.cmd`. These root scripts forward to this
 directory. The root has no dependency lockfile; do not run root `npm ci`. If
 already inside `frontend/`, use `npm.cmd ci --ignore-scripts` followed by
@@ -81,10 +85,10 @@ On first open, click **Select files** or drop files onto the import screen.
 After loading, use **Import drawings** in the header or drawing picker, or drop
 files anywhere on the workbench. Select multiple files at once. Supported previews are **PDF,
 PNG, JPEG, WebP, SVG, GIF, and BMP**, with a **35 MiB limit per file**. **IFC** models
-have a separate **100 MiB limit** and are converted locally when selected. The importer
+have a separate **512 MiB limit** and are converted locally when selected. The importer
 also recognizes supported filename extensions when the browser omits the MIME
 type. DWG/DXF drawings need a PDF or SVG export. IFCZIP and binary IFC are not supported.
-Model conversion has progress, cancellation, retry, and removal controls.
+Model conversion has progress, cancellation, retry, and removal controls. Source reading/hashing and conversion run in a worker; reopening the most recent model reuses its converted buffer. The size cap is a desktop input target, with actual memory use depending on model complexity.
 
 Open **Drawings** to search imported filenames, select a thumbnail, or remove a
 file. The library contains only your imports. The last successfully imported file

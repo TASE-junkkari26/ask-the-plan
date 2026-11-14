@@ -458,3 +458,34 @@ browser, and mock API processes were stopped after verification.
   The [Nemotron guide](nvidia_info.md) and saved
   [door-labeling experiment](../experiments/door_labeling/RESULTS.md) retain their
   separately dated observations and limits.
+
+## IFC viewer bug and performance pass — 14 November 2026
+
+Checked on Linux with Node 26.13.1, npm 12.2.2, Vite 7.3.8 and Firefox 160
+headless/software WebGL. The current application opens on imports; the old demo
+picker used in the earlier record is no longer part of the visible application.
+
+| Check | Observed result |
+|---|---|
+| `npm run test:frontend` | All 11 frontend test files passed, including image-candidate/2D checks and IFC routing/cache, worker protocol, STEP validation, bounded properties, rendering policy and update scheduling. |
+| New/extended IFC tests | 30 focused cases passed directly with Node: cancellation/stale messages, cache ownership/invalidation, source validation, clipping, coplanar material bias, transparent depth writes, pixel budget, ordered/coalesced updates, and large property graphs. |
+| `npm run build` | TypeScript and production bundling passed; existing optional WebGPU export and large SDK chunk warnings remain. |
+| Production and fallback | Production worker loading, cached reopening, zero idle draws, projection/sections and graphics recovery passed. Disabling `EXT_clip_control` also rendered and selected correctly with ordinary depth and positive base-material offsets; no page errors. |
+| `node scripts/smoke-render.mjs` from `frontend/` | Current import screen rendered without loading the IFC viewer or showing the old demo/chat panel. |
+| Source reading/hash instrumentation | Opening the real FZK-Haus model invoked neither `File.arrayBuffer()` nor SHA-256 on the main thread. Reopening its retained library entry after switching to SVG created no conversion worker. |
+| Idle GPU instrumentation | After settling, the visible model produced **0 WebGL draw calls over 2 seconds**. Camera/projection, selection, sections, and source changes still redraw. |
+| Depth/material handling | Real model rendering used distinct stable polygon offsets, transparent surfaces did not write depth, and selecting the original door retained its native name/GUID. Perspective/orthographic switching and section/reset passed. |
+| Large ventilation model | `sixty5_ventilation.ifc`, **109.6 MiB**, opened in **35.1 s**, including worker source reading/hashing/conversion and initial display. |
+| Largest supplied model | `sixty5_arc.ifc`, **326.8 MiB**, opened in **68.5 s** and rendered. Both large-model runs recorded no uncaught page errors; their source files remained unchanged. |
+| Hierarchy paging | DigitalHub heating category exposed `Show next 57 items (100 / 157)`; opening the next page added exactly 57 DOM rows. |
+| Visibility ordering | Rapid storey changes followed by All storeys settled to the final selection without a viewer error. |
+| Removing during conversion | Removing an active 109.6 MiB conversion returned to the previous model and did not restore the removed model. |
+| Lost graphics context | Simulated context loss produced a recoverable error; Retry reopened and displayed the model without unhandled page errors. |
+| STEP validation compatibility | Bounded header/footer checks accepted all 611 supplied IFC files; corrupt/truncated fixtures reject before full-file allocation. |
+
+The IFC input cap is now **512 MiB**, separate from the unchanged 35 MiB 2D cap.
+The timings are selected local observations on software WebGL, not a speed promise
+or a baseline comparison. No 512 MiB model or physical mobile/Windows device was
+validated. The worker still holds the full source; hashing may copy it, and native
+geometry/WASM/GPU allocations need additional RAM. Raster bias improves depth
+precision and coplanar presentation without repairing contradictory source solids.

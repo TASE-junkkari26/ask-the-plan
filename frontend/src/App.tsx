@@ -56,6 +56,7 @@ import {
   releaseSource,
   SOURCE_ACCEPT,
   SOURCE_FORMATS,
+  MAX_IFC_BYTES,
 } from './lib/importSource';
 import { ifcCache } from './ifc/cache';
 import type { IfcStatus, Language, LocalDrawing, LocalSource } from './types';
@@ -84,7 +85,7 @@ const copy = {
     importErrors: 'Some files could not be opened',
     welcome: 'Start with a drawing.',
     welcomeIntro: 'Import a drawing to open your workspace.',
-    formats: 'PDF and images · Up to 35 MiB per file · IFC · Up to 100 MiB',
+    formats: `PDF and images · Up to 35 MiB per file · IFC · Up to ${MAX_IFC_BYTES / 1024 / 1024} MiB`,
     opening: 'Opening your drawing…',
     analysisNote:
       'Submitting sends this image or PDF page to Nemotron. Results are candidates for you to review.',
@@ -111,8 +112,7 @@ const copy = {
     importErrors: 'Joitakin tiedostoja ei voitu avata',
     welcome: 'Aloita piirustuksesta.',
     welcomeIntro: 'Tuo piirustus avataksesi työtilan.',
-    formats:
-      'PDF- ja kuvatiedostot · Enintään 35 MiB / tiedosto · IFC · Enintään 100 MiB',
+    formats: `PDF- ja kuvatiedostot · Enintään 35 MiB / tiedosto · IFC · Enintään ${MAX_IFC_BYTES / 1024 / 1024} MiB`,
     opening: 'Avataan piirustusta…',
     analysisNote:
       'Kysymyksen lähettäminen lähettää tämän kuvan tai PDF-sivun Nemotronille. Tulokset ovat tarkistettavia ehdokkaita.',

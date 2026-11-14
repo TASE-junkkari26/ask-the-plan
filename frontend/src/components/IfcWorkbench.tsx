@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Box,
@@ -37,7 +37,13 @@ const labels: Record<IfcStatus, string> = {
   error: 'Model could not be opened',
 };
 
-function NativeData({ data, depth = 0 }: { data: ItemData; depth?: number }) {
+const NativeData = memo(function NativeData({
+  data,
+  depth = 0,
+}: {
+  data: ItemData;
+  depth?: number;
+}) {
   const scalars = Object.entries(data).filter(
     ([key, value]) => !key.startsWith('_') && !Array.isArray(value),
   );
@@ -66,34 +72,7 @@ function NativeData({ data, depth = 0 }: { data: ItemData; depth?: number }) {
       )}
       {depth < 8 &&
         relations.map(([name, items]) => (
-          <details
-            className="ifc-property-group"
-            key={name}
-            open={depth === 0 && name === 'IsDefinedBy'}
-          >
-            <summary>
-              {name} <span>{items.length}</span>
-            </summary>
-            {items.map((item, index) => (
-              <details
-                key={index}
-                className="ifc-property-group"
-                open={depth < 1}
-              >
-                <summary>
-                  {String(
-                    attribute(item, 'Name') ??
-                      attribute(item, '_category') ??
-                      `#${attribute(item, '_localId')}`,
-                  )}
-                  {/(TYPE|STYLE)$/.test(
-                    String(attribute(item, '_category')),
-                  ) && <small>Type definition</small>}
-                </summary>
-                <NativeData data={item} depth={depth + 1} />
-              </details>
-            ))}
-          </details>
+          <NativeRelation key={name} name={name} items={items} depth={depth} />
         ))}
       {depth >= 8 && !!relations.length && (
         <p className="ifc-note">
@@ -102,9 +81,70 @@ function NativeData({ data, depth = 0 }: { data: ItemData; depth?: number }) {
       )}
     </>
   );
+});
+
+function NativeRelation({
+  name,
+  items,
+  depth,
+}: {
+  name: string;
+  items: ItemData[];
+  depth: number;
+}) {
+  const [open, setOpen] = useState(depth === 0 && name === 'IsDefinedBy');
+  return (
+    <details
+      className="ifc-property-group"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>
+        {name} <span>{items.length}</span>
+      </summary>
+      {open &&
+        items.map((item, index) => (
+          <NativePropertyItem
+            key={`${attribute(item, '_localId') ?? index}`}
+            item={item}
+            depth={depth}
+          />
+        ))}
+    </details>
+  );
 }
 
-function TreeNode({
+function NativePropertyItem({
+  item,
+  depth,
+}: {
+  item: ItemData;
+  depth: number;
+}) {
+  const [open, setOpen] = useState(depth < 1);
+  return (
+    <details
+      className="ifc-property-group"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>
+        {String(
+          attribute(item, 'Name') ??
+            attribute(item, '_category') ??
+            `#${attribute(item, '_localId')}`,
+        )}
+        {/(TYPE|STYLE)$/.test(String(attribute(item, '_category'))) && (
+          <small>Type definition</small>
+        )}
+      </summary>
+      {open && <NativeData data={item} depth={depth + 1} />}
+    </details>
+  );
+}
+
+const TREE_PAGE_SIZE = 100;
+const TreeNode = memo(function TreeNode({
   node,
   selected,
   select,
@@ -116,18 +156,28 @@ function TreeNode({
   root?: boolean;
 }) {
   const [open, setOpen] = useState(root);
-  const button = (
-    <button
-      className={`ifc-tree-item ${selected === node.id && node.id !== null ? 'selected' : ''}`}
-      disabled={node.id === null}
-      onClick={() => node.id !== null && select(node.id)}
-      title={node.category}
-    >
+  const [visible, setVisible] = useState(TREE_PAGE_SIZE);
+  const content = (
+    <>
       <Box size={12} />
       <span>{node.label}</span>
       {node.id !== null && <small>#{node.id}</small>}
-    </button>
+    </>
   );
+  const item =
+    node.id === null ? (
+      <span className="ifc-tree-item" title={node.category}>
+        {content}
+      </span>
+    ) : (
+      <button
+        className={`ifc-tree-item ${selected === node.id ? 'selected' : ''}`}
+        onClick={() => select(node.id!)}
+        title={node.category}
+      >
+        {content}
+      </button>
+    );
   return node.children.length ? (
     <details
       className="ifc-tree-node"
@@ -136,11 +186,11 @@ function TreeNode({
     >
       <summary>
         <ChevronDown size={12} />
-        {button}
+        {item}
       </summary>
       {open && (
         <div className="ifc-tree-children">
-          {node.children.map((child, index) => (
+          {node.children.slice(0, visible).map((child, index) => (
             <TreeNode
               key={`${child.id}-${index}`}
               node={child}
@@ -148,13 +198,23 @@ function TreeNode({
               select={select}
             />
           ))}
+          {visible < node.children.length && (
+            <button
+              className="text-button"
+              onClick={() => setVisible((count) => count + TREE_PAGE_SIZE)}
+            >
+              Show next{' '}
+              {Math.min(TREE_PAGE_SIZE, node.children.length - visible)} items (
+              {visible} / {node.children.length})
+            </button>
+          )}
         </div>
       )}
     </details>
   ) : (
-    <div className="ifc-tree-leaf">{button}</div>
+    <div className="ifc-tree-leaf">{item}</div>
   );
-}
+});
 
 export default function IfcWorkbench({
   source,
@@ -180,6 +240,11 @@ export default function IfcWorkbench({
   const [selection, setSelection] = useState<ModelSelection | null>(null);
   const [hash, setHash] = useState('');
   const [orthographic, setOrthographic] = useState(false);
+  const [projectionPending, setProjectionPending] = useState(false);
+  const projectionRequest = useRef(0);
+  const projectionInFlight = useRef(false);
+  const visibilityRequest = useRef(0);
+  const confirmedStorey = useRef('');
   const [storey, setStorey] = useState('');
   const [section, setSection] = useState(false);
   const [height, setHeight] = useState(0);
@@ -207,10 +272,33 @@ export default function IfcWorkbench({
     setSelection(null);
     setHash('');
     setOrthographic(false);
+    setProjectionPending(false);
+    projectionInFlight.current = false;
+    confirmedStorey.current = '';
     setStorey('');
     setSection(false);
     setNotice('');
+    setLookup('');
     report({ status: 'reading' });
+    const dispose = (instance: IfcAdapter | undefined) => {
+      // Never allow a late SDK cleanup failure to become an unhandled rejection.
+      if (instance) void instance.dispose().catch(() => {});
+    };
+    const fail = (error: unknown) => {
+      if (controller.signal.aborted) return;
+      report({
+        status: 'error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'The model could not be opened.',
+      });
+      setInfo(null);
+      setSelection(null);
+      controller.abort();
+      if (adapterRef.current === adapter) adapterRef.current = null;
+      dispose(adapter);
+    };
     void (async () => {
       try {
         adapter = createIfcAdapter(
@@ -226,6 +314,7 @@ export default function IfcWorkbench({
                   : 'The viewer operation failed.',
               );
           },
+          fail,
         );
         adapterRef.current = adapter;
         const converted = await loadIfc(source, controller.signal, report);
@@ -242,24 +331,16 @@ export default function IfcWorkbench({
         setHeight((loaded.minY + loaded.maxY) / 2);
         report({ status: 'ready' });
       } catch (error) {
-        if (!controller.signal.aborted) {
-          report({
-            status: 'error',
-            message:
-              error instanceof Error
-                ? error.message
-                : 'The model could not be opened.',
-          });
-          void adapter?.dispose();
-          adapterRef.current = null;
-        }
+        fail(error);
       }
     })();
     return () => {
       const alreadyCancelled = controller.signal.aborted;
       controller.abort();
       adapterRef.current = null;
-      void adapter?.dispose();
+      projectionRequest.current++;
+      visibilityRequest.current++;
+      dispose(adapter);
       if (
         !alreadyCancelled &&
         lastStatus !== 'error' &&
@@ -270,13 +351,15 @@ export default function IfcWorkbench({
     // A status update on the library entry must not restart its renderer.
   }, [source.id, attempt]);
 
-  const run = (operation: (adapter: IfcAdapter) => Promise<unknown> | void) => {
-    const adapter = adapterRef.current;
-    if (!adapter || !ready) return;
-    setNotice('');
-    void Promise.resolve()
-      .then(() => operation(adapter))
-      .catch((error) => {
+  const run = useCallback(
+    async (operation: (adapter: IfcAdapter) => Promise<unknown> | void) => {
+      const adapter = adapterRef.current;
+      if (!adapter || !ready) return false;
+      setNotice('');
+      try {
+        await operation(adapter);
+        return adapterRef.current === adapter;
+      } catch (error) {
         if (
           adapterRef.current === adapter &&
           !(error instanceof DOMException && error.name === 'AbortError')
@@ -286,16 +369,46 @@ export default function IfcWorkbench({
               ? error.message
               : 'The viewer operation failed.',
           );
+        return false;
+      }
+    },
+    [ready],
+  );
+  const select = useCallback(
+    (id: number) => {
+      void run((adapter) => adapter.select(id));
+    },
+    [run],
+  );
+  const changeVisibility = useCallback(
+    (nextStorey: string, operation: (adapter: IfcAdapter) => Promise<void>) => {
+      const request = ++visibilityRequest.current;
+      setStorey(nextStorey);
+      void run(operation).then((success) => {
+        if (success) confirmedStorey.current = nextStorey;
+        else if (request === visibilityRequest.current)
+          setStorey(confirmedStorey.current);
       });
-  };
-  const select = (id: number) => run((adapter) => adapter.select(id));
-  const showAll = () => {
-    setStorey('');
-    run((adapter) => adapter.showAll());
+    },
+    [run],
+  );
+  const showAll = () => changeVisibility('', (adapter) => adapter.showAll());
+  const changeProjection = () => {
+    if (projectionInFlight.current) return;
+    projectionInFlight.current = true;
+    const request = ++projectionRequest.current;
+    const next = !orthographic;
+    setProjectionPending(true);
+    void run((adapter) => adapter.projection(next)).then((success) => {
+      if (request !== projectionRequest.current) return;
+      if (success) setOrthographic(next);
+      projectionInFlight.current = false;
+      setProjectionPending(false);
+    });
   };
   const cancel = () => {
     controllerRef.current?.abort();
-    void adapterRef.current?.dispose();
+    void adapterRef.current?.dispose().catch(() => {});
     adapterRef.current = null;
     setState({ status: 'cancelled' });
     onStatus(source.id, 'cancelled');
@@ -317,8 +430,7 @@ export default function IfcWorkbench({
             value={storey}
             onChange={(event) => {
               const id = event.target.value;
-              setStorey(id);
-              run((adapter) =>
+              changeVisibility(id, (adapter) =>
                 adapter.setStorey(
                   info?.storeys.find((node) => String(node.id) === id) ?? null,
                 ),
@@ -336,13 +448,9 @@ export default function IfcWorkbench({
         <div className="viewer-tools">
           <button
             className={`secondary-button ifc-projection ${orthographic ? 'tool-active' : ''}`}
-            disabled={!ready}
+            disabled={!ready || projectionPending}
             aria-pressed={orthographic}
-            onClick={() => {
-              const next = !orthographic;
-              setOrthographic(next);
-              run((adapter) => adapter.projection(next));
-            }}
+            onClick={changeProjection}
           >
             {orthographic ? 'Orthographic' : 'Perspective'}
           </button>
@@ -513,7 +621,7 @@ export default function IfcWorkbench({
                   <input
                     type="checkbox"
                     checked={section}
-                    disabled={!ready}
+                    disabled={!ready || !info?.hasGeometry}
                     onChange={(event) => {
                       const checked = event.target.checked;
                       setSection(checked);
@@ -608,8 +716,9 @@ export default function IfcWorkbench({
                         className="secondary-button"
                         disabled={!selection.hasGeometry}
                         onClick={() => {
-                          setStorey('');
-                          run((adapter) => adapter.isolate(selection.id));
+                          changeVisibility('', (adapter) =>
+                            adapter.isolate(selection.id),
+                          );
                         }}
                       >
                         Isolate
