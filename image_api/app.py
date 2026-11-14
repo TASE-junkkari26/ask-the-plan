@@ -17,13 +17,14 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
 from contracts.models import ImageCandidateError, ImageCandidateResponse
+from gemini import AsyncGeminiClient
 from ifc_api.routes import install_ifc_routes
 from ifc_api.service import IfcService, MAX_IFC_BODY_BYTES
 from nemotron import AsyncNemotronClient, ConfigurationError, NemotronSettings
 from .config import ApiSettings
 from .errors import ApiError
 from .preprocessing import ImagePreprocessor
-from .service import CandidateService
+from .service import CandidateService, GeminiCandidateProvider
 
 
 def _error(request_id: str, status: int, code: str, message: str,
@@ -115,7 +116,8 @@ _REQUEST_BODY = {
 
 
 def create_app(settings: ApiSettings | None = None, *,
-               client_factory: Callable[[], AsyncNemotronClient] | None = None) -> FastAPI:
+               client_factory: Callable[[], AsyncNemotronClient] | None = None,
+               gemini_client_factory: Callable[[], AsyncGeminiClient] | None = None) -> FastAPI:
     """Build the app; injection keeps HTTP tests independent of keys/network."""
     settings = settings if settings is not None else ApiSettings.from_env()
     request_body = deepcopy(_REQUEST_BODY)
@@ -124,6 +126,7 @@ def create_app(settings: ApiSettings | None = None, *,
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         client = None
+        gemini_client = None
         app.state.service = None
         app.state.in_flight = 0
         app.state.preprocessor = ImagePreprocessor(settings)
@@ -134,11 +137,21 @@ def create_app(settings: ApiSettings | None = None, *,
                     client = AsyncNemotronClient(model_settings)
                 else:
                     client = client_factory()
-                app.state.service = CandidateService(client, settings)
+                if settings.provider == "nemotron":
+                    app.state.service = CandidateService(client, settings)
             except ConfigurationError:
                 # Keep health/docs available to diagnose missing local setup.
                 pass
             app.state.ifc_service = IfcService(client)
+            # IFC always retains its Nemotron client, regardless of image provider.
+            if settings.provider == "gemini":
+                try:
+                    gemini_client = (gemini_client_factory() if gemini_client_factory is not None
+                                     else AsyncGeminiClient())
+                    app.state.service = CandidateService(
+                        None, settings, provider=GeminiCandidateProvider(gemini_client))
+                except ConfigurationError:
+                    pass
             yield
         finally:
             # A timeout shields a running preparation worker. Drain it before
@@ -147,8 +160,12 @@ def create_app(settings: ApiSettings | None = None, *,
             await asyncio.to_thread(app.state.preprocessor.close)
             if hasattr(app.state, "ifc_service"):
                 await asyncio.to_thread(app.state.ifc_service.close)
-            if client is not None:
-                await client.close()
+            try:
+                if gemini_client is not None:
+                    await gemini_client.close()
+            finally:
+                if client is not None:
+                    await client.close()
 
     app = FastAPI(title="Ask the Plan analysis", version="0.1.0", lifespan=lifespan,
                   description="Image candidate regions and Nemotron-planned, engine-computed IFC answers with source evidence.")
@@ -235,7 +252,8 @@ def create_app(settings: ApiSettings | None = None, *,
               openapi_extra=request_body)
     async def candidates(request: Request):
         if request.app.state.service is None:
-            raise ApiError(503, "not_configured", "Configure VERDA_INFERENCE_KEY on the backend.")
+            key_name = "GEMINI_API_KEY" if settings.provider == "gemini" else "VERDA_INFERENCE_KEY"
+            raise ApiError(503, "not_configured", f"Configure {key_name} on the backend.")
         if request.app.state.in_flight >= settings.max_concurrent:
             raise ApiError(429, "busy", "Candidate service is busy; try again later.", retryable=True)
         request.app.state.in_flight += 1

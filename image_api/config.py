@@ -16,6 +16,7 @@ from nemotron.client import MAX_IMAGE_BYTES
 class ApiSettings(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
 
+    provider: Literal["nemotron", "gemini"] = "nemotron"
     max_image_bytes: int = Field(default=MAX_IMAGE_BYTES, gt=0, le=MAX_IMAGE_BYTES)
     max_pixels: int = Field(default=40_000_000, gt=0, le=80_000_000)
     max_body_bytes: int = Field(default=22 * 1024 * 1024, gt=0)
