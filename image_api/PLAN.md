@@ -6,6 +6,11 @@ This document retains the design and implementation sequence. Nemotron identific
 on the team's experimentation. Another model-selection or accuracy experiment
 is not a prerequisite.
 
+Follow-up: the imported-file UI is now connected to this service. The initial
+frontend separation described below records the API implementation's original
+boundary; see [current integration behavior](../frontend/README.md#backend-integration-boundary)
+for the subsequent image/page snapshot, candidate overlay, and export work.
+
 ## Goal and boundary
 
 Build a small internal HTTP API in `image_api/`. It accepts exactly one image

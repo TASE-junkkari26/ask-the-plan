@@ -3,7 +3,8 @@
 An internal Python HTTP service for locating question-relevant objects in one
 image using the existing Nemotron client. It returns unreviewed candidate boxes,
 literal labels, visual cues, and uncertainty. It does not return a final answer
-or object count. The React demo and IFC executor remain independent.
+or object count. The React frontend uses this endpoint for imported drawings;
+demo-source answers and the IFC executor retain their separate behavior.
 
 The first integration targets are the supplied raster window/door question
 families. Other question-relevant candidates may be returned, but no general
@@ -138,10 +139,20 @@ bounds, map `[xmin, ymin]`, `[xmax, ymax]` to
 offsets into the demo's 1100 by 780 frame. Raw pixels cannot be placed directly
 in that unrelated frame. Candidate IDs should remain separate from `entityId`.
 
-The UI team owns wiring this call into the React components. Current local file
-uploads remain previews until integrated. For PDFs, submit the displayed page's
-rendered image, not the original PDF. Abort/discard stale requests when changing
-source/page and bind responses to request IDs, hashes, and source revision state.
+The React integration rasterizes the selected imported image or PDF page onto
+white PNG at the displayed source dimensions, hashes that submitted raster, and
+freezes the preview to that same snapshot while analysing/reviewing candidates.
+This also supports SVG/GIF/BMP previews without changing the API's accepted
+formats. Submitting sends the snapshot and question to Nemotron; importing alone
+does not. Original upload bytes and backend-submitted raster hashes can differ.
+Source/page changes abort the request and clear stale results; the client rejects
+responses whose submitted hash or dimensions differ from the prepared snapshot.
+
+Run the Python server above and `npm run dev` in separate terminals. Vite proxies
+`/api` to `http://127.0.0.1:8000` in development and local preview. Optionally set
+the Vite server process's `IMAGE_API_PROXY_TARGET` to a different local backend;
+this value is server configuration, not a browser credential. A hosted build
+requires its hosting server to forward `/api` to the Python service.
 
 ## Limits, settings and errors
 

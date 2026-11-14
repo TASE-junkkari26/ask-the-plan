@@ -1,0 +1,229 @@
+.candidate-panel {
+  padding-bottom: 22px;
+}
+.candidate-question {
+  margin: 0 0 16px;
+  color: #516357;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.candidate-summary {
+  padding: 16px;
+  border: 1px solid #d3e5da;
+  border-radius: 10px;
+  background: #eef6f1;
+}
+.candidate-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #426d60;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.6px;
+}
+.candidate-summary h2 {
+  margin: 12px 0 7px;
+  font-size: 22px;
+  font-weight: 550;
+  line-height: 1.25;
+  color: #164e3d;
+}
+.candidate-summary p {
+  margin: 0;
+  font-size: 11px;
+  color: #557365;
+  line-height: 1.5;
+}
+.candidate-summary-partial,
+.candidate-summary-unreadable,
+.candidate-summary-unsupported {
+  background: #fcf7eb;
+  border-color: #eadbbd;
+}
+.candidate-review-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 14px 0;
+  color: #6d705f;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.candidate-review-note > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #98743c;
+}
+.candidate-limitations {
+  padding: 12px 14px;
+  margin: 0 0 14px;
+  border-radius: 6px;
+  background: #fcf7eb;
+  color: #765829;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.candidate-limitations h3 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 650;
+}
+.candidate-limitations ul {
+  padding-left: 17px;
+  margin: 0;
+}
+.candidate-empty-note {
+  margin: 20px 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.candidate-row {
+  display: flex;
+  align-items: flex-start;
+  border-bottom: 1px solid #e5e9e2;
+  border-radius: 5px;
+}
+.candidate-row:hover,
+.candidate-row-selected {
+  background: #edf5ef;
+}
+.candidate-row-select {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+  gap: 10px;
+  padding: 12px 4px;
+  text-align: left;
+}
+.candidate-ordinal {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 25px;
+  height: 25px;
+  border-radius: 6px;
+  color: #137567;
+  border: 1px solid #c8e1d5;
+  background: white;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.candidate-row-selected .candidate-ordinal {
+  background: #137567;
+  color: white;
+}
+.candidate-row-uncertain .candidate-ordinal {
+  border-color: #dfc595;
+  color: #98600f;
+  background: #fff8e9;
+}
+.candidate-row-copy {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: #6a776c;
+  overflow-wrap: anywhere;
+}
+.candidate-row-copy strong {
+  color: #344d40;
+  font-size: 12px;
+  font-weight: 600;
+}
+.candidate-row-copy code {
+  margin-left: 7px;
+  font-size: 11px;
+  font-weight: 450;
+  color: #547969;
+}
+.candidate-uncertainty {
+  color: #98600f;
+}
+.candidate-uncertainty > svg {
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+.candidate-row-focus {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin-top: 10px;
+  color: #7a8c7f;
+  border-radius: 5px;
+}
+.candidate-row-focus:hover {
+  color: #137567;
+  background: #dbece0;
+}
+.candidate-provenance {
+  margin: 18px 0 0;
+  font-size: 10px;
+  color: #89948b;
+  overflow-wrap: anywhere;
+}
+.candidate-closeup {
+  margin: 18px 0 14px;
+  border: 1px solid #dce7dc;
+  border-radius: 7px;
+  overflow: hidden;
+}
+.candidate-closeup h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 10px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  color: #607866;
+}
+.candidate-closeup > button {
+  display: block;
+  position: relative;
+  width: 100%;
+  padding: 0;
+  background: white;
+}
+.candidate-closeup svg:not(.lucide) {
+  display: block;
+  width: 100%;
+  height: 150px;
+}
+.candidate-closeup button > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px;
+  font-size: 10px;
+  color: #527662;
+  background: #f5f8f2;
+}
+.candidate-mark {
+  cursor: pointer;
+}
+.candidate-mark:hover .candidate-box {
+  fill-opacity: 0.18;
+}
+.candidate-mark:focus-visible {
+  outline: none;
+}
+.candidate-mark:focus-visible .candidate-box {
+  stroke: #114d43;
+  stroke-width: 3.5;
+}
+.local-preview-state .candidate-api-error {
+  color: #9b3027;
+  background: #fff2ef;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}

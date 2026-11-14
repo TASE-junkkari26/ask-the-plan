@@ -133,17 +133,81 @@ automatic review; it ran only after the user's approval. Both temporary Uvicorn
 servers were stopped. No API images, credentials, prompts, or raw live responses
 were added to the repository. Frontend browser integration was not exercised.
 
+## Local import library on Linux
+
+Checked 14 November 2026 with Node 24.22.3, npm 11.19.1, and the installed Firefox
+160.0 in headless mode. This pass changes only the frontend and its documentation;
+no backend, model, or real-dataset accuracy checks were run.
+
+| Check | Observed result |
+|---|---|
+| `npm run test:frontend` | All three test files passed, including seven new import tests. A separate run with `--test-isolation=none` reported all 18 individual tests passing. |
+| `npm run build` | TypeScript checks and Vite production build passed. |
+| `node scripts/smoke-render.mjs` from `frontend/` | Initial workspace retained eight demo marks, eight evidence rows, and unique SVG IDs. |
+| Firefox local file input | Trusted pointer clicks on both header and modal Import buttons opened a native multiple-file chooser. A single selection imported PNG, JPEG, SVG, and PDF with retained thumbnails and original filenames. Separate WebP/GIF/BMP imports also passed. |
+| PDF preview and navigation | A generated two-page PDF rendered a 14,400 × 14,400 point first sheet into a bounded 2,829 × 2,829 pixel preview; the portrait second page rendered correctly. Previous preview URLs were released. |
+| Mixed valid/invalid batch | Valid files remained imported alongside individual errors for a corrupt image, corrupt PDF, unsupported text, IFC, empty PDF, and a file larger than 35 MB. |
+| Preview library | Filename search, selecting retained previews, zoom/rotation/fit controls, removing the selected import, and returning to demos passed. |
+| Drag/drop and language | Dispatched browser drag/drop events imported an SVG with a blank MIME type. Finnish import labels left the original filename unchanged. Physical operating-system drag gestures were not automated. |
+| Pending source changes | Selecting a demo during a delayed PDF import preserved that selection while retaining the new file. Selecting a demo during page rendering cancelled the stale preview. Removing a file before the rest of its batch finished preserved the current demo and answer. |
+| SVG export | The export Blob for a PDF page embedded a PNG data URL with no temporary Blob URL references. The browser's native save-to-disk dialog was not exercised. |
+| Desktop and narrow layout | Screenshots inspected at 1,440 × 960 and 390 × 844 CSS pixels. The narrow viewport and drawing picker fit without horizontal overflow. |
+| Resource cleanup and refresh | Removing every imported file left no tracked preview URLs unreleased and no uncaught application errors. Refresh returned to the four demo sources. |
+| `python3 scripts/check_docs.py` and `git diff --check` | Passed. |
+
+The browser used generated local fixtures and a temporary Firefox WebDriver BiDi
+harness, without adding a JavaScript dependency. Vite's temporary local listeners
+and the browser required normal local network permissions in this sandbox. The
+owned browser and preview server were stopped after verification. Imports are
+tab-local previews, not persistent storage or an analysis/ingestion service.
+
+## Imported-drawing candidate UI integration
+
+Checked 14 November 2026 on Linux with Node 24.22.3 and the installed Firefox
+142.0 in headless mode. This combines the latest `main` importer with the image
+candidate API branch. No new live Nemotron requests were made in this pass;
+browser checks used synthetic images and a local mocked API that echoed the
+actual uploaded PNG hash/dimensions and returned two candidate records.
+
+| Check | Observed result |
+| --- | --- |
+| Frontend tests | All five test files passed; a run with `--test-isolation=none` before the file arguments reported 31 individual tests passing. |
+| `npm run build` | TypeScript/Vite production build passed, including the PDF.js compatibility build. |
+| JSON Schemas and demo envelopes | All eight schemas current; all 28 existing demo answer envelopes still pass `QueryResult` validation. |
+| Initial workspace server rendering | Eight demo marks/evidence rows retained. Rerun outside the sandbox removed its Vite HMR-listener permission warning. |
+| Browser PNG analysis | File import enabled the question composer; the real browser request traversed Vite's `/api` proxy to the mocked service. Returned hash/dimensions matched the prepared snapshot, and two candidate marks/list rows appeared. |
+| Box placement and uncertainty | Landscape first box mapped exactly to `[235,138,84,31.5]` in the existing fitted viewport; the uncertain candidate had an amber dashed box and its reason in the list. No exhaustive-inventory claim or final object count was shown. |
+| Selection and view controls | Real pointer pan, zoom, rotation, marking toggles, row/overlay selection, image close-up, and focus worked on the imported snapshot. |
+| Exports | Captured marked SVG contained embedded PNG and candidate rectangles/colors; JSON retained the candidate response. No native save-dialog automation is claimed. |
+| Errors and result statuses | Mocked 503 displayed an error and allowed retry; empty and partial candidate responses retained their distinct meanings. |
+| SVG and stale requests | Imported SVG was rasterized and annotated; changing source during a delayed candidate request aborted/discarded the stale result. |
+| PDF pages and cancellation | A two-page synthetic PDF submitted the current landscape page at 1200 by 800 pixels and portrait page at 800 by 1200. Moving pages during a delayed request cleared/aborted the old result; the new page's boxes appeared in its own frame. |
+| Narrow layout | At 390 by 844 CSS pixels, the page had no horizontal overflow; source, two boxes, candidate rows and uncertainty remained readable in the stacked layout. |
+
+The standard PDF.js build initially failed in Firefox 142 because it invokes
+`Map.getOrInsertComputed`, absent in that browser. The importer now loads the
+bundled compatibility main and matching compatibility worker, which supply the
+needed platform polyfills. Vite prebundles the lazy compatibility reader so its
+first load does not trigger a dependency-optimization reload that loses imported
+tab state. Existing file library behavior and tests are retained.
+
+The browser harness and fixtures are temporary diagnostics, not bundled dataset
+assets or model accuracy evidence. The API's earlier approved live smoke request
+is recorded separately above. No inference credentials were used in browser
+code, and no extra dependency was added for browser automation.
+
 ## Remaining verification gaps
 
-- Real-device touch/virtual-keyboard behavior, PDF preview/page navigation, and
-  exported drawing artifacts still need checks on the demo devices. The Linux
-  browser checks above cover selected demo interactions and a local SVG preview.
-- The frontend uses prepared results. A real question-to-planner-to-IFC-to-viewer
-  flow and frontend wiring to the separate image candidate HTTP service remain
+- Real-device touch/virtual-keyboard behavior, Windows browser behavior, and
+  native file-save interactions still need checks on the demo devices. The Linux
+  browser checks above cover selected demo interactions and local import previews,
+  including PDF page navigation and the generated SVG export Blob.
+- Demo sources use prepared results. Imported image/page candidate detection is
+  connected, but a final-answer planner and a question-to-IFC-to-viewer flow remain
   unimplemented. General raster inventory/reconstruction is outside that service.
 - Dataset-wide answer accuracy, evidence localization, multilingual robustness,
   latency distributions, and inference cost have not been benchmarked here.
-- No fresh dependency installation, Linux backend run, live inference request,
-  or billing check was performed in these passes. The [Nemotron guide](nvidia_info.md) and saved
+- No billing verification or dataset-wide performance benchmark was performed.
+  The [Nemotron guide](nvidia_info.md) and saved
   [door-labeling experiment](../experiments/door_labeling/RESULTS.md) retain their
-  earlier observations and limits.
+  separately dated observations and limits.

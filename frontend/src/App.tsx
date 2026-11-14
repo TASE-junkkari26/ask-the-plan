@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type {
   ChangeEvent,
+  DragEvent as ReactDragEvent,
   FormEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react';
@@ -16,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleHelp,
+  CircleAlert,
   Clock3,
   Expand,
   Eye,
@@ -36,19 +38,34 @@ import {
   Sparkles,
   SquareDashedMousePointer,
   Tag,
+  Upload,
   X,
 } from 'lucide-react';
 import { DrawingArtwork } from './components/DrawingArtwork';
 import { MarkLayer } from './components/MarkLayer';
+import { CandidateLayer } from './components/CandidateLayer';
+import { CandidatePanel } from './components/CandidatePanel';
+import type { ImageCandidateResponse } from './contracts/ImageCandidateResponse';
+import { prepareCandidateImage, requestCandidates } from './lib/candidateApi';
+import { candidateBounds } from './lib/candidateGeometry';
+import {
+  ImportedDrawingList,
+  fileSize,
+} from './components/ImportedDrawingList';
 import { DRAWINGS, suggestions } from './demo/data';
 import { askDemo, resolveDemo } from './demo/engine';
 import { areaPath, clampZoom, focusPan } from './lib/viewport';
-import { importDocument } from './lib/importDocument';
+import {
+  importDocument,
+  IMPORT_ACCEPT,
+  IMPORT_FORMATS,
+  releaseDrawing,
+} from './lib/importDocument';
 import type {
   DemoResponse,
   Drawing,
-  ImportedDrawing,
   Language,
+  LocalDrawing,
   Mark,
 } from './types';
 
@@ -77,10 +94,16 @@ const copy = {
     export: 'Export',
     open: 'Open a drawing',
     latest: 'LATEST QUESTION',
-    local: 'Local preview',
+    local: 'Your drawing',
     noEvidence: 'No source evidence for this answer',
     help: 'How it works',
     revision: 'Revision',
+    import: 'Import drawings',
+    drop: 'Choose files or drop them here',
+    localFiles: 'Your imports',
+    localNote: 'Imports last until refresh. Asking sends the displayed image to Nemotron.',
+    dropTitle: 'Drop drawings to import',
+    importErrors: 'Some files could not be opened',
   },
   fi: {
     drawings: 'Piirustukset',
@@ -105,10 +128,17 @@ const copy = {
     export: 'Vie',
     open: 'Avaa piirustus',
     latest: 'VIIMEISIN KYSYMYS',
-    local: 'Paikallinen esikatselu',
+    local: 'Oma piirustus',
     noEvidence: 'Vastausta ei voida perustella lähteellä',
     help: 'Miten tämä toimii',
     revision: 'Versio',
+    import: 'Tuo piirustuksia',
+    drop: 'Valitse tiedostot tai pudota ne tähän',
+    localFiles: 'Omat tiedostot',
+    localNote:
+      'Tuonnit säilyvät sivun päivittämiseen asti. Kysymys lähettää näkyvän kuvan Nemotronille.',
+    dropTitle: 'Pudota tuotavat piirustukset',
+    importErrors: 'Joitakin tiedostoja ei voitu avata',
   },
 };
 
@@ -159,8 +189,9 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
       <div className="help-note">
         <Sparkles size={17} />
         <span>
-          This prototype uses illustrative drawings and prepared answers.
-          Uploaded files are previewed locally; they are not analysed.
+          Demo drawings use prepared answers. Import your own drawing and ask
+          a question to locate candidates with Nemotron. Submitting a question
+          sends the displayed image or PDF page to the analysis service.
         </span>
       </div>
       <div className="shortcut-grid">
@@ -288,6 +319,13 @@ export default function App() {
   const [response, setResponse] = useState<DemoResponse | null>(() =>
     resolveDemo(DRAWINGS[0], initialQuestion, 'en'),
   );
+  const [candidateResponse, setCandidateResponse] = useState<{
+    result: ImageCandidateResponse;
+    question: string;
+  } | null>(null);
+  const [candidateError, setCandidateError] = useState('');
+  const [analysisUrl, setAnalysisUrl] = useState<string | null>(null);
+  const analysisUrlRef = useRef<string | null>(null);
   const [asking, setAsking] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'evidence' | 'calculation'>(
@@ -305,9 +343,23 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
   const [toast, setToast] = useState('');
-  const [imported, setImported] = useState<ImportedDrawing | null>(null);
-  const [localActive, setLocalActive] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const [localDrawings, setLocalDrawings] = useState<LocalDrawing[]>([]);
+  const [activeImportId, setActiveImportId] = useState<string | null>(null);
+  const imported =
+    localDrawings.find((source) => source.id === activeImportId) ?? null;
+  const localActive = imported !== null;
+  const displayImported = imported && analysisUrl ? { ...imported, url: analysisUrl } : imported;
+  const [importProgress, setImportProgress] = useState<{
+    name: string;
+    current: number;
+    total: number;
+  } | null>(null);
+  const [pageLoading, setPageLoading] = useState(false);
+  const importing = importProgress !== null || pageLoading;
+  const [importErrors, setImportErrors] = useState<
+    { name: string; message: string }[]
+  >([]);
+  const [fileDragging, setFileDragging] = useState(false);
   const [history, setHistory] = useState<string[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -319,7 +371,12 @@ export default function App() {
   const svgRef = useRef<SVGSVGElement>(null);
   const queryRef = useRef<HTMLTextAreaElement>(null);
   const requestRef = useRef<AbortController | null>(null);
-  const importVersion = useRef(0);
+  const viewVersion = useRef(0);
+  const localDrawingsRef = useRef<LocalDrawing[]>([]);
+  const batchRef = useRef<AbortController | null>(null);
+  const pageRef = useRef<AbortController | null>(null);
+  const fileDragDepth = useRef(0);
+  const localId = useRef(0);
   const dragRef = useRef<{
     x: number;
     y: number;
@@ -331,7 +388,9 @@ export default function App() {
       : language === 'fi'
         ? drawing.titleFi
         : drawing.title;
-  const marks = response?.marks ?? [];
+  const marks = localActive ? [] : (response?.marks ?? []);
+  const candidateCount = localActive ? (candidateResponse?.result.candidates?.length ?? 0) : 0;
+  const overlayCount = localActive ? candidateCount : marks.length;
   const selectedMark = marks.find((mark) => mark.id === selected);
   const missing = response?.intent === 'missing';
 
@@ -373,17 +432,32 @@ export default function App() {
     const timer = setTimeout(() => setToast(''), 4400);
     return () => clearTimeout(timer);
   }, [toast]);
+  useEffect(() => {
+    const endFileDrag = () => {
+      fileDragDepth.current = 0;
+      setFileDragging(false);
+    };
+    window.addEventListener('dragend', endFileDrag);
+    window.addEventListener('drop', endFileDrag);
+    window.addEventListener('blur', endFileDrag);
+    return () => {
+      window.removeEventListener('dragend', endFileDrag);
+      window.removeEventListener('drop', endFileDrag);
+      window.removeEventListener('blur', endFileDrag);
+    };
+  }, []);
   useEffect(
     () => () => {
       requestRef.current?.abort();
+      batchRef.current?.abort();
+      batchRef.current = null;
+      pageRef.current?.abort();
+      pageRef.current = null;
+      localDrawingsRef.current.forEach(releaseDrawing);
+      localDrawingsRef.current = [];
+      if (analysisUrlRef.current) URL.revokeObjectURL(analysisUrlRef.current);
     },
     [],
-  );
-  useEffect(
-    () => () => {
-      if (imported?.url.startsWith('blob:')) URL.revokeObjectURL(imported.url);
-    },
-    [imported],
   );
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
@@ -419,14 +493,23 @@ export default function App() {
     setRotation(0);
   }
 
+  function clearCandidates() {
+    setCandidateResponse(null);
+    setCandidateError('');
+    if (analysisUrlRef.current) URL.revokeObjectURL(analysisUrlRef.current);
+    analysisUrlRef.current = null;
+    setAnalysisUrl(null);
+  }
+
   function chooseDrawing(next: Drawing) {
+    clearCandidates();
     requestRef.current?.abort();
     requestRef.current = null;
-    importVersion.current += 1;
+    viewVersion.current += 1;
+    cancelPagePreview();
     setDrawingId(next.id);
-    setLocalActive(false);
+    setActiveImportId(null);
     setAsking(false);
-    setImporting(false);
     setSelected(null);
     setQuery('');
     setResponse(resolveDemo(next, suggestions(next, language)[0], language));
@@ -438,8 +521,10 @@ export default function App() {
   }
 
   async function ask(question: string) {
-    if (!question.trim() || localActive) return;
+    if (!question.trim() || importing || asking) return;
+    const questionText = question.trim();
     requestRef.current?.abort();
+    clearCandidates();
     const controller = new AbortController();
     requestRef.current = controller;
     setAsking(true);
@@ -447,24 +532,35 @@ export default function App() {
     setActiveTab('evidence');
     setShowMarks(true);
     try {
-      const answer = await askDemo(
-        drawing,
-        question,
-        language,
-        controller.signal,
-      );
-      if (requestRef.current !== controller) return;
-      setResponse(answer);
+      if (imported) {
+        const image = await prepareCandidateImage(imported, controller.signal);
+        if (requestRef.current !== controller || controller.signal.aborted) return;
+        const snapshot = URL.createObjectURL(image.blob);
+        analysisUrlRef.current = snapshot;
+        setAnalysisUrl(snapshot);
+        const answer = await requestCandidates(image, questionText, controller.signal);
+        if (requestRef.current !== controller || controller.signal.aborted) return;
+        setCandidateResponse({ result: answer, question: questionText });
+      } else {
+        const answer = await askDemo(drawing, questionText, language, controller.signal);
+        if (requestRef.current !== controller || controller.signal.aborted) return;
+        setResponse(answer);
+      }
       setQuery('');
       setHistory((h) =>
-        [question, ...h.filter((q) => q !== question)].slice(0, 4),
+        [questionText, ...h.filter((q) => q !== questionText)].slice(0, 4),
       );
       resetViewport();
     } catch (error) {
-      if (!(error instanceof DOMException && error.name === 'AbortError'))
-        setToast('The demo answer could not be loaded. Please try again.');
+      if (requestRef.current === controller && !controller.signal.aborted) {
+        if (imported) setCandidateError(error instanceof Error ? error.message : 'Candidate analysis failed. Please try again.');
+        else setToast('The demo answer could not be loaded. Please try again.');
+      }
     } finally {
-      if (requestRef.current === controller) setAsking(false);
+      if (requestRef.current === controller) {
+        requestRef.current = null;
+        setAsking(false);
+      }
     }
   }
   function submit(event: FormEvent) {
@@ -480,10 +576,20 @@ export default function App() {
     setPan(focusPan(mark.bounds, paperWidth, nextZoom, rotation));
   }
 
+  function focusCandidate(id: string) {
+    const result = candidateResponse?.result;
+    const candidate = result?.candidates?.find((item) => item.id === id);
+    if (!result || !candidate) return;
+    setSelected(id);
+    setShowMarks(true);
+    setZoom(1.65);
+    setPan(focusPan(candidateBounds(candidate, result.image), paperWidth, 1.65, rotation));
+  }
+
   function pointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (
       event.button !== 0 ||
-      (event.target as Element).closest('.evidence-mark,button')
+      (event.target as Element).closest('.evidence-mark,.candidate-mark,button')
     )
       return;
     dragRef.current = { x: event.clientX, y: event.clientY, pan };
@@ -502,43 +608,183 @@ export default function App() {
     setDragging(false);
   }
 
-  async function openFile(file: File, page = 1) {
-    const version = ++importVersion.current;
-    setImporting(true);
+  function updateLocalDrawings(next: LocalDrawing[]) {
+    localDrawingsRef.current = next;
+    setLocalDrawings(next);
+  }
+
+  function cancelPagePreview() {
+    pageRef.current?.abort();
+    pageRef.current = null;
+    setPageLoading(false);
+  }
+
+  function chooseImported(source: LocalDrawing, closePicker = true) {
+    clearCandidates();
+    viewVersion.current += 1;
+    cancelPagePreview();
     requestRef.current?.abort();
+    requestRef.current = null;
     setAsking(false);
+    setActiveImportId(source.id);
+    setResponse(null);
+    setSelected(null);
+    setQuery('');
+    setLayersOpen(false);
+    setExportOpen(false);
+    if (closePicker) setSidebarOpen(false);
+    resetViewport();
+  }
+
+  async function openFiles(files: File[]) {
+    if (!files.length) return;
+    if (batchRef.current) {
+      setToast('Please wait for the current import to finish.');
+      return;
+    }
+    const controller = new AbortController();
+    batchRef.current = controller;
+    const version = viewVersion.current;
+    const errors: { name: string; message: string }[] = [];
+    let lastSource: LocalDrawing | null = null;
+    let count = 0;
+    setSearch('');
+    setImportErrors([]);
     try {
-      const source = await importDocument(file, page);
-      if (version !== importVersion.current) {
-        if (source.url.startsWith('blob:')) URL.revokeObjectURL(source.url);
+      // Decode one file at a time to limit simultaneous PDF/image allocations.
+      for (const [index, file] of files.entries()) {
+        setImportProgress({
+          name: file.name,
+          current: index + 1,
+          total: files.length,
+        });
+        try {
+          const preview = await importDocument(file, 1, controller.signal);
+          if (controller.signal.aborted) {
+            releaseDrawing(preview);
+            return;
+          }
+          lastSource = { ...preview, id: `local-${++localId.current}` };
+          updateLocalDrawings([...localDrawingsRef.current, lastSource]);
+          count += 1;
+        } catch (error) {
+          if (controller.signal.aborted) return;
+          errors.push({
+            name: file.name,
+            message:
+              error instanceof Error
+                ? error.message
+                : 'This file could not be opened.',
+          });
+          setImportErrors([...errors]);
+        }
+      }
+      // A source picked while a batch decodes keeps the user's selection.
+      if (
+        lastSource &&
+        version === viewVersion.current &&
+        localDrawingsRef.current.some((source) => source.id === lastSource?.id)
+      )
+        chooseImported(lastSource, !errors.length);
+      if (errors.length) setSidebarOpen(true);
+      setToast(
+        errors.length
+          ? `${count} imported; ${errors.length} could not be opened. See Drawings for details.`
+          : `${count} ${count === 1 ? 'drawing' : 'drawings'} imported locally. Available in Drawings.`,
+      );
+    } finally {
+      if (batchRef.current === controller) {
+        batchRef.current = null;
+        setImportProgress(null);
+      }
+    }
+  }
+
+  async function openPage(source: LocalDrawing, page: number) {
+    requestRef.current?.abort();
+    requestRef.current = null;
+    setAsking(false);
+    clearCandidates();
+    setSelected(null);
+    viewVersion.current += 1;
+    cancelPagePreview();
+    const controller = new AbortController();
+    pageRef.current = controller;
+    const version = viewVersion.current;
+    setPageLoading(true);
+    try {
+      const preview = await importDocument(
+        source.file,
+        page,
+        controller.signal,
+      );
+      if (controller.signal.aborted || version !== viewVersion.current) {
+        releaseDrawing(preview);
         return;
       }
-      setImported(source);
-      setLocalActive(true);
-      setResponse(null);
-      setSelected(null);
-      setQuery('');
-      setSidebarOpen(false);
+      updateLocalDrawings(
+        localDrawingsRef.current.map((item) =>
+          item.id === source.id ? { ...preview, id: source.id } : item,
+        ),
+      );
+      releaseDrawing(source);
       resetViewport();
-      if (page === 1)
-        setToast(
-          'Drawing opened locally. Use demo drawings to explore prepared answers.',
-        );
     } catch (error) {
-      if (version === importVersion.current)
+      if (!controller.signal.aborted)
         setToast(
           error instanceof Error
             ? error.message
-            : 'This drawing could not be opened.',
+            : 'This page could not be opened.',
         );
     } finally {
-      if (version === importVersion.current) setImporting(false);
+      if (pageRef.current === controller) {
+        pageRef.current = null;
+        setPageLoading(false);
+      }
     }
   }
+
+  function removeImported(source: LocalDrawing) {
+    const index = localDrawingsRef.current.findIndex(
+      (item) => item.id === source.id,
+    );
+    const next = localDrawingsRef.current.filter(
+      (item) => item.id !== source.id,
+    );
+    if (source.id === activeImportId) {
+      if (next.length)
+        chooseImported(next[Math.min(index, next.length - 1)], false);
+      else chooseDrawing(drawing);
+    }
+    updateLocalDrawings(next);
+    releaseDrawing(source);
+  }
+
   function handleFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (file) void openFile(file);
+    const files = Array.from(event.target.files ?? []);
+    void openFiles(files);
     event.target.value = '';
+  }
+
+  function fileDrag(
+    event: ReactDragEvent,
+    action: 'enter' | 'leave' | 'over' | 'drop',
+  ) {
+    if (!event.dataTransfer.types.includes('Files')) return;
+    event.preventDefault();
+    if (action === 'enter') {
+      fileDragDepth.current += 1;
+      setFileDragging(true);
+    } else if (action === 'leave') {
+      fileDragDepth.current = Math.max(0, fileDragDepth.current - 1);
+      if (!fileDragDepth.current) setFileDragging(false);
+    } else if (action === 'over') {
+      event.dataTransfer.dropEffect = 'copy';
+    } else {
+      fileDragDepth.current = 0;
+      setFileDragging(false);
+      void openFiles(Array.from(event.dataTransfer.files));
+    }
   }
 
   async function exportDrawing() {
@@ -547,12 +793,14 @@ export default function App() {
     svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     svg.setAttribute('width', '1100');
     svg.setAttribute('height', '780');
-    if (localActive && imported?.url.startsWith('blob:')) {
+    if (localActive && displayImported?.url.startsWith('blob:')) {
+      // PDF previews are rendered PNG blobs, not the original PDF bytes.
+      const preview = await fetch(displayImported.url).then((result) => result.blob());
       const data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result));
         reader.onerror = reject;
-        reader.readAsDataURL(imported.file);
+        reader.readAsDataURL(preview);
       });
       svg.querySelector('image')?.setAttribute('href', data);
     }
@@ -578,6 +826,9 @@ export default function App() {
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
+  const visibleImports = localDrawings.filter((source) =>
+    source.file.name.toLowerCase().includes(search.toLowerCase()),
+  );
   const chips = suggestions(drawing, language);
   const chipNames =
     drawing.kind === 'schedule'
@@ -591,9 +842,28 @@ export default function App() {
         : language === 'en'
           ? ['Doors', 'Windows', 'Room area', 'Corridor width']
           : ['Ovet', 'Ikkunat', 'Huoneen ala', 'Käytävän leveys'];
+  // A native modal makes nodes outside it inert, including file inputs.
+  const localFileInput = (
+    <input
+      ref={inputRef}
+      className="visually-hidden"
+      type="file"
+      accept={IMPORT_ACCEPT}
+      multiple
+      tabIndex={-1}
+      aria-label="Open local drawing"
+      onChange={handleFile}
+    />
+  );
 
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      onDragEnter={(event) => fileDrag(event, 'enter')}
+      onDragLeave={(event) => fileDrag(event, 'leave')}
+      onDragOver={(event) => fileDrag(event, 'over')}
+      onDrop={(event) => fileDrag(event, 'drop')}
+    >
       <header className="topbar">
         <div className="topbar-brand">
           <Brand />
@@ -609,19 +879,29 @@ export default function App() {
           <FolderOpen size={16} />
           <span>{t.drawings}</span>
           <span className="file-count">
-            {DRAWINGS.length + (imported ? 1 : 0)}
+            {DRAWINGS.length + localDrawings.length}
           </span>
           <ChevronDown size={13} />
         </button>
+        <button
+          className="secondary-button import-button"
+          onClick={() => inputRef.current?.click()}
+          disabled={importProgress !== null}
+          aria-label={t.import}
+          title={t.import}
+        >
+          <Upload size={15} />
+          <span>{t.import}</span>
+        </button>
         <div className="project-breadcrumb">
           <span className="breadcrumb-slash">/</span>
-          <Building2 size={14} />
-          <span>{t.project}</span>
+          {localActive ? <FileImage size={14} /> : <Building2 size={14} />}
+          <span>{localActive ? t.localFiles : t.project}</span>
         </div>
         <div className="topbar-actions">
           <span className="demo-badge">
             <span />
-            {t.demonstration}
+            {localActive ? t.local : t.demonstration}
           </span>
           <button
             className="language-button"
@@ -647,7 +927,7 @@ export default function App() {
       >
         {sidebarOpen && (
           <dialog
-            className="source-sidebar"
+            className={`source-sidebar ${fileDragging ? 'file-drop-active' : ''}`}
             ref={drawingDialogRef}
             aria-labelledby="drawing-picker-title"
             onCancel={() => setSidebarOpen(false)}
@@ -664,6 +944,7 @@ export default function App() {
               }
             }}
           >
+            {localFileInput}
             <div className="sidebar-section-title">
               <span id="drawing-picker-title">{t.drawings}</span>
               <button
@@ -674,7 +955,65 @@ export default function App() {
                 <X size={18} />
               </button>
             </div>
-            <p className="picker-description">{t.project}</p>
+            <p className="picker-description">
+              {language === 'fi'
+                ? 'Demopiirustukset ja paikalliset tiedostot'
+                : 'Demo drawings and local files'}
+            </p>
+            <button
+              className="import-dropzone"
+              onClick={() => inputRef.current?.click()}
+              disabled={importProgress !== null}
+            >
+              <Upload size={21} />
+              <strong>{fileDragging ? t.dropTitle : t.import}</strong>
+              <span>{t.drop}</span>
+              <small>
+                {IMPORT_FORMATS} · 35 MB /{' '}
+                {language === 'fi' ? 'tiedosto' : 'file'}
+              </small>
+            </button>
+            <p className="import-local-note">{t.localNote}</p>
+            {importProgress && (
+              <div className="import-progress" role="status">
+                <span className="spinner" />
+                <span>
+                  {importProgress.current} / {importProgress.total} ·{' '}
+                  {importProgress.name}
+                </span>
+              </div>
+            )}
+            {!!importErrors.length && (
+              <section
+                className="import-errors"
+                role="alert"
+                aria-label={t.importErrors}
+              >
+                <div>
+                  <CircleAlert size={15} />
+                  <strong>{t.importErrors}</strong>
+                  <button
+                    className="icon-button"
+                    onClick={() => setImportErrors([])}
+                    aria-label={
+                      language === 'fi'
+                        ? 'Sulje tuontivirheet'
+                        : 'Dismiss import errors'
+                    }
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <ul>
+                  {importErrors.map((error, index) => (
+                    <li key={index}>
+                      <strong>{error.name}</strong>
+                      <span>{error.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             <label className="drawing-search">
               <Search size={14} />
               <input
@@ -686,9 +1025,27 @@ export default function App() {
               />
               <kbd>Esc</kbd>
             </label>
-            <div className="source-group-label">
+            {!!localDrawings.length && (
+              <>
+                <div className="source-group-label">
+                  <FileImage size={13} />
+                  {t.localFiles}
+                  <span>{localDrawings.length}</span>
+                </div>
+                <ImportedDrawingList
+                  drawings={visibleImports}
+                  activeId={activeImportId}
+                  language={language}
+                  onSelect={chooseImported}
+                  onRemove={removeImported}
+                />
+              </>
+            )}
+            <div
+              className={`source-group-label ${localDrawings.length ? 'following-source-group' : ''}`}
+            >
               <FolderOpen size={13} />
-              {language === 'fi' ? 'Arkkitehtuuri' : 'Architecture'}
+              {language === 'fi' ? 'Demopiirustukset' : 'Demo drawings'}
               <span>{DRAWINGS.length}</span>
             </div>
             <div className="drawing-list">
@@ -719,40 +1076,10 @@ export default function App() {
                   )}
                 </button>
               ))}
-              {!visibleDrawings.length && (
+              {!visibleDrawings.length && !visibleImports.length && (
                 <p className="search-empty">No drawings match “{search}”.</p>
               )}
-              {imported && (
-                <button
-                  className={`imported-file ${localActive ? 'active-drawing' : ''}`}
-                  onClick={() => {
-                    requestRef.current?.abort();
-                    importVersion.current += 1;
-                    setImporting(false);
-                    setAsking(false);
-                    setLocalActive(true);
-                    setResponse(null);
-                    setSelected(null);
-                    setSidebarOpen(false);
-                    resetViewport();
-                  }}
-                >
-                  <FileImage size={18} />
-                  <span>
-                    <strong>{imported.file.name}</strong>
-                    <small>{t.local}</small>
-                  </span>
-                </button>
-              )}
             </div>
-            <button
-              className="add-drawing"
-              onClick={() => inputRef.current?.click()}
-            >
-              <Plus size={16} />
-              {t.add}
-              <span>PDF, image</span>
-            </button>
             <div className="sidebar-footer">
               <FileText size={14} />
               <span>
@@ -779,7 +1106,13 @@ export default function App() {
                   {localActive ? t.local : drawing.code}
                 </span>
                 <span>
-                  {language === 'fi' ? 'ARKKITEHTUURI' : 'ARCHITECTURE'}
+                  {localActive
+                    ? language === 'fi'
+                      ? 'TUOTU PIIRUSTUS'
+                      : 'IMPORTED DRAWING'
+                    : language === 'fi'
+                      ? 'ARKKITEHTUURI'
+                      : 'ARCHITECTURE'}
                 </span>
               </div>
               <div className="drawing-title">
@@ -790,7 +1123,9 @@ export default function App() {
             <div className="workspace-heading-actions">
               <span className="revision-tag">
                 {localActive
-                  ? imported?.kind.toUpperCase()
+                  ? imported?.kind === 'pdf'
+                    ? 'PDF'
+                    : imported?.file.name.split('.').pop()?.toUpperCase()
                   : `Rev. ${drawing.revision}`}
               </span>
               <div className="export-wrap">
@@ -804,14 +1139,24 @@ export default function App() {
                 </button>
                 {exportOpen && (
                   <div className="popover export-popover">
-                    <button onClick={() => void exportDrawing()}>
+                    <button
+                      onClick={() =>
+                        void exportDrawing().catch(() =>
+                          setToast(
+                            'This drawing could not be exported. Please try again.',
+                          ),
+                        )
+                      }
+                    >
                       <FileImage size={15} />
                       Marked drawing <span>.svg</span>
                     </button>
                     <button
-                      disabled={!response}
+                      disabled={localActive ? !candidateResponse : !response}
                       onClick={() => {
-                        if (response)
+                        if (candidateResponse && localActive)
+                          downloadBlob(new Blob([JSON.stringify(candidateResponse.result, null, 2)], { type: 'application/json' }), 'drawing-candidates.json');
+                        else if (response)
                           downloadBlob(
                             new Blob(
                               [JSON.stringify(response.result, null, 2)],
@@ -823,7 +1168,7 @@ export default function App() {
                       }}
                     >
                       <FileText size={15} />
-                      Answer & evidence <span>.json</span>
+                      {localActive ? 'Candidate regions' : 'Answer & evidence'} <span>.json</span>
                     </button>
                   </div>
                 )}
@@ -880,7 +1225,7 @@ export default function App() {
                           checked={showMarks}
                           onChange={(e) => setShowMarks(e.target.checked)}
                         />
-                        Answer markings <span>{marks.length}</span>
+                        {localActive ? 'Candidate markings' : 'Answer markings'} <span>{overlayCount}</span>
                       </label>
                       <label>
                         <input
@@ -937,14 +1282,19 @@ export default function App() {
                   viewBox="0 0 1100 780"
                   xmlns="http://www.w3.org/2000/svg"
                   style={{ fontFamily: 'Inter, Segoe UI, Arial, sans-serif' }}
-                  aria-label={`${title} source drawing with ${showMarks ? marks.length : 0} evidence marks`}
+                  aria-label={`${title} source drawing with ${showMarks ? overlayCount : 0} ${localActive ? 'candidate' : 'evidence'} marks`}
                 >
                   <DrawingArtwork
                     drawing={drawing}
-                    imported={localActive ? imported : null}
+                    imported={localActive ? displayImported : null}
                   />
                   {!asking && showMarks && (
-                    <MarkLayer
+                    localActive && candidateResponse ? <CandidateLayer
+                      response={candidateResponse.result}
+                      selected={selected}
+                      labels={showLabels}
+                      onSelect={(id) => setSelected((s) => s === id ? null : id)}
+                    /> : <MarkLayer
                       marks={marks}
                       selected={selected}
                       labels={showLabels}
@@ -957,9 +1307,11 @@ export default function App() {
               </div>
               <div className="stage-corner">
                 <MousePointer2 size={12} />
-                {dragging ? 'Panning drawing' : 'Drag to pan · Scroll to zoom'}
+                {dragging
+                  ? 'Panning drawing'
+                  : 'Drag to pan · Scroll to zoom · Drop files to import'}
               </div>
-              {showMarks && !!marks.length && !asking && (
+              {showMarks && !!overlayCount && !asking && (
                 <button
                   className="overlay-legend"
                   title="Fit all answer markings"
@@ -969,8 +1321,8 @@ export default function App() {
                   }}
                 >
                   <ScanLine size={14} />
-                  <strong>{marks.length}</strong>{' '}
-                  {response?.intent === 'area'
+                  <strong>{overlayCount}</strong>{' '}
+                  {localActive ? (language === 'fi' ? 'ehdokasta tarkistettavaksi' : 'candidates to review') : response?.intent === 'area'
                     ? 'room boundary'
                     : response?.intent === 'width'
                       ? 'dimension'
@@ -1013,8 +1365,12 @@ export default function App() {
                 <div className="viewer-loading">
                   <span className="spinner" />
                   {importing
-                    ? 'Opening your drawing…'
-                    : language === 'fi'
+                    ? importProgress
+                      ? `${language === 'fi' ? 'Tuodaan' : 'Importing'} ${importProgress.current} / ${importProgress.total} · ${importProgress.name}`
+                      : language === 'fi'
+                        ? 'Avataan PDF-sivua…'
+                        : 'Opening PDF page…'
+                    : localActive ? (language === 'fi' ? 'Paikannetaan ehdokkaita…' : 'Locating candidates…') : language === 'fi'
                       ? 'Haetaan demovastausta…'
                       : 'Locating demo evidence…'}
                 </div>
@@ -1079,7 +1435,7 @@ export default function App() {
                   }
                   onClick={() => {
                     if (localActive && imported)
-                      void openFile(imported.file, imported.page - 1);
+                      void openPage(imported, imported.page - 1);
                     else chooseDrawing(DRAWINGS[DRAWINGS.indexOf(drawing) - 1]);
                   }}
                 >
@@ -1101,7 +1457,7 @@ export default function App() {
                   }
                   onClick={() => {
                     if (localActive && imported)
-                      void openFile(imported.file, imported.page + 1);
+                      void openPage(imported, imported.page + 1);
                     else chooseDrawing(DRAWINGS[DRAWINGS.indexOf(drawing) + 1]);
                   }}
                 >
@@ -1134,7 +1490,7 @@ export default function App() {
               </span>
               <div>
                 <h2>{t.ask}</h2>
-                <p>{t.intro}</p>
+                <p>{localActive ? (language === 'fi' ? 'Paikanna näkyvät kohteet tästä kuvasta.' : 'Locate visible objects in this image.') : t.intro}</p>
               </div>
               <button
                 className="icon-button panel-close"
@@ -1145,17 +1501,54 @@ export default function App() {
               </button>
             </div>
 
-            {localActive ? (
+            {localActive && candidateResponse && analysisUrl ? (
+              <CandidatePanel
+                response={candidateResponse.result}
+                question={candidateResponse.question}
+                selected={selected}
+                onSelect={(id) => { setSelected((value) => value === id ? null : id); setShowMarks(true); }}
+                onFocus={focusCandidate}
+                imageUrl={analysisUrl}
+                language={language}
+              />
+            ) : localActive ? (
               <div className="local-preview-state">
                 <span className="empty-state-icon">
                   <FileImage size={28} />
                 </span>
-                <h3>Your drawing is ready to view.</h3>
+                <h3>
+                  {language === 'fi'
+                    ? 'Piirustuksesi on valmis katseltavaksi.'
+                    : asking ? 'Locating candidates…' : 'Your drawing is ready to analyse.'}
+                </h3>
                 <p>
-                  Pan, zoom, rotate, or browse PDF pages. Questions about
-                  uploaded drawings will be available when the backend is
-                  connected.
+                  {language === 'fi'
+                    ? 'Kysy näkyvistä kohteista. Kysymyksen lähettäminen lähettää tämän kuvan tai PDF-sivun Nemotronille. Tulokset ovat tarkistettavia ehdokkaita.'
+                    : 'Ask about visible objects. Submitting sends this image or PDF page to Nemotron and highlights the candidates it finds for you to review.'}
                 </p>
+                {candidateError && <p role="alert" className="candidate-api-error">{candidateError}</p>}
+                {asking && <button className="secondary-button" onClick={() => {
+                  requestRef.current?.abort();
+                  requestRef.current = null;
+                  setAsking(false);
+                  clearCandidates();
+                }}>Cancel analysis</button>}
+                {imported && (
+                  <p className="local-file-details">
+                    {fileSize(imported.file.size)} ·{' '}
+                    {imported.kind === 'pdf'
+                      ? `${imported.pages} ${language === 'fi' ? 'sivua' : imported.pages === 1 ? 'page' : 'pages'}`
+                      : `${imported.width} × ${imported.height} px`}
+                  </p>
+                )}
+                <button
+                  className="secondary-button"
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  <FolderOpen size={14} />
+                  {t.drawings} ({localDrawings.length})
+                </button>
+                <p className="import-local-note">{t.localNote}</p>
                 <button
                   className="secondary-button"
                   onClick={() => chooseDrawing(DRAWINGS[0])}
@@ -1437,12 +1830,9 @@ export default function App() {
                   aria-label="Question about the drawing"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder={
-                    localActive
-                      ? 'Local file preview · demo answers unavailable'
-                      : t.placeholder
-                  }
-                  disabled={localActive}
+                  placeholder={localActive ? (language === 'fi' ? 'Paikanna ikkunat tässä kuvassa…' : 'Locate the windows in this drawing…') : t.placeholder}
+                  disabled={importing || asking}
+                  maxLength={4000}
                   rows={2}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1454,7 +1844,7 @@ export default function App() {
                 <div className="question-form-footer">
                   <span>
                     {localActive ? (
-                      'Preview only'
+                      language === 'fi' ? 'Näkyvä kuva → Nemotron' : 'Displayed image → Nemotron'
                     ) : (
                       <>
                         <kbd>↵</kbd>{' '}
@@ -1468,7 +1858,7 @@ export default function App() {
                     type="submit"
                     className="ask-submit"
                     aria-label={t.askButton}
-                    disabled={!query.trim() || asking || localActive}
+                    disabled={!query.trim() || asking || importing}
                   >
                     {asking ? (
                       <span className="spinner" />
@@ -1503,7 +1893,7 @@ export default function App() {
                 className="history-button"
               >
                 <Clock3 size={14} />
-                {language === 'fi'
+                {localActive ? (language === 'fi' ? 'Tarkistettavat Nemotron-ehdokkaat' : 'Nemotron candidates for review') : language === 'fi'
                   ? 'Viimeisimmät kysymykset'
                   : 'Recent questions'}
                 <span>{history.length}</span>
@@ -1538,14 +1928,14 @@ export default function App() {
           </aside>
         )}
       </div>
-      <input
-        ref={inputRef}
-        className="visually-hidden"
-        type="file"
-        accept=".pdf,.png,.jpg,.jpeg,.webp,.svg"
-        aria-label="Open local drawing"
-        onChange={handleFile}
-      />
+      {!sidebarOpen && localFileInput}
+      {fileDragging && !sidebarOpen && (
+        <div className="file-drop-overlay" role="status">
+          <Upload size={38} />
+          <strong>{t.dropTitle}</strong>
+          <span>{IMPORT_FORMATS}</span>
+        </div>
+      )}
       {toast && (
         <div className="toast" role="status">
           <Check size={16} />
