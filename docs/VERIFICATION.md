@@ -1,5 +1,27 @@
 # Sprint-one verification record
 
+## Gemini and main integration, 14 November 2026
+
+Completed the interrupted merge of Gemini branch `e3fba25` with main `e68301f`.
+The existing Nemotron image-question experiment explicitly retains its baseline
+provider when the workbench selects Gemini; a regression checks the request and
+saved provider metadata together.
+
+Checked on Linux with Python 3.12.3, IfcOpenShell 0.9.0.post1, Pydantic 2.14.3,
+FastAPI 0.162.7, httpx 0.28.1 and Node 24.22.3:
+
+- Full Python suite: **313 tests passed**, no skips, in 37.682 seconds. Provider
+  credentials were disabled; inference transports were mocked. Local socket and
+  thread access was enabled for the server and lifecycle checks.
+- All **16 frontend test files** passed, and TypeScript/production build passed.
+  Existing optional Three/WebGPU export and large-chunk warnings remain.
+- All 12 generated contracts are current. Local Markdown links, dependency
+  consistency and whitespace checks passed.
+
+This pass did not rerun browser or live inference checks. Earlier Gemini smoke
+and browser observations remain in the
+[provider verification record](../image_api/GEMINI_PLAN.md#implementation-and-verification-record).
+
 ## IFC spatial and descriptive questions, 14 November 2026
 
 Extended the existing uncommitted IFC integration with native topology queries,
