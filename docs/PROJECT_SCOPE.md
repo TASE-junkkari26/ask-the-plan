@@ -41,9 +41,10 @@ or document domains must be supported.
 ## Keep question scope and evidence honest
 
 The finite task catalog is separate from the scope of an individual answer.
-Default to the drawing/view shown, following the organizer clarification reported
-on 14 November. Explicit whole-model reference questions retain their stated
-model scope; a single floor is not evidence for a whole-model total.
+Image/PDF/DXF questions use the drawing/page/layout shown. IFC questions always
+use the entire imported model, independently of storey filters, hidden objects
+and section cuts in the viewer. Preserve explicit room/floor filters in the
+question; a single floor is not evidence for a whole-model total.
 
 An unasked per-image category is an unknown annotation, not a zero label or a new
 evaluation class. Missing source properties, incomplete extraction, estimates,

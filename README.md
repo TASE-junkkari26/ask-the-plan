@@ -4,10 +4,10 @@ An evidence-backed construction drawing and BIM question-answering project for
 Stoa's **Make Blueprints Talk** challenge. See the [challenge brief](dataset/task.md)
 and [repository instructions](AGENTS.md).
 
-Questions default to the drawing/view currently shown, following the organizer
-clarification reported on 14 November 2026. Explicit whole-model questions retain
-their stated scope. Answers should link to their source objects, properties,
-regions, and calculation steps.
+Image/PDF/DXF questions use the drawing/page/layout currently shown. IFC questions
+always use the entire imported IFC model, regardless of viewer filters or section
+cuts. Answers should link to their source objects, properties, regions, and
+calculation steps.
 
 ## Project scope
 
