@@ -1,11 +1,10 @@
 # Ask the Plan frontend
 
-**Detailed scan** is enabled in the image/PDF/DXF question panel. It selects drawing
+**Detailed scan** is always used by the image/PDF/DXF question panel. It selects drawing
 regions, analyzes overlapping native detail and combines source instances through
-the [detail tools](../image_api/DETAIL_TOOLS.md). Uncheck it for the standard
-whole-image detector. When backend routing is enabled, the selected Hydrogen or
-Carbon analyzer uses the chosen scan mode. Results expose model-call count,
-selected regions and candidate checks; the recorded calls show each actual model
+the [detail tools](../image_api/DETAIL_TOOLS.md). When backend routing is enabled,
+the selected Hydrogen or Carbon analyzer uses this scan mode. Results expose
+model-call count, selected regions and candidate checks; the recorded calls show each actual model
 and its cost contribution, including region selection and verification. Deferred
 crop fragments stay partial. DXF questions use only the displayed layout's raster;
 IFC questions retain their separate planner and deterministic engine path.

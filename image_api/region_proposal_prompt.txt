@@ -18,8 +18,14 @@ objects. Keep a small context margin; the host adds further padding.
 Exclude unrelated location/site-map insets, illustrations, page margins, binder
 holes, title blocks and isolated footer text from a floor-plan crop. For a
 schedule/table question, enclose the entire relevant table including its column
-headings and row labels. A scale or legend needed for the question is relevant
-context and must be included in a panel or in its own region. Do not trim an
+headings and row labels.
+
+For locating or counting objects, use a symbol legend/key to interpret the
+drawing; its example icons are not instances in the plan. Do not select an
+isolated legend/key as an independent detection region unless the question
+explicitly asks about its contents. Preserve all actual drawing panels. For a
+measurement or other task that needs a scale or legend as source evidence,
+include that context in the relevant panel or its own region. Do not trim an
 ambiguous part just to obtain a smaller rectangle.
 
 The scope remains the selected submitted page. If several plan panels are

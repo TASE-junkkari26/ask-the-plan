@@ -24,15 +24,15 @@ class RecordingClient(AsyncGeminiClient):
         super().__init__()
         self.directory, self.calls = directory, 0
 
-    async def generate_candidates(self, question, *, system, image, schema):
+    async def generate_candidates(self, question, *, system, image, schema, resolution=None):
         self.calls += 1
         folder = self.directory / f"call-{self.calls:02d}"
         folder.mkdir()
         shutil.copyfile(image, folder / "input.png")
-        save(folder / "request.json", {"question": question, "system": system, "schema": schema,
+        save(folder / "request.json", {"question": question, "system": system, "schema": schema, "resolution": resolution,
              "image_sha256": hashlib.sha256(image.read_bytes()).hexdigest(),
              "model": self.settings.model, "thinking": self.settings.thinking_level})
-        reply = await super().generate_candidates(question, system=system, image=image, schema=schema)
+        reply = await super().generate_candidates(question, system=system, image=image, schema=schema, resolution=resolution)
         save(folder / "reply.json", asdict(reply))
         return reply
 

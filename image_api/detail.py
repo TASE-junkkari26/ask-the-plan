@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +19,17 @@ from .reconciliation import (SourceCandidate, reconcile_candidates, propose_rein
 from .region_proposal import GeminiRegionProposer
 from .region_tools import crop_region, optimized_tile_regions, validate_source_box
 from .candidate_verification import GeminiCandidateVerifier
+from .window_regions import propose_window_regions, find_solid_window_boxes
+
+
+_WINDOW_COUNT = re.compile(
+    r"^(?:how\s+many\s+windows|kuinka\s+monta\s+ikkunaa|montako\s+ikkunaa|"
+    r"wie\s+viele\s+fenster|combien\s+de\s+fenêtres|quante\s+finestre|"
+    r"hur\s+många\s+fönster|hvor\s+mange\s+vinduer|hoeveel\s+ramen)\b", re.IGNORECASE)
+
+
+def _window_task(question, target_kind):
+    return target_kind == "window" or target_kind == "other" and bool(_WINDOW_COUNT.match(question.strip()))
 
 
 class DetailOptions(BaseModel):
@@ -31,6 +43,8 @@ class DetailOptions(BaseModel):
     reinspect_edges: bool = True
     target_kind: Literal["door", "window", "toilet", "shower", "bathtub", "bath_fixture", "room", "floor", "schedule_row", "other"] | None = None
     verify_membership: bool = True
+    opencv_windows: Annotated[bool, Field(strict=True)] = False
+    opencv_window_checks: Annotated[bool, Field(strict=True)] = True
 
     @model_validator(mode="after")
     def check_options(self):
@@ -172,15 +186,21 @@ class DetailTools:
         if not crops or len(crops) > remaining:
             raise ApiError(422, "call_budget", "Requested detail scan exceeds the provider-call budget.")
 
-        async def detect(index, crop, *, purpose="analysis"):
+        async def detect(index, crop, *, purpose="analysis", id_prefix="detail", context_target=None):
             # Distinct invocation IDs avoid collisions when identical regions recur.
-            region_id = f"detail-{index:03d}"
+            region_id = f"{id_prefix}-{index:03d}"
             async with self._slots:
                 try:
                     context = {"source_dimensions": [image.width, image.height],
                         "source_crop_box": list(crop.source_box), "selected_panels": [list(box) for box in boxes],
-                        "target_kind": target_kind, "scope": "selected source page; inspect only the attached crop",
+                        "target_kind": context_target or target_kind, "scope": "selected source page; inspect only the attached crop",
                         "coordinate_frame": "attached crop normalized 0..1000; host maps to original source"}
+                    if id_prefix == "cv-window":
+                        context["inspection_reason"] = (
+                            "Unverified CPU line-geometry proposal for missed windows. Inspect this crop for actual "
+                            "window frames or thin fixed glazing, including balcony interfaces. Parallel strokes "
+                            "alone are not a window: exclude solid walls, annotation and fitted door leaves. "
+                            "Keep independently framed units distinct; do not split glass panes into extra windows.")
                     service = self.candidate_service.with_context(context)
                     response = await _provider_call(
                         lambda: service.extract(crop.image, question, request_id + "-" + region_id),
@@ -237,10 +257,79 @@ class DetailTools:
                 limitations.append("Clipped observations were deferred to overlapping interior views; inspect their recorded source evidence if an object appears missing.")
         result = reconcile_candidates(observations, source_sha256=image.sha256,
                                       source_width=image.width, source_height=image.height, target_kind=target_kind)
-        membership_checks, checked_ids = [], set()
+        cv_review_ids = set()
+        if (options.opencv_window_checks and options.verify_membership
+                and _window_task(question, target_kind) and calls < options.max_calls
+                and self.detector_client.settings.model == "gemini-4-hydrogen"):
+            window_candidates = [c for c in result.candidates
+                if c.candidate.category.casefold().replace("_", " ") in {"window", "window assembly"}]
+            try:
+                flagged = await _local_work(find_solid_window_boxes, image.path,
+                    [c.candidate.box for c in window_candidates])
+            except (ValueError, OSError):
+                flagged = ()
+            for index in flagged:
+                cv_review_ids.update(window_candidates[index].observation_ids)
+            if cv_review_ids:
+                observations = [replace(o, uncertain=True, uncertainty_reason=(
+                    "Local raster check found predominantly solid dark linework inside this window box; "
+                    "verify whether a fitted frame or glazing is actually visible."))
+                    if o.observation_id in cv_review_ids else o for o in observations]
+                result = reconcile_candidates(observations, source_sha256=image.sha256,
+                    source_width=image.width, source_height=image.height, target_kind=target_kind)
+        # CV supplies inspection regions only. Model detections remain proposals,
+        # and the existing hash-bound reconciliation decides observation identity.
+        cv_boxes = []
+        if (options.opencv_windows and _window_task(question, target_kind)
+                and self.detector_client.settings.model == "gemini-4-hydrogen"
+                and calls < options.max_calls and len(result.candidates) < 100):
+            known = [c.candidate.box for c in result.candidates
+                     if c.candidate.category.casefold().replace("_", " ") in {"window", "window assembly"}]
+            for panel in boxes:
+                remaining = min(2 - len(cv_boxes), options.max_calls - calls - len(cv_boxes))
+                if remaining <= 0:
+                    break
+                try:
+                    proposed = await _local_work(propose_window_regions, image.path,
+                        source_box=panel, existing_boxes=known, max_regions=remaining)
+                except (ValueError, OSError):
+                    limitations.append("Local window-region preparation failed; original detections retained.")
+                    break
+                for box in proposed:
+                    if len(cv_boxes) >= min(2, options.max_calls - calls):
+                        break
+                    if box not in cv_boxes and box not in [crop.source_box for crop in crops]:
+                        cv_boxes.append(box)
+            for box in cv_boxes:
+                target = directory / f"cv-window-{calls}"
+                target.mkdir()
+                crop = await _local_work(crop_region, image, box, target)
+                batch = [await detect(len(region_trace), crop, purpose="reinspection",
+                                      id_prefix="cv-window", context_target="window")]
+                calls += 1
+                # An empty rescue is not evidence against an existing object.
+                fresh = consume(batch)
+                # A cut-off fragment does not establish a new whole window.
+                clipped = [o for o in fresh if any(abs(a-b) <= 2 for a,b in zip(o.box,o.region_box))]
+                deferred += tuple(clipped)
+                observations.extend(o for o in fresh if o not in clipped)
+                if clipped:
+                    limitations.append("Optional window inspection found clipped fragments; retained as unresolved evidence.")
+            if cv_boxes:
+                result = reconcile_candidates(observations, source_sha256=image.sha256,
+                    source_width=image.width, source_height=image.height, target_kind=target_kind)
+        membership_checks, checked_ids = [], set(cv_review_ids) | {
+            o.observation_id for o in observations if o.region_id.startswith("cv-window-")}
+        cv_check_used = False
         if options.verify_membership and calls < options.max_calls:
             for merged in result.candidates:
                 if not merged.candidate.uncertain or calls >= options.max_calls:
+                    continue
+                cv_flagged = bool(set(merged.observation_ids) & cv_review_ids)
+                if cv_flagged and cv_check_used:
+                    continue
+                if any(identifier.startswith("cv-window-") for identifier in merged.observation_ids):
+                    checked_ids.update(merged.observation_ids)
                     continue
                 # Verify membership of one hypothesis. A new regional inventory
                 # is not a membership check and must not inflate the object set.
@@ -273,6 +362,7 @@ class DetailTools:
                     verdict, reason, region_status = "failed", f"Membership check failed ({exc.code}); original evidence retained.", "failed"
                     limitations.append(reason)
                 calls += 1
+                cv_check_used = cv_check_used or cv_flagged
                 checked_ids.update(merged.observation_ids)
                 region_trace.append({"id": region_id, "source_box": crop.source_box,
                     "inference_sha256": crop.image.inference_sha256,
@@ -289,9 +379,10 @@ class DetailTools:
                 source_width=image.width, source_height=image.height, target_kind=target_kind)
         superseded = []
         seen_crops = {(crop.source_box, crop.image.inference_sha256) for crop in crops}
-        if options.reinspect_edges and target_kind not in {"floor", "schedule_row", "room"} and calls < options.max_calls and result.status == "partial":
+        if options.reinspect_edges and not cv_boxes and target_kind not in {"floor", "schedule_row", "room"} and calls < options.max_calls and result.status == "partial":
             pending_result = replace(result, candidates=tuple(c for c in result.candidates
-                if not set(c.observation_ids) <= checked_ids))
+                if not set(c.observation_ids) <= checked_ids
+                and not any(identifier.startswith("cv-window-") for identifier in c.observation_ids)))
             inspection = propose_reinspection_regions(pending_result, max_regions=options.max_calls-calls)
             for inspection_region in inspection.regions:
                 # Recentered observations resolve crop seams using new pixels;
@@ -359,7 +450,7 @@ class DetailTools:
             "candidates": public, "limitations": [item[:2000] for item in dict.fromkeys(limitations)][:100],
             "provenance": {"requested_model": replies[0].provenance.requested_model,
                            "returned_model": replies[0].provenance.returned_model,
-                           "prompt_version": "detail-tools-v2"},
+                           "prompt_version": "detail-tools-v3"},
             "metrics": {"elapsed_ms": (perf_counter()-started)*1000,
                         "prompt_tokens": None if incomplete_usage else _total_usage(usage, "prompt_tokens"),
                         "completion_tokens": None if incomplete_usage else _total_usage(usage, "completion_tokens"),
@@ -374,5 +465,7 @@ class DetailTools:
                        "reinspection_regions": [r.source_box for r in pending.regions],
                        "deferred_observations": [{"observation_id": o.observation_id,
                            "region_id": o.region_id, "category": o.category, "source_box": o.box,
-                           "reason": "Clipped crop-edge observation; overlapping successful tile provides more interior context."}
+                           "reason": ("Clipped optional window inspection; not an established additional whole instance."
+                                      if o.region_id.startswith("cv-window-") else
+                                      "Clipped crop-edge observation; overlapping successful tile provides more interior context.")}
                            for o in deferred]}})

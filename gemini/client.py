@@ -5,7 +5,7 @@ import base64
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -196,9 +196,13 @@ class AsyncGeminiClient:
         )
 
     async def generate_candidates(self, question: str, *, system: str,
-                                  image: Path, schema: dict) -> GeminiReply:
+                                  image: Path, schema: dict,
+                                  resolution: Literal["low", "medium", "high", "ultra_high"] | None = None) -> GeminiReply:
         if not question.strip() or not system.strip() or not isinstance(schema, dict) or not schema:
             raise GeminiError("Gemini image requests require a question, instructions, and response schema.")
+        if resolution is not None and (not isinstance(resolution, str)
+                or resolution not in {"low", "medium", "high", "ultra_high"}):
+            raise GeminiError("Unsupported Gemini image resolution.")
         try:
             with Path(image).open("rb") as stream:
                 content = stream.read(MAX_REQUEST_BYTES + 1)
@@ -224,6 +228,8 @@ class AsyncGeminiClient:
             "response_format": {"type": "text", "mime_type": "application/json", "schema": schema},
             "store": False,
         }
+        if resolution is not None:
+            body["input"][1]["resolution"] = resolution
         return await self._send(body)
 
     async def generate_plan(self, question: str, *, system: str, schema: dict,

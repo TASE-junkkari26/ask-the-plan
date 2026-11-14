@@ -1,8 +1,26 @@
 # Callable drawing detail tools
 
 These tools supply operations to an external coordinator. The frontend's
-**Detailed scan** explicitly chooses automatic panel selection and overlapping
-native tiles. Switching it off uses the original full-image detector.
+question panel always uses automatic panel selection and overlapping native
+tiles through **Detailed scan**. There is no user-facing checkbox. The original
+full-image endpoint remains available to explicit API clients.
+
+Door detail detection uses higher image-reading resolution to preserve small
+leaf/swing features. Other object classes retain the previous resolution. A
+declared door target selects this setting; small images that skip layout use a
+conservative multilingual door-count lead-in hint. This changes image-token
+allocation, not source pixels or the counting grain. Layout, membership checks
+and IFC are unaffected. Isolated legends are not independent object-inventory
+regions unless the question asks about the legend.
+
+See the [90-drawing hardening review](../experiments/image_questions/RASTER_HARDENING_20261115.md)
+for paired results, rejected prompt variants and unresolved source disagreements.
+
+Optional [OpenCV window checks](../docs/OPENCV_WINDOW_CHECKS.md) flag strong
+solid-wall contradictions for at most one additional Hydrogen verification.
+The more expensive OpenCV strip-rescue prototype remains disabled by default
+after a negative paired trial. Both paths preserve native frames and total
+request budgets; installing the `vision` extra enables the CPU implementation.
 
 Revision 2 improves observation identity, bounds repeated work and uses cached
 preprocessor overviews for layout while preserving native detection pixels.
