@@ -119,18 +119,44 @@ and the browser required normal local network permissions in this sandbox. The
 owned browser and preview server were stopped after verification. Imports are
 tab-local previews, not persistent storage or an analysis/ingestion service.
 
+## Import opening flow on Linux
+
+Checked 14 November 2026 with Node 24.22.3, npm 11.19.1, and headless Firefox.
+The application now starts without synthetic drawings or prepared answers;
+those sources remain offline fixtures. The chat panel opens after a successful
+local import, with question answering explicitly unavailable.
+
+| Check | Observed result |
+|---|---|
+| `npm run test:frontend` | All three existing test files passed. |
+| `npm run build` | TypeScript checks and Vite production build passed. |
+| `node scripts/smoke-render.mjs` from `frontend/` | Initial file import controls rendered without a drawing, demo content, or chat panel. The smoke check no longer starts a WebSocket listener. |
+| Firefox opening flow | Initial and refreshed pages showed only import controls. Corrupt/unsupported files stayed on that screen with individual errors. A delayed PDF import showed loading before revealing the preview and right-side chat. |
+| Chat and library | Importing a new file reopened a hidden chat panel. The picker contained only imports; mixed valid/invalid batches retained successful files and listed failures. The disabled composer explained the analysis limitation. |
+| Preview and lifecycle | PDF page navigation, zoom/rotation/fit, image-data SVG export, final-file removal, and preview URL cleanup passed. Removing the sole selected file during another import returned to the opening screen, then opened the completed file. Source changes during import and PDF rendering preserved the selected source. |
+| Responsive and drag/drop | Screenshots inspected at 1,440 × 960 and 390 × 844 CSS pixels. The import screen and preview/chat layout fit without horizontal overflow. Dispatched drag/drop events opened the first file and subsequent imports. Finnish labels preserved original filenames. |
+| `python3 scripts/check_docs.py` and `git diff --check` | Passed. |
+
+The temporary Firefox WebDriver BiDi harness used generated local images and a
+two-page PDF, browser file-input selection, and dispatched drag/drop events.
+Native operating-system file selection and physical drag gestures were not
+automated in this pass. No uncaught application errors were observed. These
+checks establish selected UI behavior, not uploaded-file analysis or dataset
+answer accuracy.
+
 ## Remaining verification gaps
 
 - Real-device touch/virtual-keyboard behavior, Windows browser behavior, and
   native file-save interactions still need checks on the demo devices. The Linux
   browser checks above cover selected demo interactions and local import previews,
   including PDF page navigation and the generated SVG export Blob.
-- The frontend uses prepared results. A real question-to-planner-to-IFC-to-viewer
-  flow, HTTP integration, and general raster extraction are not implemented.
+- The drawing chat is not connected to an analysis service. A real
+  question-to-planner-to-IFC-to-viewer flow, HTTP integration, and general raster
+  extraction are not implemented. Prepared results remain offline fixtures.
 - Dataset-wide answer accuracy, evidence localization, multilingual robustness,
   latency distributions, and inference cost have not been benchmarked here.
 - No fresh dependency installation, Linux backend run, live inference request,
-  or billing check was performed in these passes. The [Nemotron guide](nvidia_info.md) and saved
+  or billing check was performed in the earlier hardening passes. The [Nemotron guide](nvidia_info.md) and saved
   [door-labeling experiment](../experiments/door_labeling/RESULTS.md) retain their
   earlier observations and limits.
 
@@ -169,3 +195,29 @@ complete geometry/property coverage, QA accuracy, a 100 MiB memory guarantee,
 or verification on physical mobile/Windows devices. Backend answer integration,
 canonical-ID bridging, persistent storage, and large-model server conversion
 remain outside this implementation.
+
+## Import opening flow merged with the IFC viewer
+
+Checked 14 November 2026 on Linux with Node 24.22.3 and headless Firefox against
+the production build. The local import-first changes were combined with upstream
+`bb1a17c` (IFC viewer). The application library still contains imports only; the
+prepared FZK-Haus artifact and synthetic QA sources remain fixtures.
+
+| Check | Observed result |
+|---|---|
+| `npm run setup:frontend` | Locked dependencies installed with dependency scripts disabled. |
+| `npm run test:frontend` | All five test files passed. |
+| `npm run build` | TypeScript and Vite build passed; the existing SDK optional-WebGPU export and large-chunk warnings remain. |
+| `node scripts/smoke-render.mjs` from `frontend/` | First open renders import controls without a drawing or chat panel. |
+| Production image/PDF browser regression | Desktop/narrow import screens, invalid files, delayed PDF loading, chat reopening, import-only library, mixed batches, PDF pages, viewport controls, Finnish labels, drop events, final removal, URL cleanup, stale-selection guards, refresh, and embedded-image SVG export passed. |
+| Production synthetic IFC4 browser regression | Import from the opening screen converted a generated wall model locally, rendered one 3D canvas, exposed its original STEP ID/name and storey, and retained the canvas while collapsing/reopening the inspector. |
+| IFC/PDF lifecycle | Switching restored PDF page 2, removed the inactive renderer, retained both imported entries, and returned to the opening screen after final removal. Invalid IFC errors stayed inspectable in the library and removal recovered. No uncaught page errors or unhandled rejections were recorded. |
+| `python3 scripts/check_docs.py`, `git diff --check`, and Git conflict inventory | Passed; no unresolved merge entries remain. |
+
+The temporary browser harnesses used generated images, a two-page PDF, and a
+synthetic IFC4 wall. Desktop PDF/chat and IFC/inspector screenshots were inspected.
+These checks cover the combined UI and local conversion path, not real-model
+corpus compatibility, backend integration, or dataset QA accuracy. The earlier
+real IFC checks above were not repeated. Backend code and contracts were unchanged;
+the Python backend suite was not rerun. Owned temporary browser/server processes
+were stopped after verification.

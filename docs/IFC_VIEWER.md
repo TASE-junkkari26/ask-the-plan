@@ -2,7 +2,8 @@
 
 Implemented 14 November 2026. This is a local viewing and inspection feature,
 independent of the Python IFC engine and question-answering contracts. Image/PDF
-previews and the synthetic question demo continue to use the existing 2D viewer.
+previews use the existing 2D viewer. The application opens on a file import screen;
+synthetic question demos remain offline fixtures.
 
 ## Open a model
 
@@ -13,8 +14,8 @@ npm run setup:frontend
 npm run dev
 ```
 
-Use `npm.cmd` in Windows PowerShell. Open **Drawings → FZK-Haus** for the bundled
-real model, or import/drop one or more `.ifc` files. IFC files may be up to
+Use `npm.cmd` in Windows PowerShell. Select or drop one or more `.ifc` files on the
+opening screen, or use **Import drawings** after opening a file. IFC files may be up to
 **100 MiB each**; images/PDFs retain their **35 MiB** limit. IFCZIP and binary IFC
 are not supported. Files register in the existing searchable import library;
 conversion starts only when a model is selected. Other successful imports remain
@@ -25,7 +26,8 @@ Only the active source has a renderer. Switching to a drawing disposes the 3D
 scene and workers; switching to IFC removes the SVG renderer, PDF pagination,
 marked-SVG export, and 2D camera handlers. Imported PDFs retain their current page.
 No model or drawing is uploaded. Local files and the converted-model cache are
-cleared by refreshing the tab.
+cleared by refreshing the tab. The library contains only imports; removing the
+last file returns to the opening screen.
 
 ## Controls and source properties
 
@@ -89,8 +91,10 @@ runtime assets produce a recoverable viewer error. The file picker remains usabl
 ## Prepared demo and attribution
 
 The checked-in [FZK-Haus fragment](../frontend/public/models/fzk-haus.frag) and
-[manifest](../frontend/public/models/fzk-haus.json) allow ordinary startup without
-the full dataset. See its [attribution](../frontend/public/models/README.md).
+[manifest](../frontend/public/models/fzk-haus.json) are retained as prepared viewer
+fixtures. They are not shown in the import-only application library. See their
+[attribution](../frontend/public/models/README.md). Ordinary startup does not
+require the dataset.
 
 To regenerate from the optional local dataset:
 

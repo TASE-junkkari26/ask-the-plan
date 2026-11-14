@@ -16,7 +16,8 @@ size, converter/configuration identity, source URL, attribution, and license.
 It is a real model for viewing and inspection; it has no prepared QA answers.
 
 Regenerate from the repository root with
-`npm --prefix frontend run prepare:ifc-demo`. Normal startup uses the checked-in
-artifact and does not require the dataset. Dependency licenses remain those of
+`npm --prefix frontend run prepare:ifc-demo`. The checked-in artifact remains a
+viewer fixture; the application library shows imports only, and normal startup
+does not require the dataset. Dependency licenses remain those of
 That Open Components/Fragments (MIT), Three.js (MIT), camera-controls (MIT), and
 web-ifc (MPL-2.0); the runtime preparation copies web-ifc's license beside its WASM.

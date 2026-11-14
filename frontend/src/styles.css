@@ -289,7 +289,7 @@ kbd {
   margin-left: auto;
   flex-shrink: 0;
 }
-.demo-badge {
+.local-badge {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -301,7 +301,7 @@ kbd {
   font-size: 10px;
   white-space: nowrap;
 }
-.demo-badge > span {
+.local-badge > span {
   width: 4px;
   height: 4px;
   border-radius: 50%;
@@ -323,6 +323,115 @@ kbd {
 }
 .app-body.inspector-collapsed {
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* The workspace opens only after a local drawing has decoded successfully. */
+.import-screen {
+  height: calc(100% - var(--header-height));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow-y: auto;
+  padding: 48px 24px 72px;
+  background: radial-gradient(ellipse at 50% 40%, #fff 0%, #f3f4ef 72%);
+}
+.import-welcome {
+  width: 100%;
+  max-width: 560px;
+  text-align: center;
+}
+.import-welcome > .eyebrow {
+  justify-content: center;
+  color: var(--accent);
+  margin-bottom: 17px;
+}
+.import-welcome h1 {
+  font-size: clamp(30px, 4vw, 42px);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -1.5px;
+}
+.import-intro {
+  margin-top: 13px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.welcome-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 260px;
+  margin-top: 32px;
+  padding: 32px 24px;
+  border: 1.5px dashed #b6cbbf;
+  border-radius: 16px;
+  background: #ffffffbf;
+  box-shadow: 0 8px 32px #263f2e04;
+}
+.welcome-dropzone:hover,
+.welcome-dropzone.file-drop-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.welcome-dropzone:disabled {
+  opacity: 1;
+}
+.welcome-upload-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 22px;
+  border: 1px solid #dfebe3;
+  border-radius: 16px;
+  background: #f0f6f1;
+  color: var(--accent);
+}
+.welcome-upload-icon .spinner {
+  width: 25px;
+  height: 25px;
+}
+.welcome-dropzone > strong {
+  color: var(--accent-dark);
+  font-size: 17px;
+  font-weight: 600;
+}
+.welcome-drop-hint {
+  max-width: 100%;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.welcome-formats {
+  margin-top: 25px;
+  color: #8a948b;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.welcome-privacy {
+  margin-top: 20px;
+  color: #879186;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.import-welcome .import-errors {
+  max-height: 190px;
+  overflow-y: auto;
+  margin-top: 20px;
+  text-align: left;
+}
+.import-screen-footnote {
+  position: absolute;
+  bottom: 25px;
+  color: #98a094;
+  font-size: 10px;
+  letter-spacing: 0.3px;
 }
 
 /* Native modal: backdrop, focus containment and Escape are browser-managed. */
@@ -1857,6 +1966,44 @@ kbd {
   font-size: 10px;
   margin: 9px 0 18px;
 }
+.chat-file-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fafbf7;
+  color: var(--accent);
+}
+.chat-file-card > svg {
+  flex-shrink: 0;
+}
+.chat-file-card > div {
+  flex: 1;
+  min-width: 0;
+}
+.chat-file-card strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 550;
+}
+.chat-file-card .local-file-details {
+  display: block;
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.chat-availability {
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
 .toast {
   position: fixed;
   bottom: 24px;
@@ -2098,6 +2245,20 @@ kbd {
   .app-shell {
     min-height: 500px;
   }
+  .import-screen {
+    padding: 36px 22px 58px;
+  }
+  .import-welcome h1 {
+    letter-spacing: -1px;
+  }
+  .import-intro {
+    font-size: 13px;
+  }
+  .welcome-dropzone {
+    min-height: 240px;
+    padding: 25px 18px;
+    margin-top: 25px;
+  }
   .topbar {
     padding: 0 14px;
     gap: 13px;
@@ -2260,6 +2421,10 @@ kbd {
   .question-section {
     padding-top: 10px;
     padding-bottom: 10px;
+  }
+  .chat-availability {
+    margin-bottom: 8px;
+    font-size: 10px;
   }
   .question-form textarea {
     min-height: 42px;

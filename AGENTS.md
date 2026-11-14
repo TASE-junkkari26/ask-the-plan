@@ -28,9 +28,10 @@ component guide before changing behavior.
 
 ## Component boundaries
 
-- `frontend/`: React/TypeScript/Vite workbench with synthetic sources and prepared
-  answers. Its mock adapter is `src/demo/engine.ts`. Local uploads support
-  image/PDF previews and IFC 3D inspection; they are not analysed. Backend
+- `frontend/`: React/TypeScript/Vite workbench that opens on local import;
+  synthetic sources and the mock adapter `src/demo/engine.ts` remain offline
+  fixtures. Local uploads support image/PDF previews and IFC 3D inspection;
+  they are not analysed. Backend
   integration is pending. See [the viewer guide](docs/IFC_VIEWER.md).
 - `ifc_engine/`: independent CPU IFC extractor/structured query executor. See
   [its guide](docs/IFC_ENGINE.md) for supported operations and limitations. It is
