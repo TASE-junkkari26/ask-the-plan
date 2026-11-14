@@ -378,6 +378,14 @@
     "Coverage": {
       "additionalProperties": false,
       "properties": {
+        "candidate_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Candidate Entity Ids",
+          "type": "array"
+        },
         "completeness": {
           "enum": [
             "complete",
@@ -408,6 +416,14 @@
           ],
           "default": null
         },
+        "examined_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Examined Entity Ids",
+          "type": "array"
+        },
         "explanation": {
           "title": "Explanation",
           "type": "string"
@@ -416,6 +432,13 @@
           "minLength": 1,
           "title": "Id",
           "type": "string"
+        },
+        "operation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Operation Keys",
+          "type": "array"
         },
         "property_keys": {
           "items": {
@@ -430,6 +453,14 @@
         },
         "scope": {
           "$ref": "#/$defs/Scope"
+        },
+        "unresolved_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Unresolved Entity Ids",
+          "type": "array"
         }
       },
       "required": [
@@ -871,6 +902,114 @@
         "shape"
       ],
       "title": "Geometry",
+      "type": "object"
+    },
+    "IfcSpaceBoundary": {
+      "additionalProperties": false,
+      "description": "A source boundary record, including unusable and virtual boundaries.",
+      "properties": {
+        "connection_geometry_step_id": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Connection Geometry Step Id"
+        },
+        "corresponding_boundary_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Corresponding Boundary Id"
+        },
+        "element_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Element Id"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "internal_or_external": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Internal Or External"
+        },
+        "native_step_id": {
+          "exclusiveMinimum": 0,
+          "title": "Native Step Id",
+          "type": "integer"
+        },
+        "parent_boundary_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Boundary Id"
+        },
+        "physical_or_virtual": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Physical Or Virtual"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "space_id": {
+          "minLength": 1,
+          "title": "Space Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "native_step_id",
+        "space_id",
+        "physical_or_virtual",
+        "internal_or_external",
+        "provenance"
+      ],
+      "title": "IfcSpaceBoundary",
       "type": "object"
     },
     "ListValue": {
@@ -2436,6 +2575,13 @@
       "default": "0.1.0",
       "title": "Schema Version",
       "type": "string"
+    },
+    "space_boundaries": {
+      "items": {
+        "$ref": "#/$defs/IfcSpaceBoundary"
+      },
+      "title": "Space Boundaries",
+      "type": "array"
     },
     "transforms": {
       "items": {

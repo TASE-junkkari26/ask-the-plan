@@ -11,6 +11,7 @@ export type Operation =
   | 'select'
   | 'traverse'
   | 'spatial_query'
+  | 'related_entities'
   | 'project'
   | 'rank'
   | 'count'
@@ -96,6 +97,14 @@ export type Kind8 = 'list';
 export type PlanStepId = string | null;
 export type Quality1 = 'exact' | 'estimated' | 'lower_bound' | 'upper_bound';
 export type RuleKey = string | null;
+export type AnchorIds1 = string[];
+export type Method = string;
+export type RelatedIds = string[];
+export type Relation = 'containers' | 'boundary_neighbors' | 'door_connections' | 'outdoor_access' | 'exterior_doors';
+export type Status = 'verified' | 'candidate' | 'unavailable' | 'recorded_empty';
+export type SubjectId = string;
+export type ToleranceM = number | null;
+export type SpatialEvidence = SpatialEvaluation[];
 export type Calculations = CalculationNode[];
 export type ConceptIds = string[];
 export type DistinctBy = 'canonical_entity_id';
@@ -110,9 +119,10 @@ export type CoverageIds = [string, ...string[]];
  * @minItems 1
  */
 export type Evidence = [EvidenceBinding, ...EvidenceBinding[]];
-export type AnchorIds1 = string[];
+export type AnchorIds2 = string[];
 export type CalculationId = string;
 export type EntitySetIds = string[];
+export type EvidenceKind = 'verified' | 'candidate' | 'unavailable';
 export type FactIds1 = string[];
 export type ValuePath = string;
 export type Id1 = string;
@@ -149,7 +159,7 @@ export type MembersUri = string | null;
 export type EntitySets = EntitySet[];
 export type ExecutorVersion = string;
 export type Id3 = string;
-export type AnchorIds2 = string[];
+export type AnchorIds3 = string[];
 export type Code =
   | 'needs_clarification'
   | 'missing_source'
@@ -173,7 +183,7 @@ export type ModelOutputTokens = number | null;
 export type PlanId = string | null;
 export type RequestId = string;
 export type SchemaVersion = '0.1.0';
-export type Status =
+export type Status1 =
   | 'answered'
   | 'partial'
   | 'needs_clarification'
@@ -197,7 +207,7 @@ export interface QueryResult {
   plan_id?: PlanId;
   request_id: RequestId;
   schema_version?: SchemaVersion;
-  status: Status;
+  status: Status1;
 }
 export interface CalculationNode {
   anchor_ids?: AnchorIds;
@@ -212,6 +222,7 @@ export interface CalculationNode {
   plan_step_id?: PlanStepId;
   quality: Quality1;
   rule_key?: RuleKey;
+  spatial_evidence?: SpatialEvidence;
 }
 export interface QuantityValue {
   basis: Basis;
@@ -287,6 +298,22 @@ export interface TableColumn {
   key: Key;
   label: LocalizedText;
 }
+/**
+ * Machine-readable support and unresolved inputs for one spatial subject.
+ */
+export interface SpatialEvaluation {
+  anchor_ids?: AnchorIds1;
+  metadata?: Metadata;
+  method: Method;
+  related_ids?: RelatedIds;
+  relation: Relation;
+  status: Status;
+  subject_id: SubjectId;
+  tolerance_m?: ToleranceM;
+}
+export interface Metadata {
+  [k: string]: unknown;
+}
 export interface Claim {
   concept_ids: ConceptIds;
   count_policy?: CountPolicy | null;
@@ -307,9 +334,10 @@ export interface CountPolicy {
   rule_key: RuleKey1;
 }
 export interface EvidenceBinding {
-  anchor_ids?: AnchorIds1;
+  anchor_ids?: AnchorIds2;
   calculation_id: CalculationId;
   entity_set_ids?: EntitySetIds;
+  evidence_kind?: EvidenceKind;
   fact_ids?: FactIds1;
   value_path?: ValuePath;
 }
@@ -331,7 +359,7 @@ export interface EntitySet {
   scope: Scope;
 }
 export interface Issue {
-  anchor_ids?: AnchorIds2;
+  anchor_ids?: AnchorIds3;
   code: Code;
   entity_ids?: EntityIds3;
   fact_ids?: FactIds2;

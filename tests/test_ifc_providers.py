@@ -180,6 +180,25 @@ class IfcProviderTests(unittest.IsolatedAsyncioTestCase):
 
 
 class GeminiPlannerSchemaTests(unittest.TestCase):
+    def test_native_schema_accepts_connected_room_count_composition(self):
+        from ifc_api.service import PlanProposal
+        from tests.test_ifc_api import proposal
+
+        wire = proposal("space")
+        wire["steps"][1:1] = [
+            {"id": "connections", "operation": {"kind": "spatial_query", "input_step_id": "objects",
+                "relation": "door_connections", "method": "native"}},
+            {"id": "rooms", "operation": {"kind": "related_entities", "input_step_id": "connections",
+                "column": "related"}},
+        ]
+        wire["steps"][-1]["operation"]["input_step_id"] = "rooms"
+        validator = Draft202012Validator(gemini_plan_schema(PlanProposal.model_json_schema()))
+        validator.validate(wire)
+        PlanProposal.model_validate(wire)
+
+        wire["steps"][2]["operation"].pop("input_step_id")
+        self.assertFalse(validator.is_valid(wire))
+
     def test_native_envelope_is_shallow_while_operation_validation_stays_strict(self):
         from ifc_api.service import PlanProposal
         from tests.test_ifc_api import proposal

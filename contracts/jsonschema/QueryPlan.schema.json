@@ -568,6 +568,7 @@
               "measure": "#/$defs/MeasureOperation",
               "project": "#/$defs/ProjectOperation",
               "rank": "#/$defs/RankOperation",
+              "related_entities": "#/$defs/RelatedEntitiesOperation",
               "select": "#/$defs/SelectOperation",
               "spatial_query": "#/$defs/SpatialQueryOperation",
               "traverse": "#/$defs/TraverseOperation"
@@ -586,6 +587,9 @@
             },
             {
               "$ref": "#/$defs/SpatialQueryOperation"
+            },
+            {
+              "$ref": "#/$defs/RelatedEntitiesOperation"
             },
             {
               "$ref": "#/$defs/ProjectOperation"
@@ -898,6 +902,34 @@
       "title": "ReferencesValue",
       "type": "object"
     },
+    "RelatedEntitiesOperation": {
+      "additionalProperties": false,
+      "description": "Deduplicate references from one table column at occurrence grain.",
+      "properties": {
+        "column": {
+          "default": "related",
+          "minLength": 1,
+          "title": "Column",
+          "type": "string"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "related_entities",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id"
+      ],
+      "title": "RelatedEntitiesOperation",
+      "type": "object"
+    },
     "RelationPredicate": {
       "additionalProperties": false,
       "properties": {
@@ -1184,7 +1216,7 @@
     },
     "SpatialQueryOperation": {
       "additionalProperties": false,
-      "description": "Bounded native IFC topology, separate from mesh/metric spatial predicates.",
+      "description": "Bounded IFC topology and supported source-geometry checks.",
       "properties": {
         "container_kind": {
           "default": "storey",
@@ -1217,6 +1249,16 @@
           "title": "Kind",
           "type": "string"
         },
+        "method": {
+          "default": "auto",
+          "enum": [
+            "native",
+            "geometry",
+            "auto"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
         "relation": {
           "enum": [
             "containers",
@@ -1227,6 +1269,13 @@
           ],
           "title": "Relation",
           "type": "string"
+        },
+        "tolerance_m": {
+          "default": 0.01,
+          "maximum": 0.1,
+          "minimum": 1e-06,
+          "title": "Tolerance M",
+          "type": "number"
         }
       },
       "required": [

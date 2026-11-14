@@ -72,6 +72,10 @@ def summarize(engine, result: m.QueryResult) -> str | None:
                         statements.append(f"{subject} has a modeled door connection to {related}, via {via}.")
                     elif basis == "Native corresponding space boundaries":
                         statements.append(f"{subject} and {related} have corresponding native space boundaries.")
+                    elif basis == "Geometry-verified overlapping boundary patches":
+                        statements.append(f"{subject} and {related} have overlapping modeled boundary patches within the recorded tolerance, via {via}.")
+                    elif basis == "Geometry-verified space containment":
+                        statements.append(f"{subject} is contained in the modeled space {related}, according to the recorded geometry check.")
                     else:
                         statements.append(f"{subject} shares {via} with {related}; this is a candidate neighbor based on a shared boundary element.")
                 else:

@@ -1,5 +1,40 @@
 # Sprint-one verification record
 
+## Spatial implementation and upstream integration, 14 November 2026
+
+Integrated the uncommitted spatial composition/geometry implementation based on
+`9db07ec` with upstream `b4cc92d`, including `89dbae1`. The combined service keeps
+independent IFC providers, source discovery and one preflight repair within shared
+request, inspection, context and planning-deadline budgets. Exterior-door lower
+bounds remain distinct from unresolved spatial topology; Gemini's native plan
+schema now accepts `related_entities`. Generated contracts were rebuilt from the
+merged Python models. No implementation commit or push was made.
+
+Checked on Linux with Python 3.12.3, IfcOpenShell 0.9.0.post1, Pydantic 2.14.3,
+FastAPI 0.162.7 and Node 24.22.3:
+
+- Full Python suite: **421 tests, 420 passed and one skipped**, in 19.444 seconds,
+  using `.venv/bin/python -m unittest discover -s tests -v`. The optional
+  Esplanades test skipped because its required preview path is absent. Provider
+  credentials were disabled and inference transports mocked. Normal local
+  socket/thread access was enabled; no asyncio heartbeat workaround was needed.
+  The suite includes the 24-case offline planner replay, geometry regressions,
+  exterior lower-bound propagation and candidate-topology aggregate rejection.
+- Final planning/API/provider check: **47 tests passed** in 2.502 seconds after
+  adding four integration regressions. These verify shared discovery/repair
+  budgets, unchanged captured scope/catalog, cumulative token accounting,
+  unreported usage and sanitized diagnostics. This focused check followed minor
+  cleanup of the proposal exception and exhausted-budget wording.
+- All **17 frontend test files** passed with `npm run test:frontend`.
+  `npm run build` passed TypeScript checks and Vite bundling; existing optional
+  Three/WebGPU exports and large-chunk warnings remain.
+- All 12 generated schemas are current, frontend types were regenerated, and
+  local Markdown links and whitespace checks passed.
+
+These are offline integration checks. Browser interaction, Windows behavior and
+live provider compatibility were not rerun for this merge. Original drawing
+assets and reference answers were unchanged.
+
 ## Gemini Hydrogen 100-image count evaluation, 14 November 2026
 
 Ran 100 supplied image/count-question pairs through the current production HTTP
@@ -89,6 +124,49 @@ provider bodies. No broad live provider benchmark, geometry inference or visual
 IFC-reasoning model experiment is claimed. Existing backend `.env` values were
 preserved. See [IFC usage](IFC_QUESTIONS.md) and
 [comparison commands](../experiments/ifc_planners/README.md).
+
+## IFC spatial composition and bounded geometry, 14 November 2026
+
+Checked on Linux with Python 3.12.3, IfcOpenShell 0.9.0.post1, Pydantic 2.14.3,
+FastAPI 0.162.7, httpx 0.28.1 and Node 24.22.3. Executor identity is
+`ifc-engine/0.3.0`; extraction and geometry cache identities were also updated.
+
+- Selected Python suite: **159 tests, 158 passed and one skipped**, in 6.343
+  seconds. Modules were `test_contracts`, `test_ifc_engine`,
+  `test_ifc_spatial_extraction`, `test_ifc_spatial_queries`,
+  `test_ifc_spatial_composition`, `test_ifc_geometry`, `test_ifc_api` and
+  `test_ifc_spatial_api`. The optional real-model unittest skipped because its
+  exact preview path is absent. A separate CLI check of the installed full
+  Esplanades source returned **211 modeled doors** with status `answered`.
+- API tests used mocked inference. This sandbox failed to wake asyncio loops
+  after thread completion, so the combined suite used a temporary guarded
+  runner scheduling a 10 ms loop heartbeat. Application code and test assertions
+  were unchanged by that workaround. An earlier unguarded temporary runner
+  re-entered tests in spawned geometry workers; it was corrected before the
+  passing result above.
+- All **17 frontend test files** and the TypeScript/Vite production build
+  passed. Existing optional Three/WebGPU export and large-chunk warnings remain.
+  All 12 generated JSON Schemas are current; frontend types were regenerated.
+- Regression coverage includes connected-room counting/deduplication, candidate
+  cell bindings, per-relation coverage, mixed known/unknown inputs, undefined
+  boundary flags, captured-scope reference projection, plan repair, upload
+  ownership/cancellation, source hashes, rotated/millimetre geometry, long shared
+  walls, wall-thickness checks, thin overlap rejection, and closed-object/convex-room
+  containment prerequisites.
+- An offline source probe on `dental_clinic_arc.ifc` compared native and `auto`
+  neighbors of literal room `1B07`. Native mode returned eight rows, seven of
+  them candidates. Auto returned four supported rows: `1BC2` via native door
+  evidence and `1B05`, `1B09`, `1B04` via finite boundary patches. Four disjoint
+  shared-wall candidates were excluded. All 49 source anchors resolved and
+  result validation passed. Cold extraction took 12.82 seconds and the query
+  8.03 seconds. The ignored local artifact
+  `build/ifc-spatial-geometry-verification.json` retains the source evidence and
+  calculation inputs; supplied QA answers were not used.
+
+These are selected executor/integration checks, not dataset-wide accuracy or a
+live natural-language planner evaluation. Browser and Windows behavior were not
+rerun. Unsupported shapes remain unknown; generic metric predicates, measured
+routes, orientation and compliance remain explicit non-answers.
 
 ## Frontend response metrics, 14 November 2026
 

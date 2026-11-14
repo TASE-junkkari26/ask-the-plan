@@ -98,7 +98,7 @@ def gemini_plan_schema(schema: dict) -> dict:
     step = resolve(properties["steps"]["items"])
     operation = step["properties"]["operation"]
     variants = operation.get("oneOf", operation.get("anyOf", []))
-    supported = {"select", "traverse", "aggregate", "spatial_query", "project", "rank"}
+    supported = {"select", "traverse", "aggregate", "spatial_query", "related_entities", "project", "rank"}
     operations = []
     for variant in variants:
         original = resolve(variant)

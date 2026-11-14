@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from math import isclose
-from typing import Annotated, Literal, Union
+from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -427,6 +427,25 @@ class Coverage(Model):
     completeness: Literal["complete", "partial", "not_modeled", "not_extracted", "unknown"]
     explanation: str
     provenance: Provenance
+    operation_keys: list[str] = Field(default_factory=list)
+    examined_entity_ids: list[Id] = Field(default_factory=list)
+    unresolved_entity_ids: list[Id] = Field(default_factory=list)
+    candidate_entity_ids: list[Id] = Field(default_factory=list)
+
+
+class IfcSpaceBoundary(Model):
+    """A source boundary record, including unusable and virtual boundaries."""
+
+    id: Id
+    native_step_id: PositiveInt
+    space_id: Id
+    element_id: Id | None = None
+    corresponding_boundary_id: Id | None = None
+    parent_boundary_id: Id | None = None
+    physical_or_virtual: str | None
+    internal_or_external: str | None
+    connection_geometry_step_id: PositiveInt | None = None
+    provenance: Provenance
 
 
 class KnowledgeBundle(Contract):
@@ -449,6 +468,7 @@ class KnowledgeBundle(Contract):
     representations: list[Representation] = Field(default_factory=list)
     facts: list[Fact] = Field(default_factory=list)
     relations: list[Relation] = Field(default_factory=list)
+    space_boundaries: list[IfcSpaceBoundary] = Field(default_factory=list)
     coverage: list[Coverage] = Field(default_factory=list)
 
 
@@ -553,19 +573,29 @@ class AggregateOperation(Model):
 
 
 class SpatialQueryOperation(Model):
-    """Bounded native IFC topology, separate from mesh/metric spatial predicates."""
+    """Bounded IFC topology and supported source-geometry checks."""
 
     kind: Literal["spatial_query"]
     input_step_id: Id
     relation: Literal["containers", "boundary_neighbors", "door_connections", "outdoor_access", "exterior_doors"]
     container_kind: Literal["space", "storey", "building", "site"] = "storey"
     exterior_basis: Literal["combined", "classification", "boundary"] = "combined"
+    method: Literal["native", "geometry", "auto"] = "auto"
+    tolerance_m: float = Field(default=0.01, ge=0.000001, le=0.1)
 
     @model_validator(mode="after")
     def check_exterior_basis(self):
         if self.relation != "exterior_doors" and self.exterior_basis != "combined":
             raise ValueError("exterior_basis applies only to exterior_doors")
         return self
+
+
+class RelatedEntitiesOperation(Model):
+    """Deduplicate references from one table column at occurrence grain."""
+
+    kind: Literal["related_entities"]
+    input_step_id: Id
+    column: Id = "related"
 
 
 class ProjectOperation(Model):
@@ -599,7 +629,7 @@ class ArithmeticOperation(Model):
     output_unit_id: Id | None = None
 
 
-Operation = Annotated[Union[SelectOperation, TraverseOperation, AggregateOperation, SpatialQueryOperation, ProjectOperation, RankOperation, MeasureOperation, ArithmeticOperation], Field(discriminator="kind")]
+Operation = Annotated[Union[SelectOperation, TraverseOperation, AggregateOperation, SpatialQueryOperation, RelatedEntitiesOperation, ProjectOperation, RankOperation, MeasureOperation, ArithmeticOperation], Field(discriminator="kind")]
 
 
 class PlanStep(Model):
@@ -654,10 +684,23 @@ class EntitySet(Model):
         return self
 
 
+class SpatialEvaluation(Model):
+    """Machine-readable support and unresolved inputs for one spatial subject."""
+
+    relation: Literal["containers", "boundary_neighbors", "door_connections", "outdoor_access", "exterior_doors"]
+    subject_id: Id
+    status: Literal["verified", "candidate", "unavailable", "recorded_empty"]
+    method: str
+    related_ids: list[Id] = Field(default_factory=list)
+    anchor_ids: list[Id] = Field(default_factory=list)
+    tolerance_m: float | None = Field(default=None, ge=0.000001, le=0.1)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class CalculationNode(Model):
     id: Id
     plan_step_id: Id | None = None  # Internal calculation nodes may have no plan step.
-    operation: Literal["select", "traverse", "spatial_query", "project", "rank", "count", "sum", "mean", "min", "max", "lookup", "convert_unit", "add", "subtract", "multiply", "divide", "measure", "group_by", "filter", "deduplicate"]
+    operation: Literal["select", "traverse", "spatial_query", "related_entities", "project", "rank", "count", "sum", "mean", "min", "max", "lookup", "convert_unit", "add", "subtract", "multiply", "divide", "measure", "group_by", "filter", "deduplicate"]
     input_node_ids: list[Id] = Field(default_factory=list)
     fact_ids: list[Id] = Field(default_factory=list)
     included_set_id: Id | None = None
@@ -667,6 +710,7 @@ class CalculationNode(Model):
     output: Value
     quality: Literal["exact", "estimated", "lower_bound", "upper_bound"]
     rule_key: str | None = None
+    spatial_evidence: list[SpatialEvaluation] = Field(default_factory=list)
 
 
 class EvidenceBinding(Model):
@@ -676,6 +720,7 @@ class EvidenceBinding(Model):
     fact_ids: list[Id] = Field(default_factory=list)
     entity_set_ids: list[Id] = Field(default_factory=list)
     calculation_id: Id
+    evidence_kind: Literal["verified", "candidate", "unavailable"] = "verified"
 
 
 class Claim(Model):

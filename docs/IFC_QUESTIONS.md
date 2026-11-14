@@ -117,29 +117,42 @@ JSON to review the complete element sets and source inputs.
 
 The planner can compose the engine's supported selection, filtering, traversal,
 grouping, ranking, property lookup, stored-quantity aggregation and bounded
-native-topology `spatial_query` operations.
+`spatial_query` operations. `related_entities` extracts a reference column from
+a relationship table and deduplicates canonical objects, so a query can find
+connected rooms, return those rooms' properties, or count the rooms once. Doors,
+starting objects and boundary elements remain calculation evidence rather than
+being accidentally counted as related rooms.
 Its catalog contains literal source labels and identifiers alongside normalized
 concepts. Count results retain occurrence or hierarchy policy; quantities retain
 units and net/gross basis. Missing properties and unsupported operations produce
 explicit non-answer outcomes instead of fabricated values.
 
-The planner starts with a bounded catalog and source-only metadata search/value
+The planner starts with a bounded, scope-specific catalog containing spatial
+prerequisites, literal source identifiers, metadata search matches and value
 facets. It can request validated `search`, `properties`, `facets` and `inspect`
 actions before producing a plan, within the shared request/action/deadline caps.
-Partial names can retrieve original labels; facts retain literal property paths,
-values, status and anchors. Inspections and relationship endpoints are restricted
-to the captured scope. Samples are explicitly truncated suggestions, not complete
-object inventories; the executor evaluates final predicates over the authorized
-source objects. See the [discovery investigation](IFC_OBJECT_DISCOVERY.md) for
-remaining proposed extensions such as exhaustive-selection handles. This is a
-metadata loop, without arbitrary model-generated code, SQL or geometry tools.
+Search uses Unicode normalization and case folding; executable filters preserve
+the original source spelling. Matches retain their fields, literal values, fact
+and anchor references. Inspections and relationship endpoints stay within the
+captured scope. Explicitly truncated samples are discovery candidates, not
+complete object inventories; the executor evaluates final predicates over the
+authorized source objects.
+
+A normal question can use one planning call. Invalid JSON, source references or
+step shapes get at most one repair against the same captured source and scope,
+within the shared request/deadline caps. Exhausted repair returns a structured
+clarification outcome. Missing source facts and genuinely unsupported operations
+are not retried. See the [discovery investigation](IFC_OBJECT_DISCOVERY.md) for
+remaining proposed extensions such as exhaustive-selection handles. Discovery
+provides metadata actions; the planner cannot run arbitrary code, SQL or geometry
+tools. Bounded supported geometry runs in the executor after plan validation.
 
 The topology operations distinguish several questions that need different evidence:
 
 | Question | Source-backed behavior |
 | --- | --- |
-| Where is this object or room? | `containers` follows native containment/aggregation to a requested space, storey, building or site. |
-| Which rooms are adjacent? | `boundary_neighbors` uses corresponding native space-boundary pairs when available. Rooms sharing a boundary element are explicitly partial candidates when paired boundaries are unavailable; a long shared wall does not prove exact adjacency. |
+| Where is this object or room? | `containers` follows native containment/aggregation to a requested space, storey, building or site. Room containment can use bounded geometry when usable native room containment is absent. |
+| Which rooms are adjacent? | `boundary_neighbors` uses corresponding native space-boundary pairs or geometry-checked boundary patches. Rooms sharing a boundary element remain partial candidates when a patch check is unavailable; a long shared wall does not prove exact adjacency. |
 | Which rooms are directly connected? | `door_connections` requires a shared physical boundary door, or a shared boundary opening filled by a door. Sharing a wall alone does not establish a connection. |
 | Which rooms have direct outdoor access? | `outdoor_access` returns room occurrences with a native PHYSICAL, EXTERNAL door boundary. A subsequent count counts those rooms once, rather than counting doors or boundary records. This does not identify certified fire exits. |
 | How many doors lead outside? | Select door occurrences, then `exterior_doors`, then count. Distinct doors remain separate from room/boundary counts; unknown classifications produce a lower bound or missing-information outcome. |
@@ -166,8 +179,11 @@ does not independently verify physical access, traversability or fire-exit rules
 Source, intermediate and result objects must all belong to the captured scope.
 If topology needed for an answer lies outside the current view, the result is
 `incomplete_coverage`; the query never includes hidden objects silently. Missing
-required topology produces `missing_information`, rather than a claim that no
-connection or access exists. Native system and zone membership is also retained
+required topology or usable geometry produces `missing_information`, rather than
+a claim that no connection or access exists. Mixed supported and unresolved
+objects can return verified rows as `partial`, with per-object spatial evidence
+and relation-specific coverage. Candidate or unresolved selections cannot feed
+an exact aggregate total. Native system and zone membership is also retained
 for relationship queries; membership alone does not prove that equipment serves
 every room in that system or zone.
 
@@ -183,7 +199,17 @@ second language-model request and no reference-answer lookup. It accompanies
 the source facts, object identities and calculation evidence; prose alone does
 not establish an answer. Missing metadata remains explicit.
 
-This integration does not add geometry measurement, route finding, nearest-object
+Geometry runs lazily against the retained original model in a bounded worker.
+Its evidence records the method, source records, coordinate frame, metre units
+and tolerance. Session deletion, expiry, eviction and shutdown remove retained
+sources after active work finishes. Bounding-box candidates alone do not establish
+containment or adjacency. `method=native` disables geometry fallback; the default
+`auto` uses supported geometry where appropriate. Presence of a source representation
+or a boundary record does not establish complete usable geometry. The containment
+fallback currently accepts convex, closed room solids; unsupported room shapes
+and boundary surface constructions remain unknown.
+
+This integration does not add general geometry measurement, route finding, nearest-object
 distance, facade orientation or north-facade classification, regulatory checking
 or every IFC-Bench capability. A valid plan establishes syntax and
 references, not correct natural-language interpretation. Check the displayed
