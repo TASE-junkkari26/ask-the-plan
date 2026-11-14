@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { DOORS, SCHEDULE, WINDOWS } from '../demo/data';
 import type { Drawing, ImportedDrawing } from '../types';
 
@@ -340,6 +341,7 @@ export function DrawingArtwork({
   imported?: ImportedDrawing | null;
   miniature?: boolean;
 }) {
+  const artworkId = useId().replaceAll(':', '');
   if (imported)
     return (
       <image
@@ -367,7 +369,7 @@ export function DrawingArtwork({
       {drawing.kind === 'plan' ? (
         <Plan
           first={drawing.id === 'first'}
-          hatchId={`${drawing.id}-${miniature ? 'thumbnail' : 'source'}-wall-hatch`}
+          hatchId={`${drawing.id}-${artworkId}-wall-hatch`}
         />
       ) : drawing.kind === 'schedule' ? (
         <Schedule />

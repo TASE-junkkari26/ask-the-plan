@@ -28,7 +28,7 @@ Source extraction caches can still be useful without becoming a training dataset
 
 | Available now | Work still needed |
 |---|---|
-| [React frontend](../frontend/README.md): source viewer, marks, selection, prepared answers | Minimal layout, real source ingestion, backend connection, real evidence resolution |
+| [React frontend](../frontend/README.md): dominant source viewer, searchable picker, contextual evidence crops, fixed composer, prepared answers | Real source ingestion, backend connection, real evidence resolution, and the human verification gate |
 | [IFC engine](IFC_ENGINE.md): native extraction and structured scalar queries | Natural-language planning, HTTP integration, operations required by uncovered question families |
 | [Nemotron client](nvidia_info.md): text/image/JSON calls to the supplied endpoint | Evaluated question workflows, bounded orchestration, caching and service integration |
 | [Shared contracts](SCHEMA.md): source, scope, entities, evidence and results | Real adapters populating them; schema validity alone cannot establish source truth |
@@ -39,6 +39,10 @@ UI are independent. Passing component tests does not establish a working
 question-to-answer product; see the [verification record](VERIFICATION.md).
 
 ## UI direction
+
+The local demo now implements the dominant source viewport, compact drawing
+picker, contextual close-ups, and answer/composer layout described here. This
+visual refresh does not complete real evidence integration or the human UI gate.
 
 Use one source viewport and one compact answer/evidence panel. Begin with roughly
 70% drawing and 30% panel on a laptop; adjust after trying real dense drawings.

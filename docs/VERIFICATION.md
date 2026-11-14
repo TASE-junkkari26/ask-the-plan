@@ -66,15 +66,41 @@ Markdown extension are outside this automated check. Selected publisher pages
 cited by the research guides were opened separately; archive downloads and
 inference endpoints were not exercised by this pass.
 
+## Frontend visual refresh on Linux
+
+Checked 14 November 2026 with Node 26.13.1, npm 12.2.2, and the installed Firefox
+160.0 in headless mode. This is a separate frontend pass; Python/backend tests
+were not rerun. The interface now has a dominant drawing viewport, a native
+searchable drawing dialog, a fixed question composer, contextual source close-ups,
+and a locally bundled Cantarell font with its license.
+
+| Check | Observed result |
+|---|---|
+| `npm run test:frontend` | Both existing frontend test files passed. |
+| `npm run build` | TypeScript check and Vite production build passed. |
+| Frontend server-rendering smoke check | Initial workspace rendered eight marks and eight evidence rows with unique SVG IDs. |
+| Desktop Firefox, 1440 × 960 CSS pixels | Drawing search/selection, exact D03 schedule lookup, source close-up, language switching, missing-information response, window/area questions, rotated focus, mark toggles, keyboard evidence/calculation tabs, and panel collapse/reopen passed. |
+| Narrow Firefox, 500 × 844 CSS pixels | Drawing remains visible above the answer panel; no horizontal overflow; picker empty-search/close/Escape and a local SVG upload preview passed. Uploaded preview correctly disabled questions and carried no evidence marks. |
+| Responsive screenshots | Desktop, selected schedule-cell close-up, drawing picker, and a 390 × 844 mobile layout were inspected. Normal Firefox automation windows clamped to 500 pixels wide; the narrower screenshot used Firefox's screenshot command. |
+| Browser error listener | No application `error` events during the exercised interaction sequence. |
+| `python scripts/check_docs.py` and `git diff --check` | Passed. |
+
+The browser checks used a temporary local Firefox automation harness and a local
+Vite server. No new JavaScript dependency, model request, or backend connection
+was introduced. The temporary servers were stopped after checks. This does not
+establish real drawing analysis, touch-device behavior, or the roadmap's human
+evidence-verification gate.
+
 ## Remaining verification gaps
 
-- Browser layout, keyboard/touch interactions, file preview/page navigation, and
-  exported drawing artifacts still need browser checks on the demo devices.
+- Real-device touch/virtual-keyboard behavior, PDF preview/page navigation, and
+  exported drawing artifacts still need checks on the demo devices. The Linux
+  browser checks above cover selected demo interactions and a local SVG preview.
 - The frontend uses prepared results. A real question-to-planner-to-IFC-to-viewer
   flow, HTTP integration, and general raster extraction are not implemented.
 - Dataset-wide answer accuracy, evidence localization, multilingual robustness,
   latency distributions, and inference cost have not been benchmarked here.
-- No fresh dependency installation, Linux run, live inference request, or billing
-  check was performed. The [Nemotron guide](nvidia_info.md) and saved
+- No fresh dependency installation, Linux backend run, live inference request,
+  or billing check was performed in these passes. The [Nemotron guide](nvidia_info.md) and saved
   [door-labeling experiment](../experiments/door_labeling/RESULTS.md) retain their
   earlier observations and limits.

@@ -17,7 +17,7 @@ export function MarkLayer({
       {marks.map((mark) => {
         const [x, y, w, h] = mark.bounds;
         const active = mark.id === selected;
-        const color = active ? '#1743bb' : '#3972f0';
+        const color = active ? '#065f53' : '#147d70';
         return (
           <g
             key={mark.id}
@@ -157,7 +157,7 @@ export function MarkLayer({
                       height="27"
                       rx="4"
                       fill="white"
-                      stroke="#dce6ff"
+                      stroke="#c9e4dc"
                     />
                     <text
                       x={x + 53}

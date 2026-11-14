@@ -7,11 +7,11 @@ families. Build real integrations and evidence views for that set; unknown
 evaluation classes and every possible renderer are not requirements. The prepared
 demo answers alone do not establish dataset coverage.
 
-The [hackathon roadmap](../docs/ROADMAP.md#ui-direction) sets the next UI direction:
-one dominant source viewport, a compact answer/evidence panel, and contextual
-inspection of individual objects and calculation inputs. That redesign and the
-real backend connection remain planned; the features below describe the current
-prototype.
+The frontend follows the [roadmap's UI direction](../docs/ROADMAP.md#ui-direction):
+one dominant source viewport, a searchable drawing picker, and an answer/evidence
+panel with a fixed question composer. Selecting evidence opens a contextual source
+close-up. The real backend connection remains planned; the features below describe
+the current prototype with illustrative sources and prepared answers.
 
 ## Run
 
@@ -37,14 +37,20 @@ still needs verification on the target demo devices.
 
 ## Included
 
-- Drawing navigator with four synthetic sources: two floor plans, a door schedule, and an elevation.
+- Searchable drawing picker with four synthetic sources: two floor plans, a door schedule, and an elevation. The native dialog supports focus containment, Escape, and the `/` or Ctrl/Cmd+K shortcuts.
 - Shared SVG source/mark viewport with pan, zoom, fit, quarter-turn rotation, overlay and label toggles.
-- Clickable numbered objects, synchronized evidence selection, focus controls, room polygons with a column hole, and dimension marks.
+- Clickable numbered objects, synchronized evidence selection, source close-ups, focus controls, room polygons with a column hole, and dimension marks. Source crops preserve area holes and use unique SVG IDs alongside the full drawing and picker thumbnails.
 - Prepared door/window counts, bedroom net-area subtraction, corridor width, exact door-schedule lookup, and missing-information responses.
 - English/Finnish question examples and core UI labels; original source text/IDs stay unchanged.
 - Current-drawing scope by default, following the organizer clarification reported on 14 November 2026. Whole-building requests do not aggregate unseen drawings.
 - Local image/SVG/PDF preview, PDF page navigation, and marked-SVG/result-JSON export. Local uploads are not analysed and are not sent anywhere.
-- Loading states, cancellation on source changes, recent questions, keyboard shortcuts, source search, help dialog, and responsive styles.
+- Loading states, cancellation on source changes, recent questions, keyboard shortcuts, help dialog, and responsive styles. On narrow screens the answer panel sits below the drawing and can be hidden from the viewer toolbar; answers scroll independently of the composer.
+
+The interface uses the existing Lucide icons and a bundled Cantarell variable
+font, with a neutral drawing surface and a green selection accent. No additional
+JavaScript dependency or external font request is required. The font's copyright
+and SIL Open Font License are included in
+[Cantarell-LICENSE.txt](public/fonts/Cantarell-LICENSE.txt).
 
 PDF.js is loaded only for local PDF preview. This version does not embed an IFC/3D viewer; the existing viewer plan remains the integration guide. Source graphics are authored in code; no licensed dataset assets are bundled.
 
@@ -81,6 +87,12 @@ node scripts/smoke-render.mjs
 
 Tests cover per-drawing scope, multilingual object consistency, logical identity across source appearances, polygon/column area arithmetic, precise schedule lookup, missing information, cancellation, rotated focus coordinates, and bounded zoom. `scripts/export-demo-fixtures.ts` emits sample result envelopes for validation against the Python contracts.
 
-The latest checks are recorded in the [verification record](../docs/VERIFICATION.md). The 11 frontend logic tests and production build pass; server rendering and sample envelopes are checked separately. Earlier browser automation was reported blocked by the available Windows browser tooling. Responsive appearance, file-upload controls, and exported artifacts still need browser verification. Logic tests, Pydantic validation, and server rendering do not establish completed end-to-end UI tests.
+The latest checks are recorded in the [verification record](../docs/VERIFICATION.md).
+The frontend logic checks, production build, and initial server-rendering smoke
+check pass. The visual refresh was also exercised in headless Firefox on Linux:
+desktop and narrow-screen drawing selection, query/evidence interactions, and
+responsive screenshots. This is demo UI verification, not a real backend or
+dataset accuracy test. Actual mobile touch/keyboard behavior, PDF page navigation,
+and downloaded artifacts still need checks on the demo devices.
 
-Keyboard shortcuts: `+`/`-` zoom, `0` fit, `R` rotate, `O` toggle marks, `/` source search, `Escape` clear selection/menus. Enter submits the question; Shift+Enter inserts a line break.
+Keyboard shortcuts: `+`/`-` zoom, `0` fit, `R` rotate, `O` toggle marks, `/` or Ctrl/Cmd+K opens source search, `Escape` closes the picker or clears selection/menus. Enter submits the question; Shift+Enter inserts a line break. Arrow keys and Home/End switch the evidence/calculation tabs when a tab is focused.
