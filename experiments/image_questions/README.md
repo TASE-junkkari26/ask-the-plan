@@ -40,6 +40,8 @@ Nemotron subclass changes no inference parameters; it saves the exact system
 prompt, question, image hash, raw provider completion and usage before production
 parsing. API errors and provider results remain separate. Credentials, request
 authorization headers and image data URIs are not written to artifacts.
+The runner explicitly selects Nemotron for this baseline, including its saved
+API settings, even when the workbench uses `IMAGE_API_PROVIDER=gemini`.
 
 Read reference answers only after baseline responses have been saved. Count
 agreement uses the number of candidate records for analysis; it is not a product

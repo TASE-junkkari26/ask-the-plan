@@ -28,7 +28,7 @@ optional extensions unless a supplied question needs them. See the
 | Shared contracts | Pydantic models, generated JSON Schemas/TypeScript, reference/unit/scope/evidence validation | Validation cannot prove source completeness or correctness. |
 | Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI, bounded IFC question planning | The IFC engine computes answers from validated plans; image detections remain candidate proposals. Credentials stay on the backend. |
 | IFC question API | Revision-bound temporary uploads, Nemotron query planning, engine execution, source element/fact evidence and deterministic natural-language summaries | Uses the same local server as image analysis. Current-view scope defaults to exact enabled objects; whole-model scope is explicit. Summaries use executed values without another inference call. Unsupported operations remain non-answers. |
-| Image candidate API | Local HTTP image/question endpoint returning Nemotron candidate boxes, uncertainty, image hashes and display coordinates | Connected to imported 2D drawings; candidate proposals only, with no final counts/answers or IFC analysis. |
+| Image candidate API | Local HTTP image/question endpoint returning candidate boxes from Nemotron or Gemini Hydrogen-low, with uncertainty, image hashes and display coordinates | Connected to imported 2D drawings; one selected image provider per request, candidate proposals only, with no final counts/answers or IFC analysis. |
 | Raster preprocessing | Standalone source/crop/overview artifacts, coordinate transforms, optional local Tesseract OCR, inspection-tool adapter, and bounded image-API session preparation | API defaults to unchanged model input with OCR off; optional full-source overview mode preserves page layout. No semantic room segmentation, physical calibration, or agent tool loop. |
 | Perception | Research plans and a saved one-image door-labeling experiment | No evaluated general raster inventory/reconstruction or model routing. Standalone optional OCR is documented separately. |
 
@@ -60,7 +60,19 @@ for image, JSON, and async examples.
 
 ## Run the image candidate API
 
-With the existing backend `.env`, install the API extra and start the service:
+Choose the image provider in the existing backend `.env`. To use Gemini, keep
+your existing `GEMINI_API_KEY` and add:
+
+```dotenv
+IMAGE_API_PROVIDER=gemini
+```
+
+Gemini image analysis uses `gemini-4-hydrogen` with low thinking. The default
+provider is `nemotron`, which uses the existing `VERDA_*` settings. IFC questions
+continue to use Nemotron regardless of this image-only selector. Preserve both
+keys and existing settings; see [provider setup](image_api/README.md#choose-the-image-provider).
+
+Install the API extra and start the service:
 
 ```sh
 .venv/bin/python -m pip install -e '.[api,preprocess,test]'
@@ -73,7 +85,7 @@ image-bound candidate boxes, not a final answer/count. Leave this backend runnin
 and start `npm run dev` in a second terminal. In the UI, import a drawing, select
 its image/PDF page, and submit a question to see candidate boxes and a review list.
 Files are previewed locally until a question is submitted; image/PDF questions send the
-displayed raster to Nemotron through the backend. The backend prepares a canonical
+displayed raster to the selected image provider through the backend. The backend prepares a canonical
 upright PNG before optional raster preprocessing. Its default `original` mode
 caches preparation without changing model input; opt-in `overview` mode sends
 only the uncropped full-source overview and maps boxes back to the original
@@ -257,6 +269,7 @@ Python source models rather than editing the generated output.
 frontend/       Browser prototype and generated TypeScript wire types
 ifc_engine/     Local IFC extraction and structured query execution
 nemotron/       Backend Verda text/vision client and connection-check CLI
+gemini/         Backend Gemini Hydrogen-low image candidate client
 image_api/      Local image/question HTTP service returning candidate boxes
 ifc_api/        Local IFC upload, Nemotron planner and engine/evidence HTTP adapter
 drawing_preprocessor/  CPU raster preparation and source-inspection tool adapter

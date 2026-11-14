@@ -3,7 +3,8 @@
 A local React/TypeScript drawing workbench. It opens on a file import screen,
 then shows an image/PDF with a chat panel on the right or an IFC model with its
 3D inspector. No demo drawings or prepared answers are shown. Submitting a
-question about an image/PDF uses the internal Nemotron image API and shows
+question about an image/PDF uses the internal image API with its selected
+Nemotron or Gemini Hydrogen-low provider and shows
 candidate boxes, uncertainty, and source close-ups. Inference credentials stay
 on the Python backend. IFC viewing stays local until a question uploads the model
 to that backend for Nemotron planning and CPU engine execution.
@@ -151,7 +152,9 @@ from the root requires its optional dataset source.
 The application does not call `src/demo/engine.ts`. Its `askDemo` adapter and
 synthetic sources remain for offline fixture and contract checks. Imported
 images/PDF pages use `/api/v1/candidates`, the generated `ImageCandidateResponse`,
-and a separate candidate overlay. Response-local candidate IDs are not canonical
+and a separate candidate overlay. Select the image provider on the backend with
+`IMAGE_API_PROVIDER`; see [provider setup](../image_api/README.md#choose-the-image-provider).
+Response-local candidate IDs are not canonical
 building entity IDs. IFC uses `/api/ifc/models` and `/api/ifc/questions`, generated
 IFC wire contracts and the engine's `QueryResult` with source evidence. Nemotron
 proposes bounded queries; the backend validates and executes them. Final answers

@@ -33,6 +33,15 @@ def digest(path: Path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def experiment_settings() -> ApiSettings:
+    # This experiment records a Nemotron baseline, independently of the UI choice.
+    return ApiSettings.from_env().model_copy(update={"provider": "nemotron"})
+
+
+def recording_app(run_dir: Path):
+    return create_app(experiment_settings(), client_factory=lambda: RecordingClient(run_dir))
+
+
 class RecordingClient(AsyncNemotronClient):
     def __init__(self, run_dir: Path):
         super().__init__(NemotronSettings.from_env().model_copy(update={"max_retries": 0}))
@@ -83,7 +92,7 @@ def prepare(run_dir: Path, dataset: Path):
     write_json(run_dir / "environment.json", {
         "git_revision": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
         "python": sys.version, "platform": platform.platform(),
-        "api_settings": ApiSettings.from_env().model_dump(mode="json"),
+        "api_settings": experiment_settings().model_dump(mode="json"),
         "model_settings": settings.model_dump(mode="json", exclude={"api_key"}),
         "effective_retries": 0, "concurrency": 1,
         "production_prompt_sha256": digest(Path("image_api/prompt.txt")),
@@ -99,7 +108,7 @@ def evaluate(run_dir: Path, dataset: Path, port: int):
     prepare(run_dir, dataset)
     cases = json.loads((run_dir / "cases.json").read_text(encoding="utf-8"))["cases"]
     import uvicorn
-    app = create_app(client_factory=lambda: RecordingClient(run_dir))
+    app = recording_app(run_dir)
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -152,7 +161,7 @@ def main():
     args = parser.parse_args()
     if args.command == "serve":
         import uvicorn
-        app = create_app(client_factory=lambda: RecordingClient(args.run_dir))
+        app = recording_app(args.run_dir)
         uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="warning")
     else:
         evaluate(args.run_dir, args.dataset, args.port)
