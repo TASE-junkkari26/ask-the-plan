@@ -49,3 +49,7 @@ export interface ImportedDrawing {
   pages: number;
   kind: 'image' | 'pdf';
 }
+/** A tab-local preview identity, independent of backend source identities. */
+export interface LocalDrawing extends ImportedDrawing {
+  id: string;
+}

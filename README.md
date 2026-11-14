@@ -23,7 +23,7 @@ optional extensions unless a supplied question needs them. See the
 
 | Component | Implemented | Boundary |
 |---|---|---|
-| Frontend | React workbench, synthetic drawings/answers, selectable overlays, calculations, local image/PDF preview, export | Mock adapter; no backend/model calls or IFC 3D viewer. Uploaded files are not analysed. |
+| Frontend | React workbench, synthetic drawings/answers, selectable overlays, calculations, multiple local image/PDF imports, searchable preview library, export | Mock adapter; imports last until refresh, with no backend/model calls or IFC 3D viewer. Uploaded files are not analysed. |
 | IFC engine | CPU extraction, structured selection/traversal, scalar properties/quantities, counts, grouping/ranking, evidence and caching | Standalone Python/CLI; no natural-language planner, HTTP API, or geometry-measurement engine. |
 | Shared contracts | Pydantic models, generated JSON Schemas/TypeScript, reference/unit/scope/evidence validation | Validation cannot prove source completeness or correctness. |
 | Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI | Dated live checks are recorded in the guide; no connected question planner or frontend integration. |
@@ -129,7 +129,9 @@ scope/unit semantics, and limitations. This CLI is independent of the mock UI.
 The [verification record](docs/VERIFICATION.md) gives the latest commands,
 platform versions, results, and limits. Windows Python, frontend logic, schema,
 and build checks passed on 14 November 2026, including the installed preview's
-real-model test. Browser/end-to-end UI verification remains outstanding.
+real-model test. Selected Linux browser interactions, including local file import
+and PDF preview, have been checked; real backend integration and target-device
+checks remain outstanding.
 Nemotron's HTTP tests use mocked responses; earlier live text/image observations
 and the saved door-labeling pilot are recorded separately from this offline pass.
 

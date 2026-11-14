@@ -43,7 +43,7 @@ still needs verification on the target demo devices.
 - Prepared door/window counts, bedroom net-area subtraction, corridor width, exact door-schedule lookup, and missing-information responses.
 - English/Finnish question examples and core UI labels; original source text/IDs stay unchanged.
 - Current-drawing scope by default, following the organizer clarification reported on 14 November 2026. Whole-building requests do not aggregate unseen drawings.
-- Local image/SVG/PDF preview, PDF page navigation, and marked-SVG/result-JSON export. Local uploads are not analysed and are not sent anywhere.
+- Multiple local image/SVG/PDF imports through a file picker or drag and drop, a searchable library with thumbnails and removal, PDF page navigation, and marked-SVG/result-JSON export. Local uploads are not analysed and are not sent anywhere.
 - Loading states, cancellation on source changes, recent questions, keyboard shortcuts, help dialog, and responsive styles. On narrow screens the answer panel sits below the drawing and can be hidden from the viewer toolbar; answers scroll independently of the composer.
 
 The interface uses the existing Lucide icons and a bundled Cantarell variable
@@ -53,6 +53,33 @@ and SIL Open Font License are included in
 [Cantarell-LICENSE.txt](public/fonts/Cantarell-LICENSE.txt).
 
 PDF.js is loaded only for local PDF preview. This version does not embed an IFC/3D viewer; the existing viewer plan remains the integration guide. Source graphics are authored in code; no licensed dataset assets are bundled.
+
+## Import and preview local drawings
+
+Click **Import drawings** in the header or drawing picker, or drop files anywhere
+on the workbench. Select multiple files at once. Supported previews are **PDF,
+PNG, JPEG, WebP, SVG, GIF, and BMP**, with a **35 MB limit per file**. The importer
+also recognizes supported filename extensions when the browser omits the MIME
+type. DWG/DXF drawings need a PDF or SVG export; IFC rendering is not included.
+
+Open **Drawings** to search imported filenames, select a thumbnail, or remove a
+file. Imports appear above the demo drawings. The last successfully imported file
+opens automatically unless a different source was selected during the import.
+Valid files remain available when other files in the same batch fail; the picker
+lists each failure and its filename. Removing the selected file opens another
+import, or returns to a demo drawing when no imports remain.
+
+Imported drawings use the same pan, zoom, fit, and rotation controls as the demo.
+The footer navigates PDF pages; each PDF remembers its current page while you
+browse other drawings. PDF previews limit their canvas size for large sheets.
+Exported SVGs embed the displayed image or rendered PDF page, so they do not
+depend on a temporary browser URL.
+
+Files stay in memory in the current tab and are cleared on refresh. They are not
+uploaded, stored on a server, or analysed; question answering and demo evidence
+are disabled for imported drawings. Preview URLs are released when a file is
+removed, a PDF page is replaced, or the workbench unmounts. Switching sources
+cancels pending page rendering without allowing it to restore an old selection.
 
 ## Backend integration boundary
 
@@ -85,14 +112,16 @@ npm.cmd run build
 node scripts/smoke-render.mjs
 ```
 
-Tests cover per-drawing scope, multilingual object consistency, logical identity across source appearances, polygon/column area arithmetic, precise schedule lookup, missing information, cancellation, rotated focus coordinates, and bounded zoom. `scripts/export-demo-fixtures.ts` emits sample result envelopes for validation against the Python contracts.
+Tests cover per-drawing scope, multilingual object consistency, logical identity across source appearances, polygon/column area arithmetic, precise schedule lookup, missing information, cancellation, rotated focus coordinates, bounded zoom, import format/size validation, image decoding failures, and preview URL cleanup. `scripts/export-demo-fixtures.ts` emits sample result envelopes for validation against the Python contracts.
 
 The latest checks are recorded in the [verification record](../docs/VERIFICATION.md).
 The frontend logic checks, production build, and initial server-rendering smoke
 check pass. The visual refresh was also exercised in headless Firefox on Linux:
 desktop and narrow-screen drawing selection, query/evidence interactions, and
-responsive screenshots. This is demo UI verification, not a real backend or
-dataset accuracy test. Actual mobile touch/keyboard behavior, PDF page navigation,
-and downloaded artifacts still need checks on the demo devices.
+responsive screenshots. The import library was separately checked in Firefox on
+Linux with real browser file selection, mixed valid/invalid batches, all supported
+formats, PDF page navigation, source-switch cancellation, drag/drop events, and
+removal. This is UI verification, not a real backend or dataset accuracy test.
+Actual mobile touch/keyboard behavior and Windows browser checks remain pending.
 
 Keyboard shortcuts: `+`/`-` zoom, `0` fit, `R` rotate, `O` toggle marks, `/` or Ctrl/Cmd+K opens source search, `Escape` closes the picker or clears selection/menus. Enter submits the question; Shift+Enter inserts a line break. Arrow keys and Home/End switch the evidence/calculation tabs when a tab is focused.

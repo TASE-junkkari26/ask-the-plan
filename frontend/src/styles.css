@@ -478,26 +478,114 @@ kbd {
   border-radius: 50%;
   background: var(--accent);
 }
-.add-drawing {
+.import-button {
+  white-space: nowrap;
+}
+.import-dropzone {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  margin-top: 19px;
+  gap: 7px;
   width: 100%;
-  padding: 12px;
+  padding: 17px 10px;
   border: 1px dashed #c7d3bf;
   border-radius: 7px;
   color: #5e7358;
   font-size: 12px;
+  background: #f9fbf6;
 }
-.add-drawing > span {
+.import-dropzone > strong {
+  font-weight: 600;
+}
+.import-dropzone > span {
+  font-size: 11px;
+}
+.import-dropzone > small {
   font-size: 10px;
   color: #929d89;
-  margin-left: auto;
 }
-.add-drawing:hover {
+.import-dropzone:hover,
+.file-drop-active .import-dropzone {
   background: #f5f8f0;
   border-color: #829d72;
+}
+.file-drop-active {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+.import-local-note {
+  color: #84907f;
+  font-size: 10px;
+  line-height: 1.5;
+  margin: 8px 2px 17px;
+}
+.import-progress {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--accent);
+  font-size: 11px;
+  margin-bottom: 15px;
+}
+.import-progress > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.import-errors {
+  border: 1px solid #e5cdad;
+  background: #fff9f0;
+  border-radius: 7px;
+  padding: 10px;
+  margin: 0 0 15px;
+  color: #855a27;
+  font-size: 11px;
+}
+.import-errors > div {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.import-errors .icon-button {
+  margin-left: auto;
+  width: 23px;
+  height: 23px;
+}
+.import-errors ul {
+  padding-left: 17px;
+  max-height: 170px;
+  overflow: auto;
+  margin: 5px 0 0;
+}
+.import-errors li {
+  padding: 4px 0;
+  overflow-wrap: anywhere;
+}
+.import-errors li > strong,
+.import-errors li > span {
+  display: block;
+  line-height: 1.5;
+}
+.file-drop-overlay {
+  position: fixed;
+  inset: 12px;
+  z-index: 50;
+  border: 2px dashed var(--accent);
+  border-radius: 14px;
+  background: #f1f7eef5;
+  color: var(--accent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  pointer-events: none;
+}
+.file-drop-overlay > strong {
+  font-size: 23px;
+}
+.file-drop-overlay > span {
+  font-size: 12px;
 }
 .sidebar-footer {
   display: flex;
@@ -517,25 +605,49 @@ kbd {
   font-size: 12px;
   color: #85917c;
 }
+.following-source-group {
+  margin-top: 20px;
+}
+.imported-drawing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.imported-drawing-row {
+  display: flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+.imported-drawing-row:hover {
+  background: #f6f8f2;
+}
+.imported-drawing-row.active-drawing {
+  background: var(--accent-soft);
+  border-color: #cfdfcf;
+}
 .imported-file {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px;
+  min-width: 0;
+  flex: 1;
+  padding: 10px 7px;
   border-radius: 7px;
   color: var(--accent);
   text-align: left;
 }
-.imported-file.active-drawing {
-  background: var(--accent-soft);
+.drawing-thumbnail > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
-.imported-file > span {
+.imported-file-description {
   min-width: 0;
 }
 .imported-file strong {
   display: block;
   font-size: 12px;
-  max-width: 235px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -543,8 +655,20 @@ kbd {
 .imported-file small {
   font-size: 10px;
   color: #85957c;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-top: 4px;
+}
+.remove-import {
+  flex-shrink: 0;
+  width: 27px;
+  height: 27px;
+  margin-right: 5px;
+}
+.remove-import:hover {
+  color: #a44535;
+  background: #faeae6;
 }
 
 .workspace {
@@ -943,6 +1067,8 @@ kbd {
   backdrop-filter: blur(3px);
   color: #66805b;
   font-size: 13px;
+  padding: 20px;
+  overflow-wrap: anywhere;
 }
 .spinner {
   display: inline-block;
@@ -1722,6 +1848,15 @@ kbd {
   line-height: 1.9;
   margin: 13px 0 20px;
 }
+.local-preview-state .local-file-details {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  margin: 0 0 18px;
+}
+.local-preview-state .import-local-note {
+  font-size: 10px;
+  margin: 9px 0 18px;
+}
 .toast {
   position: fixed;
   bottom: 24px;
@@ -1983,6 +2118,15 @@ kbd {
   }
   .file-picker-button {
     gap: 5px;
+  }
+  .import-button {
+    width: 31px;
+    height: 31px;
+    padding: 0;
+    justify-content: center;
+  }
+  .import-button > span {
+    display: none;
   }
   .file-picker-button > span:not(.file-count),
   .file-picker-button > svg:last-child {

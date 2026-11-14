@@ -9,7 +9,7 @@
     "generate:contracts": "node scripts/generate-contracts.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --experimental-strip-types --test src/demo/engine.test.ts src/lib/viewport.test.ts"
+    "test": "node --experimental-strip-types --test src/demo/engine.test.ts src/lib/viewport.test.ts src/lib/importDocument.test.ts"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

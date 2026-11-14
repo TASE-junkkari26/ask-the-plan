@@ -91,11 +91,40 @@ was introduced. The temporary servers were stopped after checks. This does not
 establish real drawing analysis, touch-device behavior, or the roadmap's human
 evidence-verification gate.
 
+## Local import library on Linux
+
+Checked 14 November 2026 with Node 24.22.3, npm 11.19.1, and the installed Firefox
+160.0 in headless mode. This pass changes only the frontend and its documentation;
+no backend, model, or real-dataset accuracy checks were run.
+
+| Check | Observed result |
+|---|---|
+| `npm run test:frontend` | All three test files passed, including seven new import tests. A separate run with `--test-isolation=none` reported all 18 individual tests passing. |
+| `npm run build` | TypeScript checks and Vite production build passed. |
+| `node scripts/smoke-render.mjs` from `frontend/` | Initial workspace retained eight demo marks, eight evidence rows, and unique SVG IDs. |
+| Firefox local file input | Trusted pointer clicks on both header and modal Import buttons opened a native multiple-file chooser. A single selection imported PNG, JPEG, SVG, and PDF with retained thumbnails and original filenames. Separate WebP/GIF/BMP imports also passed. |
+| PDF preview and navigation | A generated two-page PDF rendered a 14,400 × 14,400 point first sheet into a bounded 2,829 × 2,829 pixel preview; the portrait second page rendered correctly. Previous preview URLs were released. |
+| Mixed valid/invalid batch | Valid files remained imported alongside individual errors for a corrupt image, corrupt PDF, unsupported text, IFC, empty PDF, and a file larger than 35 MB. |
+| Preview library | Filename search, selecting retained previews, zoom/rotation/fit controls, removing the selected import, and returning to demos passed. |
+| Drag/drop and language | Dispatched browser drag/drop events imported an SVG with a blank MIME type. Finnish import labels left the original filename unchanged. Physical operating-system drag gestures were not automated. |
+| Pending source changes | Selecting a demo during a delayed PDF import preserved that selection while retaining the new file. Selecting a demo during page rendering cancelled the stale preview. Removing a file before the rest of its batch finished preserved the current demo and answer. |
+| SVG export | The export Blob for a PDF page embedded a PNG data URL with no temporary Blob URL references. The browser's native save-to-disk dialog was not exercised. |
+| Desktop and narrow layout | Screenshots inspected at 1,440 × 960 and 390 × 844 CSS pixels. The narrow viewport and drawing picker fit without horizontal overflow. |
+| Resource cleanup and refresh | Removing every imported file left no tracked preview URLs unreleased and no uncaught application errors. Refresh returned to the four demo sources. |
+| `python3 scripts/check_docs.py` and `git diff --check` | Passed. |
+
+The browser used generated local fixtures and a temporary Firefox WebDriver BiDi
+harness, without adding a JavaScript dependency. Vite's temporary local listeners
+and the browser required normal local network permissions in this sandbox. The
+owned browser and preview server were stopped after verification. Imports are
+tab-local previews, not persistent storage or an analysis/ingestion service.
+
 ## Remaining verification gaps
 
-- Real-device touch/virtual-keyboard behavior, PDF preview/page navigation, and
-  exported drawing artifacts still need checks on the demo devices. The Linux
-  browser checks above cover selected demo interactions and a local SVG preview.
+- Real-device touch/virtual-keyboard behavior, Windows browser behavior, and
+  native file-save interactions still need checks on the demo devices. The Linux
+  browser checks above cover selected demo interactions and local import previews,
+  including PDF page navigation and the generated SVG export Blob.
 - The frontend uses prepared results. A real question-to-planner-to-IFC-to-viewer
   flow, HTTP integration, and general raster extraction are not implemented.
 - Dataset-wide answer accuracy, evidence localization, multilingual robustness,
