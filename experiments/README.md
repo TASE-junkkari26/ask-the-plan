@@ -10,7 +10,9 @@ future runs stay ignored. Keep original drawing assets and reference answers unc
   bounding-box proposals, saved model output, overlays, and post-inference review.
 - [Live 2D question evaluation](image_questions/README.md): eight production-API
   questions, six diagnostic calls, source-derived PDF/DXF comparisons, and a
-  [recommended hybrid direction](image_questions/RESULTS.md). No IFC cases.
+  [recommended hybrid direction](image_questions/RESULTS.md). Also includes a
+  reproducible [100-image Gemini Hydrogen count benchmark](image_questions/GEMINI_100_RESULTS.md);
+  IFC files are excluded.
 
 Record the source hash, input dimensions, exact instructions/schema, model and
 sampling settings, token usage, elapsed time, and code revision. Preserve source

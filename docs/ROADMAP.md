@@ -6,6 +6,10 @@ defines acceptance; this roadmap sets the next build order and UI direction.
 Earlier stack/viewer research remains useful, with training and additional
 infrastructure subject to the decision gates here.
 
+The [100-image-informed tools and routing plan](TOOLING_AND_ROUTING_PLAN.md)
+details the next proposed tool interfaces, decision cards, area/calibration path,
+and prompt draft. Its implementation status is separate from this roadmap.
+
 ## Aim
 
 An engineer opens a drawing, asks a question, gets a concise answer, and can

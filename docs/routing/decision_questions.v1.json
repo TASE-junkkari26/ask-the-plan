@@ -1,0 +1,122 @@
+{
+  "status": "proposed_not_wired_or_evaluated",
+  "date": "2026-11-14",
+  "model": "gemini-decision-1",
+  "host_notes": [
+    "Provide question, selected-view context, readable overview and deterministic source/capability metadata; exclude reference answers.",
+    "These are question cards, not a complete API request or production routing policy.",
+    "Questions within a call are independent. Compose dependent stages in code using actual tool results.",
+    "Use deterministic metadata directly where possible. A model cannot authorize a new source, change physical units or advertise missing capabilities.",
+    "Calibrate probabilities on labeled project cases. Binary noul is P(yes); high confidence alone can mean confident no.",
+    "An evidence review judgment does not certify complete extraction, calibration or answer correctness."
+  ],
+  "stages": {
+    "initial_traits": {
+      "questions": {
+        "operation": {
+          "type": "choice",
+          "instructions": "What primary operation does the user's question require? Select mixed when several operations must be composed. A generic area/length/volume request is quantity_value until evidence establishes whether lookup or geometric measurement is necessary.",
+          "criteria": {
+            "count_instances": "Enumerate logical source objects or schedule entries under an explicit grain.",
+            "lookup": "Retrieve a literal label, property, quantity or table cell without a new measurement.",
+            "quantity_value": "Obtain an area, length, volume or other quantity; first check for suitable stored or printed values before choosing geometry measurement.",
+            "aggregate_or_arithmetic": "Sum quantities or multiply schedule counts by assembly multiplicities, or subtract quantities.",
+            "measure_geometry": "Geometry-derived measurement is explicitly required or established as necessary by available evidence, rather than inferred merely from the word area.",
+            "rank_or_exclude": "Choose smallest/largest items or remove a ranked/filtered subset.",
+            "topology": "Determine containment, adjacency or connections from source relationships.",
+            "mixed": "Several of these operations are jointly necessary.",
+            "other_or_unclear": "The operation is outside these choices or cannot be resolved from the question."
+          }
+        },
+        "scope": {
+          "type": "choice",
+          "instructions": "What scope is explicitly requested? Default to the selected view when no wider scope is requested.",
+          "criteria": {
+            "selected_view": "The displayed floor, panel, image or view only.",
+            "other_named_view": "An explicitly named different drawing/view is needed.",
+            "whole_model_or_building": "The question explicitly asks about the entire model/building.",
+            "ambiguous": "Competing scope interpretations would materially change the answer."
+          }
+        },
+        "visual_layout": {
+          "type": "choice",
+          "instructions": "Which layout best describes the displayed source?",
+          "criteria": {
+            "floor_plan": "One dominant plan view.",
+            "schedule": "One dominant table or schedule.",
+            "section_or_elevation": "One dominant section or elevation.",
+            "mixed_panels": "Several meaningful views, schedules, legends or details coexist.",
+            "other_or_unreadable": "None fits or the content is unreadable."
+          }
+        },
+        "count_grain": {
+          "type": "choice",
+          "instructions": "Which counting grain is requested? Do not substitute a visible symbol count for another grain.",
+          "criteria": {
+            "logical_object": "One fitted doorway, fixture or other logical occurrence.",
+            "assembly": "A parent assembly, potentially depicted through several parts.",
+            "unit_or_leaf": "Individual component units or leaves, possibly inferred from multiplicities.",
+            "schedule_row_or_type": "Entries or types in a schedule, rather than installed object quantities.",
+            "room_or_unit": "Rooms or apartments under the question's label/function rule.",
+            "not_counting_or_unclear": "No count is requested, or the requested grain is unclear."
+          }
+        },
+        "needs_detail_inspection": {
+          "type": "noul",
+          "instructions": "Does answering the requested task require a higher-detail source crop or native source inspection than the supplied overview permits?",
+          "criteria": {
+            "true_description": "Relevant symbols/text/boundaries are too small, overlapping, rotated, clipped or ambiguous at this overview.",
+            "false_description": "The task-relevant visible detail is legible enough, or the task can be answered entirely from supplied native facts."
+          }
+        },
+        "needs_panel_separation": {
+          "type": "noul",
+          "instructions": "Does the task require separating meaningful panels before extraction to avoid mixing views or scales?",
+          "criteria": {
+            "true_description": "Different views/details/scales could be mixed into the requested inventory or measurement.",
+            "false_description": "A single coherent task view is established or the supplied source registration already separates panels."
+          }
+        }
+      }
+    },
+    "after_tools": {
+      "questions": {
+        "semantic_membership_conflict": {
+          "type": "noul",
+          "instructions": "Do the supplied source observations leave a material membership ambiguity under the requested counting rule?",
+          "criteria": {
+            "true_description": "For example, a terrace opening may be a door/window, a kitchen-like room may be utility space, or parts may be confused with assemblies.",
+            "false_description": "The supplied evidence resolves the relevant memberships under the stated rule."
+          }
+        },
+        "visible_coverage_gap": {
+          "type": "noul",
+          "instructions": "Is there visible task-relevant source content that the supplied extraction/coverage ledger has not examined or reconciled?",
+          "criteria": {
+            "true_description": "Relevant unexamined panels, cropped-off targets, seam conflicts or visibly omitted symbols remain.",
+            "false_description": "No such visible gap is identified. This does not certify a complete inventory."
+          }
+        },
+        "quantity_basis_ambiguity": {
+          "type": "noul",
+          "instructions": "Do the request and extracted quantities leave a material ambiguity about net/gross, units, room eligibility or another quantity basis?",
+          "criteria": {
+            "true_description": "Plausible definitions would select different source inputs or produce different quantities.",
+            "false_description": "The basis and required inputs are explicit and compatible."
+          }
+        },
+        "next_visual_action": {
+          "type": "choice",
+          "instructions": "Given the actual tool results and remaining issue, which visual recovery action is most relevant? The host checks capabilities and budgets before dispatch.",
+          "criteria": {
+            "no_more_visual_work": "Native/tool evidence already supplies the needed facts; execution or validation is next.",
+            "targeted_detail": "A bounded source region can resolve a specific ambiguity.",
+            "systematic_tiled_sweep": "An inventory requires systematic full-view detail coverage and reconciliation.",
+            "stronger_interpretation": "Useful source detail exists but interpretation remains difficult after local inspection.",
+            "missing_source_or_other": "The necessary data is absent, source pairing is unresolved, or these choices do not fit."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,5 +1,33 @@
 # Sprint-one verification record
 
+## Gemini Hydrogen 100-image count evaluation, 14 November 2026
+
+Ran 100 supplied image/count-question pairs through the current production HTTP
+candidate route with real `gemini-4-hydrogen`, low thinking, original full-source
+preprocessing and no retries. The isolated server admitted six concurrent
+requests; model prompts, schemas and production source code were unchanged.
+
+- 100 distinct files and submitted image hashes; 60 CubiCasa PNGs and 40
+  single-page PDFs, spanning 29 question families and eight languages. Whole-model
+  IFC questions were excluded from this image-only test.
+- All 100 requests returned HTTP 200 and validated responses bound to the
+  submitted image hashes/dimensions. Raw provider outputs were saved before
+  validation, and references were used for scoring only after all outputs existed.
+- **79/100 exact candidate-count matches**, also 79/100 with strict `ok` status;
+  98 `ok` and two `partial` responses. This is not final-answer or box-localization
+  accuracy. One selected derived quantity requires arithmetic outside this API.
+- Median HTTP round trip 5.79 s; p95 15.19 s; live run wall time 125.48 s.
+  Reported input/output-plus-thinking tokens: 219,400 / 117,397. Estimated paid
+  standard-rate cost: $1.2095775 USD before discounts, credits and taxes.
+- Five offline benchmark harness tests passed. Documentation links and whitespace
+  checks passed. Platform: Windows, Python 3.14.10. No browser/manual full-sample
+  geometry verification is claimed. The isolated evaluation server was stopped.
+
+The [detailed report](../experiments/image_questions/GEMINI_100_RESULTS.md)
+records sampling, source/family results, failure examples, pricing, limitations
+and the ignored local artifact directory. Original drawings/reference answers
+were not modified, and the workbench servers were left running.
+
 ## Frontend response metrics, 14 November 2026
 
 Checked on Windows with Node 24.22.3 and Python 3.14.10. This frontend-only

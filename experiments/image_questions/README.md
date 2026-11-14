@@ -4,6 +4,55 @@ See [results and recommendations](RESULTS.md) for the 14 November 2026 pilot.
 This is evaluation tooling, not a new production answer planner. The production
 candidate API, prompt, preprocessing defaults and frontend were not changed.
 
+## 100-image Gemini Hydrogen benchmark
+
+See [the 100-image results](GEMINI_100_RESULTS.md): 79/100 exact candidate-count
+matches, with complete per-case artifacts and measured usage/timing.
+
+`benchmark.py` runs a fixed, answer-blind count evaluation through the production
+HTTP candidate route with the configured Gemini Hydrogen-low client. Its sample
+contains 100 distinct drawings: 60 CubiCasa PNGs, 30 Swiss PDFs, seven IFC-derived
+floor-plan PDFs and three Opening Design sheets. Sampling cycles through question
+families within each source, using seed `20261114`; it does not select by answers.
+IFC-derived PDF questions must explicitly concern the shown floor/view.
+
+From the repository root, choose a fresh output directory:
+
+```powershell
+$evaluationRun = 'experiments/runs/gemini-hydrogen-100/my-run'
+.\.venv\Scripts\python.exe -m experiments.image_questions.benchmark plan --run-dir $evaluationRun
+node experiments/image_questions/render_pdfs.mjs $evaluationRun dataset/junction-dataset
+.\.venv\Scripts\python.exe -m experiments.image_questions.benchmark run --run-dir $evaluationRun --workers 6
+.\.venv\Scripts\python.exe -m experiments.image_questions.benchmark score --run-dir $evaluationRun
+```
+
+The isolated loopback server uses port 8012 by default and shuts down after the
+run. Only its concurrent-request admission setting changes. The production
+prompt/schema, full-source `original` preprocessing, OCR-off behavior, model,
+low thinking and output budget remain as configured. There are no retries,
+fallback models, repair calls or changes to the running workbench server.
+The recording Gemini subclass saves exact instructions/question/schema, image
+hashes, raw replies and usage before candidate validation. Credentials and image
+data URIs are excluded. Reusing a started run is refused to prevent duplicate calls.
+
+All outputs are saved before the scoring step accesses selected reference
+answers. Successful responses must pass the shared contract and match their
+submitted image hash/dimensions. Scoring reports exact candidate-list count
+agreement and the stricter subset with status `ok`; an abstention or HTTP error
+never becomes a predicted zero. Equal counts do not establish correct boxes or
+verified final answers. The sample is stratified across sources/families and is
+not a corpus-wide or held-out accuracy estimate.
+
+Run artifacts include an answer-free manifest, input PNGs and licenses, source
+hashes, API/provider outputs, settings and code snapshots, `REPORT.md`,
+`evaluation.json` and a per-case `results.csv`. Standard-rate cost uses reported
+input plus output/thinking tokens, before cache discounts, credits and taxes;
+missing usage and provider errors are reported separately.
+
+Offline harness checks: `.\.venv\Scripts\python.exe -m unittest tests.test_image_benchmark -v`.
+
+## Earlier Nemotron pilot
+
 The fixed [case manifest](cases.json) contains eight supplied questions and six
 source paths, without reference answers. Four CubiCasa families were sampled
 independently with Python `random.Random(20261114)` over dataset file order:
