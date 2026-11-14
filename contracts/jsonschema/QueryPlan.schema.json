@@ -569,6 +569,7 @@
               "project": "#/$defs/ProjectOperation",
               "rank": "#/$defs/RankOperation",
               "select": "#/$defs/SelectOperation",
+              "spatial_query": "#/$defs/SpatialQueryOperation",
               "traverse": "#/$defs/TraverseOperation"
             },
             "propertyName": "kind"
@@ -582,6 +583,9 @@
             },
             {
               "$ref": "#/$defs/AggregateOperation"
+            },
+            {
+              "$ref": "#/$defs/SpatialQueryOperation"
             },
             {
               "$ref": "#/$defs/ProjectOperation"
@@ -953,6 +957,22 @@
           "title": "Entity Ids",
           "type": "array"
         },
+        "exact_entity_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exact Entity Ids"
+        },
         "project_id": {
           "minLength": 1,
           "title": "Project Id",
@@ -1160,6 +1180,50 @@
         "geometry_id"
       ],
       "title": "SpatialPredicate",
+      "type": "object"
+    },
+    "SpatialQueryOperation": {
+      "additionalProperties": false,
+      "description": "Bounded native IFC topology, separate from mesh/metric spatial predicates.",
+      "properties": {
+        "container_kind": {
+          "default": "storey",
+          "enum": [
+            "space",
+            "storey",
+            "building",
+            "site"
+          ],
+          "title": "Container Kind",
+          "type": "string"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "spatial_query",
+          "title": "Kind",
+          "type": "string"
+        },
+        "relation": {
+          "enum": [
+            "containers",
+            "boundary_neighbors",
+            "door_connections",
+            "outdoor_access"
+          ],
+          "title": "Relation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "relation"
+      ],
+      "title": "SpatialQueryOperation",
       "type": "object"
     },
     "TableColumn": {

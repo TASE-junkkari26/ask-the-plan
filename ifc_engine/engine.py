@@ -17,7 +17,7 @@ from .ingest import load_ifc
 from .units import SI_TARGETS, convert, decimal_string
 
 EXECUTOR_VERSION = "ifc-engine/" + __version__
-OPERATIONS = ["select", "traverse", "project", "rank", *["aggregate." + name for name in ["count", "sum", "mean", "min", "max"]]]
+OPERATIONS = ["select", "traverse", "spatial_query", "project", "rank", *["aggregate." + name for name in ["count", "sum", "mean", "min", "max"]]]
 
 
 class QueryError(ValueError):
@@ -46,6 +46,8 @@ class _State:
     shape: str = "entities"
     cells: list[dict[str, _Support]] = field(default_factory=list)
     conversions: list[tuple[m.QuantityValue, _Support]] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+    issues: list[m.Issue] = field(default_factory=list)
 
 
 def _reachable(graph, roots):
@@ -97,7 +99,7 @@ class IfcQueryEngine:
                 "Single IFC revision; only source_records and modeled_objects scopes are supported.",
                 "Counts describe supported records in the supplied model, not physical building completeness.",
                 "Only scalar attributes, single-value properties and simple quantities are extracted.",
-                "Geometry measurement, spatial predicates, arithmetic and natural-language planning are not implemented.",
+                "Native spatial topology is supported; geometry measurement, metric spatial predicates, routes and arithmetic are not implemented.",
                 "Missing values fail explicitly; partial aggregates and counting derived table rows are not implemented.",
                 "Only the registered IFC occurrence, topmost-assembly and leaf policies are supported.",
                 "Ranking is bounded; ties use stable entity/row order and do not establish a unique extremum.",
@@ -239,6 +241,8 @@ class IfcQueryEngine:
         scope_members = {e.id for e in self.entities.values() if e.project_id == plan.scope.project_id and e.document_id in plan.scope.document_ids}
         if plan.scope.entity_ids:
             scope_members &= _reachable(self.children, plan.scope.entity_ids)
+        if plan.scope.exact_entity_ids is not None:
+            scope_members &= set(plan.scope.exact_entity_ids)
         states, calculations, sets = {}, [], []
         for step in plan.steps:
             op = step.operation
@@ -248,8 +252,18 @@ class IfcQueryEngine:
                 members = {e for e in scope_members if (not allowed or allowed.intersection(self.entities[e].concept_ids))
                            and (not op.entity_kinds or self.entities[e].kind in op.entity_kinds)}
                 state = _State(None, members, op.count_policy, set(op.concept_ids))
-                state.members = {e for e in sorted(members) if (op.where is None or self._predicate(e, op.where, state, scope_members) is True)
-                                 and (op.exclude is None or self._predicate(e, op.exclude, state, scope_members) is False)}
+                selected = set()
+                for entity_id in sorted(members):
+                    included = True if op.where is None else self._predicate(entity_id, op.where, state, scope_members)
+                    excluded = False if op.exclude is None else self._predicate(entity_id, op.exclude, state, scope_members)
+                    # Unknown comparisons cannot establish exhaustive filtered
+                    # counts. An explicit field_present condition can still
+                    # deliberately restrict a query to known source values.
+                    if included is None and excluded is not True or excluded is None and included is not False:
+                        raise QueryError("missing_information", "A filter depends on a missing source value; a complete selection cannot be established.", [entity_id])
+                    if included is True and excluded is False:
+                        selected.add(entity_id)
+                state.members = selected
                 if op.count_policy.hierarchy == "topmost_matches":
                     state.members -= {e for e in state.members if (_reachable(self.parents, [e]) - {e}) & state.members}
                 elif op.count_policy.hierarchy == "leaves":
@@ -264,9 +278,12 @@ class IfcQueryEngine:
                 previous = states[op.input_step_id]
                 state = _State(previous.value, set(previous.members), previous.policy, set(previous.concepts),
                                set(previous.properties), set(previous.facts), set(previous.anchors), previous.shape,
-                               cells=[dict(row) for row in previous.cells])
+                               cells=[dict(row) for row in previous.cells], notes=list(previous.notes), issues=list(previous.issues))
                 inputs = ["calculation:" + op.input_step_id]
-                if op.kind == "traverse":
+                if op.kind == "spatial_query":
+                    from .spatial import execute_spatial
+                    execute_spatial(self, state, op, scope_members)
+                elif op.kind == "traverse":
                     graph = self.graphs[op.predicate, op.direction]
                     members, frontier = set(), set(state.members)
                     for _ in range(op.max_depth if op.recursive else 1):
@@ -357,8 +374,11 @@ class IfcQueryEngine:
                 scope=plan.scope, concept_ids=sorted(state.concepts), property_keys=sorted(state.properties),
                 value=state.value, quality="exact", coverage_ids=[coverage.id], count_policy=state.policy,
                 evidence=bindings))
+        issues = {issue.message.text: issue for step_id in plan.outputs.values() for issue in states[step_id].issues}
+        notes = list(dict.fromkeys(note for step_id in plan.outputs.values() for note in states[step_id].notes))
         result = m.QueryResult(id="result:" + plan.id.removeprefix("plan:"), request_id=plan.request_id, plan_id=plan.id,
-            status="answered", claims=claims, entity_sets=sets, calculations=calculations,
+            status="partial" if issues else "answered", claims=claims, entity_sets=sets, calculations=calculations,
+            issues=list(issues.values()), explanation=m.LocalizedText(text=" ".join(notes)) if notes else None,
             executor_version=EXECUTOR_VERSION, metrics=m.ExecutionMetrics(latency_ms=(perf_counter() - started) * 1000, cache_hit=self.cache_hit))
         validate_result(result, self.bundle, plan)
         return result

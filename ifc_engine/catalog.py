@@ -8,6 +8,7 @@ from contracts.models import CountPolicy
 # These concepts apply to occurrences, including IFC2X3 occurrences whose
 # semantic class is carried by an IfcRelDefinesByType relationship.
 CONCEPT_CLASSES = {
+    "project": "IfcProject",
     "door": "IfcDoor", "window": "IfcWindow", "wall": "IfcWall",
     "space": "IfcSpace", "storey": "IfcBuildingStorey", "building": "IfcBuilding",
     "site": "IfcSite", "slab": "IfcSlab", "stair": "IfcStair",
@@ -32,6 +33,7 @@ def property_key(pset: str, name: str) -> str:
 
 
 CLASS_KEY = "ifc:class"
-ATTRIBUTES = ("Name", "LongName", "Description", "Tag", "PredefinedType", "ObjectType")
-LENGTH_ATTRIBUTES = ("OverallWidth", "OverallHeight", "Elevation")
-RELATIONS = ("contains", "aggregates", "typed_by", "assigned_to_system", "has_material")
+ATTRIBUTES = ("Name", "LongName", "Description", "Tag", "PredefinedType", "ObjectType", "Phase", "LandTitleNumber")
+LENGTH_ATTRIBUTES = ("OverallWidth", "OverallHeight", "Elevation", "RefElevation")
+RELATIONS = ("contains", "aggregates", "typed_by", "assigned_to_system", "assigned_to_zone", "has_material",
+             "bounded_by", "external_boundary", "has_opening", "filled_by", "connected_to", "corresponding_boundary")

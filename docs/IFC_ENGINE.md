@@ -3,7 +3,8 @@
 The initial implementation reads an IFC into the shared `KnowledgeBundle`,
 executes validated `QueryPlan` operations, and returns a `QueryResult` with
 materialized entity sets, source anchors, facts, and calculation nodes. It runs
-locally on a CPU. A language-model planner can later produce the same plans.
+locally on a CPU. The [IFC question API](IFC_QUESTIONS.md) now uses Nemotron to
+produce validated plans and returns the engine's answer with source evidence.
 
 The [project scope](PROJECT_SCOPE.md) is the supplied dataset's known question
 families. Extend this executor for uncovered supplied IFC questions, not for
@@ -42,10 +43,12 @@ Pydantic 2.14.3. The latest Windows commands, versions, and results are in the
 [verification record](VERIFICATION.md); the real preview-model test passed on
 14 November. Earlier full-dataset CLI examples below separately returned the
 documented door counts and area sum. These are selected checks, not a complete
-question-family benchmark. Browser/viewer integration remains untested.
+question-family benchmark. Current integration checks are recorded separately in
+the [verification record](VERIFICATION.md).
 The implementation follows the
 [frontend evidence requirements](FRONTEND_EVIDENCE_REQUIREMENTS.md)
-for source identity and trace data; browser resource endpoints remain future work.
+for source identity and trace data. The IFC question API now returns source
+element identities, facts, anchors and units for browser inspection.
 
 In the remaining commands, replace `python` with the virtual environment's
 executable above. Commands run from the repository root; one line is one command.
@@ -81,7 +84,7 @@ Input paths cannot be reused as outputs; output paths must also be distinct.
 
 `inspect` lists schema, extracted entity-class counts, resolved storeys, native
 property paths, supported operations, and extraction warnings. Its class counts
-cover extracted products/types/systems/zones/materials, not every STEP record in
+cover extracted project/products/types/systems/zones/materials, not every STEP record in
 the file. `ingest` exports the knowledge bundle. Query shortcuts are `count`, `sum`, `mean`, `min`, `max`,
 `lookup`, and `rank`; `execute --plan PATH` accepts a shared-contract plan.
 
@@ -134,9 +137,39 @@ assert missing.status == "missing_information"
 ```
 
 Custom plans can combine selection, typed predicates, bounded relationship
-traversal, grouped aggregation, projection, and ranking of derived table
+traversal, native-topology spatial queries, grouped aggregation, projection, and ranking of derived table
 columns. All IDs are resolved before execution. Unknown operations and count
 rules are rejected; plans contain no SQL, Python, or function-evaluation strings.
+
+### Native spatial queries
+
+The `spatial_query` plan operation answers bounded topology questions using
+extracted IFC relationships. It accepts `input_step_id` and one of these relations:
+
+| Relation | Result and evidence |
+| --- | --- |
+| `containers` | Native containment/aggregation ancestors of the requested `container_kind`: `space`, `storey`, `building` or `site`. |
+| `boundary_neighbors` | Rooms linked by corresponding native space boundaries. When only a shared boundary element is available, the output is explicitly partial candidate neighbors; a shared wall can span separated rooms. |
+| `door_connections` | Rooms sharing physical boundary doors, including boundary openings filled by doors. A shared wall is insufficient. |
+| `outdoor_access` | Selected room occurrences with PHYSICAL, EXTERNAL door-boundary evidence. Counting the result counts rooms, rather than doors or boundaries. |
+
+Native space boundaries, openings/fillings and corresponding-boundary links
+retain anchors to their original records. Native system and zone membership is
+also retained for relationship traversal. These relationships describe the
+authoring model; they do not establish a navigable route, equipment service
+coverage or fire-exit compliance.
+
+Every input, intermediate and returned object remains inside the executable
+scope, including `Scope.exact_entity_ids` for captured browser views. Required
+objects outside the scope produce `incomplete_coverage`, without broadening the
+view. Missing required topology produces `missing_information`, distinct from a
+supported zero result. Spatial summaries identify native evidence and partial
+inferences explicitly.
+
+The [IFC question-family audit](IFC_QUESTIONS.md#supplied-question-families)
+traces these operations to supplied location, connectivity and outdoor-access
+questions. Geometry-derived distances, routes and orientation remain uncovered
+requirements within the wider IFC-Bench catalog, rather than implied support.
 
 ## Scope, quantities, and evidence
 
@@ -191,16 +224,27 @@ and cache entry. Queries use in-memory indexes; SQLite is a future persistence
 adapter, not required for this version. Source files and supplied QA are never
 modified or used as an answer lookup.
 
-The initial extractor handles one `IfcProject` per file, `IfcProduct`
+The extractor handles one `IfcProject` per file, `IfcProduct`
 occurrences, type definitions, systems, zones, materials, common scalar
 attributes, single-value properties, and simple quantities. It preserves
-containment, aggregation/nesting, typing, material, and system relationships.
+containment, aggregation/nesting, typing, material, system/zone membership and
+the native topology described above. Project metadata includes the actual
+`FILE_SCHEMA` declaration, native authoring-application information and
+site/building address fields where present. Original strings and source anchors
+are retained; a legacy standard label in application metadata does not override
+the file's schema declaration.
 Opaque entity IDs are stable within a source revision. Cross-file identity
 reconciliation and multi-model federation are not implemented.
 
-Geometry measurements, clash detection, route finding, spatial predicates,
+The question API supplies deterministic natural-language result summaries in
+`QueryResult.explanation` using executed source values. This adds no second
+inference call and does not replace claims, facts, anchors or calculation inputs.
+The engine remains a structured executor rather than a natural-language planner.
+
+Geometry measurements, clash detection, route finding, nearest-distance and
+orientation predicates,
 arithmetic plan steps, partial aggregates, arbitrary nested/list/table IFC
-properties, estimated-value propagation, natural-language interpretation, and
+properties, estimated-value propagation, natural-language planning, and
 SVG/3D rendering remain explicit extension points. Ranked outputs are bounded
 and use deterministic tie order; they do not imply a unique maximum.
 

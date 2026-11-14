@@ -4,7 +4,8 @@ An internal Python HTTP service for locating question-relevant objects in one
 image using the existing Nemotron client. It returns unreviewed candidate boxes,
 literal labels, visual cues, and uncertainty. It does not return a final answer
 or object count. The React frontend uses this endpoint for imported 2D drawings;
-local IFC inspection and the IFC executor retain their separate behavior.
+IFC viewing and the CPU executor also connect through the separate
+[IFC question API](../docs/IFC_QUESTIONS.md) on this same server.
 The application opens on file import; synthetic QA sources remain offline
 fixtures. IFC files are not sent to this image endpoint.
 

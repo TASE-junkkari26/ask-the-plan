@@ -171,10 +171,18 @@ class IfcEngineTests(unittest.TestCase):
             kind="quantity", magnitude="1", unit_id="unit:m", quantity_kind="length", basis="modeled", unit_resolution="explicit"))
         plan.steps[0].operation.where = comparison
         result = self.engine.execute(plan)
-        self.assertEqual(result.claims[0].value.value, 1)
+        self.assertEqual(result.status, "missing_information")
+        self.assertFalse(result.claims)
         plan.steps[0].operation.where = m.BooleanPredicate(kind="not", operands=[comparison])
         result = self.engine.execute(plan)
-        self.assertEqual(result.claims[0].value.value, 1)  # Missing width does not satisfy NOT(width > 1m).
+        self.assertEqual(result.status, "missing_information")
+        self.assertFalse(result.claims)
+        plan.steps[0].operation.where = m.BooleanPredicate(kind="all", operands=[
+            m.PresentPredicate(kind="field_present", field=width),
+            m.BooleanPredicate(kind="not", operands=[comparison]),
+        ])
+        result = self.engine.execute(plan)
+        self.assertEqual(result.claims[0].value.value, 1)  # Explicitly scoped to known widths.
         excluded = next(s for s in result.entity_sets if s.id == result.calculations[0].excluded_set_id)
         self.assertEqual(excluded.count, 2)
 

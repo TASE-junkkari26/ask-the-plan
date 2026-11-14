@@ -91,6 +91,7 @@
           "enum": [
             "select",
             "traverse",
+            "spatial_query",
             "project",
             "rank",
             "count",
@@ -980,6 +981,22 @@
           },
           "title": "Entity Ids",
           "type": "array"
+        },
+        "exact_entity_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exact Entity Ids"
         },
         "project_id": {
           "minLength": 1,

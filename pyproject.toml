@@ -27,7 +27,7 @@ nemotron = "nemotron.cli:main"
 drawing-preprocess = "drawing_preprocessor.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["contracts*", "ifc_engine*", "nemotron*", "image_api*", "drawing_preprocessor*"]
+include = ["contracts*", "ifc_engine*", "ifc_api*", "nemotron*", "image_api*", "drawing_preprocessor*"]
 
 [tool.setuptools.package-data]
 image_api = ["prompt.txt"]

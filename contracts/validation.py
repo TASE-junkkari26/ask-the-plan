@@ -115,7 +115,10 @@ def _scope(scope: Any, ctx: _Context) -> None:
     for document_id in scope.document_ids:
         if ctx.documents[document_id].project_id != scope.project_id:
             _fail("scope document belongs to another project")
-    for entity_id in scope.entity_ids:
+    exact = scope.exact_entity_ids
+    if exact is not None and len(set(exact)) != len(exact):
+        _fail("scope has duplicate exact entity IDs")
+    for entity_id in [*scope.entity_ids, *(exact or [])]:
         entity = _get(ctx.entities, entity_id, "scope entity")
         if entity.project_id != scope.project_id or entity.document_id not in scope.document_ids:
             _fail("scope entity is outside the selected project/revisions")
@@ -127,7 +130,8 @@ def _scope(scope: Any, ctx: _Context) -> None:
 
 def _scope_key(scope: Any) -> tuple:
     return (scope.project_id, frozenset(scope.document_ids), frozenset(scope.entity_ids),
-            frozenset(scope.view_ids), scope.universe)
+            frozenset(scope.view_ids), scope.universe,
+            None if scope.exact_entity_ids is None else frozenset(scope.exact_entity_ids))
 
 
 def _scope_members(scope: Any, ctx: _Context) -> set[str]:
@@ -135,6 +139,8 @@ def _scope_members(scope: Any, ctx: _Context) -> set[str]:
                if e.project_id == scope.project_id and e.document_id in scope.document_ids}
     if scope.entity_ids:
         members &= _reachable(ctx.children, scope.entity_ids)
+    if scope.exact_entity_ids is not None:
+        members &= set(scope.exact_entity_ids)
     if scope.view_ids:
         # View restrictions mean depicted entities, not every object in the model.
         visible = {r.entity_id for r in ctx.representations.values()
@@ -656,6 +662,17 @@ def validate_plan(plan: QueryPlan, bundle: KnowledgeBundle,
                 shape = "table"
             else:
                 shape = "scalar"
+        elif op.kind == "spatial_query":
+            if shape != "entities":
+                _fail("native spatial queries require an entity-set input")
+            if op.relation != "outdoor_access":
+                shape = "table"
+                result_columns[step.id] = {
+                    "subject": ("references", None), "related": ("references", None),
+                    "via": ("references", None), "basis": ("text", None),
+                }
+                # Conservative candidates; the executor resolves native paths.
+                current = set(scope_members)
         elif op.kind == "project":
             if shape == "scalar":
                 _fail("projection requires entities or table rows")

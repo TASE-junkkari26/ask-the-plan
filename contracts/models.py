@@ -393,7 +393,7 @@ class Fact(Model):
 class Relation(Model):
     id: Id
     subject_id: Id
-    predicate: Literal["contains", "aggregates", "typed_by", "assigned_to_system", "has_material", "belongs_to_unit", "adjacent_to", "connected_to", "hosted_by", "depicts", "same_as", "custom"]
+    predicate: Literal["contains", "aggregates", "typed_by", "assigned_to_system", "has_material", "belongs_to_unit", "adjacent_to", "connected_to", "hosted_by", "depicts", "same_as", "custom", "bounded_by", "has_opening", "filled_by", "assigned_to_zone", "corresponding_boundary", "external_boundary"]
     object_id: Id
     native_predicate: str | None = None
     provenance: Provenance
@@ -403,10 +403,12 @@ class Scope(Model):
     project_id: Id
     document_ids: list[Id] = Field(min_length=1)  # Explicit revision set.
     entity_ids: list[Id] = Field(default_factory=list)  # Descendants included.
+    exact_entity_ids: list[Id] | None = None  # Exact membership; [] is an empty scope.
     view_ids: list[Id] = Field(default_factory=list)
     universe: Literal["source_records", "modeled_objects", "depicted_objects", "schedule_entries", "physical_building"]
     # All populated restrictions intersect. Empty entity/view lists mean no
-    # additional restriction, not an empty scope. Attachments do not imply scope.
+    # additional restriction, not an empty scope. exact_entity_ids=None means no
+    # exact restriction; an empty exact list means no members. Attachments do not imply scope.
 
 
 class CountPolicy(Model):
@@ -550,6 +552,15 @@ class AggregateOperation(Model):
         return self
 
 
+class SpatialQueryOperation(Model):
+    """Bounded native IFC topology, separate from mesh/metric spatial predicates."""
+
+    kind: Literal["spatial_query"]
+    input_step_id: Id
+    relation: Literal["containers", "boundary_neighbors", "door_connections", "outdoor_access"]
+    container_kind: Literal["space", "storey", "building", "site"] = "storey"
+
+
 class ProjectOperation(Model):
     kind: Literal["project"]
     input_step_id: Id
@@ -581,7 +592,7 @@ class ArithmeticOperation(Model):
     output_unit_id: Id | None = None
 
 
-Operation = Annotated[Union[SelectOperation, TraverseOperation, AggregateOperation, ProjectOperation, RankOperation, MeasureOperation, ArithmeticOperation], Field(discriminator="kind")]
+Operation = Annotated[Union[SelectOperation, TraverseOperation, AggregateOperation, SpatialQueryOperation, ProjectOperation, RankOperation, MeasureOperation, ArithmeticOperation], Field(discriminator="kind")]
 
 
 class PlanStep(Model):
@@ -639,7 +650,7 @@ class EntitySet(Model):
 class CalculationNode(Model):
     id: Id
     plan_step_id: Id | None = None  # Internal calculation nodes may have no plan step.
-    operation: Literal["select", "traverse", "project", "rank", "count", "sum", "mean", "min", "max", "lookup", "convert_unit", "add", "subtract", "multiply", "divide", "measure", "group_by", "filter", "deduplicate"]
+    operation: Literal["select", "traverse", "spatial_query", "project", "rank", "count", "sum", "mean", "min", "max", "lookup", "convert_unit", "add", "subtract", "multiply", "divide", "measure", "group_by", "filter", "deduplicate"]
     input_node_ids: list[Id] = Field(default_factory=list)
     fact_ids: list[Id] = Field(default_factory=list)
     included_set_id: Id | None = None
@@ -747,6 +758,63 @@ class QueryResult(Contract):
         ):
             raise ValueError("a non-answer outcome requires a matching issue code")
         return self
+
+
+class IfcElement(Model):
+    """Canonical entity and its original product locators for viewer verification."""
+
+    entity_id: Id
+    step_id: PositiveInt | None = None
+    guid: str | None = None
+    ifc_class: str
+    name: str
+
+
+class IfcModelResponse(Contract):
+    model_id: Id
+    source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    ifc_schema: str
+    entity_count: NonnegativeInt
+    warnings: list[str] = Field(default_factory=list)
+
+
+class IfcQuestionRequest(Contract):
+    model_id: Annotated[str, Field(min_length=1, max_length=100)]
+    source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    question: Annotated[str, Field(min_length=1, max_length=4000, pattern=r"\S")]
+    scope: Literal["view", "model"] = "view"
+    visible_step_ids: list[PositiveInt] | None = Field(default=None, max_length=200000)
+    view_label: Annotated[str, Field(max_length=300)] | None = None
+
+    @model_validator(mode="after")
+    def check_view(self):
+        if self.scope == "view" and self.visible_step_ids is None:
+            raise ValueError("view scope requires an explicit list of visible STEP IDs")
+        if self.visible_step_ids is not None and len(set(self.visible_step_ids)) != len(self.visible_step_ids):
+            raise ValueError("visible STEP IDs must be unique")
+        return self
+
+
+class IfcQuestionResponse(Contract):
+    request_id: Id
+    model_id: Id
+    source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    question: str
+    scope: Literal["view", "model"]
+    scope_label: str
+    interpretation: str
+    result: QueryResult
+    plan: QueryPlan | None = None
+    included_elements: list[IfcElement] = Field(default_factory=list)
+    excluded_elements: list[IfcElement] = Field(default_factory=list)
+    facts: list[Fact] = Field(default_factory=list)
+    anchors: list[EvidenceAnchor] = Field(default_factory=list)
+    units: list[Unit] = Field(default_factory=list)
+    assets: list[Asset] = Field(default_factory=list)
+    properties: list[PropertyDefinition] = Field(default_factory=list)
+    coverage: list[Coverage] = Field(default_factory=list)
+    extraction_runs: list[ExtractionRun] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class CapabilityManifest(Contract):

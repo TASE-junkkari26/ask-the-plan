@@ -14,6 +14,9 @@ from .models import (
     CapabilityManifest,
     ImageCandidateError,
     ImageCandidateResponse,
+    IfcModelResponse,
+    IfcQuestionRequest,
+    IfcQuestionResponse,
     KnowledgeBundle,
     PreparedDrawing,
     QueryPlan,
@@ -32,6 +35,9 @@ ROOT_MODELS = (
     ImageCandidateResponse,
     ImageCandidateError,
     PreparedDrawing,
+    IfcModelResponse,
+    IfcQuestionRequest,
+    IfcQuestionResponse,
 )
 OUTPUT_DIRECTORY = Path(__file__).resolve().parent / "jsonschema"
 DRAFT = "https://json-schema.org/draft/2020-12/schema"

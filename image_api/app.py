@@ -1,4 +1,4 @@
-"""Local HTTP adapter for question-conditioned image candidates."""
+"""Local HTTP adapters for image candidates and evidence-backed IFC queries."""
 from __future__ import annotations
 
 import asyncio
@@ -17,6 +17,8 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
 from contracts.models import ImageCandidateError, ImageCandidateResponse
+from ifc_api.routes import install_ifc_routes
+from ifc_api.service import IfcService, MAX_IFC_BODY_BYTES
 from nemotron import AsyncNemotronClient, ConfigurationError, NemotronSettings
 from .config import ApiSettings
 from .errors import ApiError
@@ -34,15 +36,20 @@ def _error(request_id: str, status: int, code: str, message: str,
 class BodyLimitMiddleware:
     """Bound received bytes even when Content-Length is absent or incorrect."""
 
-    def __init__(self, app, max_bytes: int):
+    def __init__(self, app, max_bytes: int, ifc_max_bytes: int = MAX_IFC_BODY_BYTES):
         self.app = app
         self.max_bytes = max_bytes
+        self.ifc_max_bytes = ifc_max_bytes
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         request_id = uuid4().hex
         scope.setdefault("state", {})["request_id"] = request_id
+        # IFC uploads stream into multipart's spool instead of the image body
+        # buffer. Preserve the image cap while allowing the viewer's file limit.
+        max_bytes = (self.ifc_max_bytes if scope.get("path") == "/api/ifc/models"
+                     else self.max_bytes)
         received = 0
         response_started = False
 
@@ -51,7 +58,7 @@ class BodyLimitMiddleware:
             message = await receive()
             if message["type"] == "http.request":
                 received += len(message.get("body", b""))
-                if received > self.max_bytes:
+                if received > max_bytes:
                     raise ApiError(413, "request_too_large", "Request exceeds the multipart body limit.")
             return message
 
@@ -74,15 +81,20 @@ class BodyLimitMiddleware:
             except ValueError:
                 return await _error(request_id, 422, "invalid_content_length",
                                     "Content-Length must be a nonnegative integer.")(scope, receive, send_with_id)
-            if size > self.max_bytes:
+            if size > max_bytes:
                 return await _error(request_id, 413, "request_too_large",
                                     "Request exceeds the multipart body limit.")(scope, receive, send_with_id)
         try:
             await self.app(scope, limited_receive, send_with_id)
+        except ApiError as exc:
+            if response_started:
+                raise
+            await _error(request_id, exc.status_code, exc.code, exc.message,
+                         exc.retryable)(scope, receive, send_with_id)
         except Exception:
             if response_started:
                 raise
-            await _error(request_id, 500, "internal_error", "Internal candidate service error.")(
+            await _error(request_id, 500, "internal_error", "Internal analysis service error.")(
                 scope, receive, send_with_id)
 
 
@@ -126,20 +138,23 @@ def create_app(settings: ApiSettings | None = None, *,
             except ConfigurationError:
                 # Keep health/docs available to diagnose missing local setup.
                 pass
+            app.state.ifc_service = IfcService(client)
             yield
         finally:
             # A timeout shields a running preparation worker. Drain it before
             # removing the session cache, just as request temp cleanup waits for
             # its preparation worker below.
             await asyncio.to_thread(app.state.preprocessor.close)
+            if hasattr(app.state, "ifc_service"):
+                await asyncio.to_thread(app.state.ifc_service.close)
             if client is not None:
                 await client.close()
 
-    app = FastAPI(title="Ask the Plan image candidates", version="0.1.0", lifespan=lifespan,
-                  description="One image and question return unverified candidate boxes, without a final count or answer.")
+    app = FastAPI(title="Ask the Plan analysis", version="0.1.0", lifespan=lifespan,
+                  description="Image candidate regions and Nemotron-planned, engine-computed IFC answers with source evidence.")
     app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)
     app.add_middleware(CORSMiddleware, allow_origins=settings.origins,
-                       allow_methods=["GET", "POST"], allow_headers=["Content-Type"],
+                       allow_methods=["GET", "POST", "DELETE"], allow_headers=["Content-Type"],
                        expose_headers=["X-Request-ID"])
 
     @app.exception_handler(ApiError)
@@ -232,6 +247,7 @@ def create_app(settings: ApiSettings | None = None, *,
         finally:
             request.app.state.in_flight -= 1
 
+    install_ifc_routes(app)
     return app
 
 

@@ -111,11 +111,15 @@ class _Extractor:
         return m.Provenance(run_id=self.run_id, anchor_ids=list(anchors), method=method)
 
     def anchor(self, record, path=()):
-        identifier = _id("anchor", self.asset_id + str(record.id()) + json.dumps(path))
+        # STEP header records have no numeric ID. Keep their actual header
+        # selector instead of inventing a nonexistent DATA record #0.
+        native = str(record.id()) if record.id() else record.is_a().upper()
+        identifier = _id("anchor", self.asset_id + native + json.dumps(path))
         if identifier not in self.anchors:
             self.anchors[identifier] = m.EvidenceAnchor(
                 id=identifier, asset_id=self.asset_id,
-                selector=m.NativeSelector(kind="step_id", value=str(record.id()), property_path=list(path)))
+                selector=m.NativeSelector(kind="step_id" if record.id() else "file_metadata",
+                                          value=native, property_path=list(path)))
         return identifier
 
     def entity_id(self, record):
@@ -133,7 +137,7 @@ class _Extractor:
 
     def concepts(self):
         supported = {}
-        roots = {"IfcProduct", "IfcTypeObject", "IfcSystem", "IfcZone", "IfcMaterial"}
+        roots = {"IfcProject", "IfcProduct", "IfcTypeObject", "IfcSystem", "IfcZone", "IfcMaterial"}
         for declaration in self.schema.declarations():
             if hasattr(declaration, "supertype"):
                 chain = self.chain(declaration.name())
@@ -224,7 +228,7 @@ class _Extractor:
 
     def extract(self):
         concepts = self.concepts()
-        objects = {obj.id(): obj for root in ["IfcProduct", "IfcTypeObject", "IfcSystem", "IfcZone", "IfcMaterial"]
+        objects = {obj.id(): obj for root in ["IfcProject", "IfcProduct", "IfcTypeObject", "IfcSystem", "IfcZone", "IfcMaterial"]
                    for obj in self.model.by_type(root)}
         definitions = defaultdict(list)
         for rel in self.model.by_type("IfcRelDefinesByProperties"):
@@ -251,15 +255,48 @@ class _Extractor:
                         parents.add(parent.id())
                         children.add(child.id())
         for rel in self.model.by_type("IfcRelAssignsToGroup"):
-            if rel.RelatingGroup.is_a("IfcSystem"):
+            if rel.RelatingGroup.is_a("IfcSystem") or rel.RelatingGroup.is_a("IfcZone"):
+                # IfcZone is an IfcSystem subtype in IFC4, but not in IFC2X3.
+                predicate = "assigned_to_zone" if rel.RelatingGroup.is_a("IfcZone") else "assigned_to_system"
                 for obj in rel.RelatedObjects:
-                    self.add_relation(obj, "assigned_to_system", rel.RelatingGroup, rel, objects)
+                    self.add_relation(obj, predicate, rel.RelatingGroup, rel, objects)
+        # Native topology supplies inspectable source evidence independently of
+        # tessellation. A shared wall is not itself proof of room adjacency or
+        # an accessible route; keep the source relationships separate.
+        for root, predicate, subject_field, object_field in [
+            ("IfcRelSpaceBoundary", "bounded_by", "RelatingSpace", "RelatedBuildingElement"),
+            ("IfcRelVoidsElement", "has_opening", "RelatingBuildingElement", "RelatedOpeningElement"),
+            ("IfcRelFillsElement", "filled_by", "RelatingOpeningElement", "RelatedBuildingElement"),
+            ("IfcRelConnectsElements", "connected_to", "RelatingElement", "RelatedElement")]:
+            for rel in self.model.by_type(root):
+                subject, target = getattr(rel, subject_field), getattr(rel, object_field)
+                physical_boundary = root != "IfcRelSpaceBoundary" or rel.PhysicalOrVirtualBoundary == "PHYSICAL"
+                if subject is not None and target is not None and physical_boundary:
+                    self.add_relation(subject, predicate, target, rel, objects)
+                if root == "IfcRelSpaceBoundary":
+                    if target is None or not physical_boundary:
+                        self.warnings.add("Virtual or unbound IfcRelSpaceBoundary records do not establish shared-element neighbors or door connections.")
+                    if (subject is not None and target is not None and
+                            rel.PhysicalOrVirtualBoundary == "PHYSICAL" and
+                            rel.InternalOrExternalBoundary == "EXTERNAL"):
+                        self.add_relation(subject, "external_boundary", target, rel, objects)
+                    counterpart = getattr(rel, "CorrespondingBoundary", None)
+                    other_space = getattr(counterpart, "RelatingSpace", None)
+                    if subject is not None and other_space is not None and subject.id() != other_space.id():
+                        self.add_relation(subject, "corresponding_boundary", other_space, rel, objects,
+                                          anchors=[self.anchor(rel, ["CorrespondingBoundary"]), self.anchor(counterpart)])
+                if root == "IfcRelConnectsElements":
+                    for realizing in getattr(rel, "RealizingElements", None) or []:
+                        if subject is not None:
+                            self.add_relation(subject, predicate, realizing, rel, objects)
+                        if target is not None:
+                            self.add_relation(realizing, predicate, target, rel, objects)
         for obj in objects.values():
             identifier = self.entity_id(obj)
             chain = self.chain(obj.is_a())
             kind = next((kind for cls, kind in [("IfcSite", "site"), ("IfcBuilding", "building"),
                         ("IfcBuildingStorey", "storey"), ("IfcSpace", "space"), ("IfcTypeObject", "type"),
-                        ("IfcSystem", "system"), ("IfcZone", "zone"), ("IfcMaterial", "material")]
+                        ("IfcZone", "zone"), ("IfcSystem", "system"), ("IfcMaterial", "material")]
                          if cls in chain), "assembly" if obj.id() in parents else "part" if obj.id() in children else "element")
             entity_concepts = ["ifc:" + obj.is_a()]
             if kind not in {"type", "system", "material", "zone"}:
@@ -271,7 +308,8 @@ class _Extractor:
             anchor = self.anchor(obj)
             self.entities[identifier] = m.Entity(id=identifier, project_id=self.project_id,
                 document_id=self.document_id, kind=kind, concept_ids=entity_concepts,
-                labels=[m.LocalizedText(text=obj.Name)] if getattr(obj, "Name", None) else [],
+                labels=[m.LocalizedText(text=value) for value in dict.fromkeys(
+                    value for value in [getattr(obj, "Name", None), getattr(obj, "LongName", None)] if value)],
                 provenance=self.provenance(anchor))
             anchors = [anchor]
             if getattr(obj, "GlobalId", None):
@@ -296,6 +334,7 @@ class _Extractor:
                         self.quantity(value, "length", obj, unit=unit_util.get_project_unit(self.model, "LENGTHUNIT"),
                                       measure_class="IfcLengthMeasure") if value is not None else None,
                         "present" if value is not None else "explicit_null")
+            self.metadata_facts(obj, identifier)
             own = self.property_records([*definitions[obj.id()], *(getattr(obj, "HasPropertySets", None) or [])])
             inherited = self.property_records(getattr(types.get(obj.id()), "HasPropertySets", None) or [])
             for key, entries in (inherited | own).items():
@@ -316,11 +355,49 @@ class _Extractor:
             relations=list({relation.id: relation for relation in self.relations}.values()), representations=self.representations)
         return LoadedModel(bundle, self.model.schema_identifier, sorted(self.warnings))
 
-    def add_relation(self, subject, predicate, obj, source, objects):
+    def add_relation(self, subject, predicate, obj, source, objects, *, anchors=None):
         if subject.id() in objects and obj.id() in objects:
             self.relations.append(m.Relation(id=_id("relation", self.asset_id + f":{source.id()}:{predicate}:{subject.id()}:{obj.id()}"),
                 subject_id=self.entity_id(subject), predicate=predicate, object_id=self.entity_id(obj),
-                native_predicate=source.is_a(), provenance=self.provenance(self.anchor(source))))
+                native_predicate=source.is_a(), provenance=self.provenance(*(anchors or [self.anchor(source)]))))
+
+    def metadata_facts(self, obj, identifier):
+        """Retain literal metadata and scalar nested records with their own anchors."""
+        def text_fact(key, source, field, value):
+            self.add_fact(identifier, attribute_key(key), [field], source,
+                          m.TextValue(kind="text", value=m.LocalizedText(text=str(value))) if value is not None else None,
+                          "present" if value is not None else "explicit_null")
+
+        if obj.is_a("IfcProject"):
+            header = self.model.header
+            # FILE_SCHEMA, not an inferred/legacy application standard label,
+            # determines the actual schema declared in this immutable file.
+            text_fact("FILE_SCHEMA", header.file_schema, "schema_identifiers", ", ".join(header.file_schema.schema_identifiers))
+            text_fact("OriginatingSystem", header.file_name, "originating_system", header.file_name.originating_system)
+            text_fact("PreprocessorVersion", header.file_name, "preprocessor_version", header.file_name.preprocessor_version)
+            text_fact("ModelViewDefinition", header.file_description, "description", "; ".join(header.file_description.description))
+        if obj.is_a("IfcSite"):
+            # IfcCompoundPlaneAngleMeasure is an ordered tuple of source angle
+            # components, not decimal degrees. Preserve it literally; no map
+            # location or coordinate conversion is inferred from this metadata.
+            for field in ("RefLatitude", "RefLongitude"):
+                text_fact(field, obj, field, getattr(obj, field))
+        history = getattr(obj, "OwnerHistory", None)
+        application = getattr(history, "OwningApplication", None)
+        if application is not None:
+            for field in ("ApplicationFullName", "ApplicationIdentifier", "Version"):
+                text_fact(field, application, field, getattr(application, field))
+        address = getattr(obj, "SiteAddress", None) or getattr(obj, "BuildingAddress", None)
+        if address is not None:
+            for field in ("InternalLocation", "PostalBox", "Town", "Region", "PostalCode", "Country"):
+                text_fact("Address." + field, address, field, getattr(address, field))
+            lines = address.AddressLines
+            if lines is None:
+                text_fact("Address.AddressLines", address, "AddressLines", None)
+            else:
+                # Preserve the source's ordered literal lines in a scalar
+                # string; this is metadata, never a physical measurement.
+                text_fact("Address.AddressLines", address, "AddressLines", "\n".join(lines))
 
     def property_records(self, definitions):
         result = defaultdict(list)
@@ -349,9 +426,13 @@ class _Extractor:
                     fact.value, fact.status = None, "ambiguous"
                 shapes = set()
             value_kind, quantity_kind = next(iter(shapes), ("text", None))
+            definition = "Native IFC attribute/property; original path and source record are retained."
+            if key in {attribute_key("RefLatitude"), attribute_key("RefLongitude")}:
+                definition = ("Native IfcCompoundPlaneAngleMeasure tuple: degrees, minutes, seconds, and optional millionths "
+                              "of a second. Source components are preserved literally, not converted to decimal degrees.")
             definitions.append(m.PropertyDefinition(key=key, labels=[m.LocalizedText(text=self.property_labels[key])],
                 value_kind=value_kind, quantity_kind=quantity_kind, dimension=DIMENSIONS.get(quantity_kind),
-                definition="Native IFC attribute/property; original path and source record are retained."))
+                definition=definition))
         # Deduplicate repeat references to the same property record.
         self.facts = list({fact.id: fact for fact in self.facts}.values())
         return definitions

@@ -79,7 +79,7 @@ All models forbid unknown fields. Internal IDs are opaque nonempty strings. `sch
 
 `SourceFeature` describes something actually extracted. It does not automatically become one countable object. A window can have three CAD polylines, a double-leaf door one logical opening, and a double-bowl sink one fixture. `Entity` is the canonical counting unit within its document/project context. `Representation` can connect that entity to several source features and file formats. Cross-document identity is an explicit, provenanced `same_as` relation, not a filename or GUID heuristic silently applied during counting.
 
-Relations preserve `contains`, `aggregates`, `typed_by`, `assigned_to_system`, `has_material`, `belongs_to_unit`, `adjacent_to`, `connected_to`, `hosted_by`, `depicts`, and `same_as`. Unmapped source relations can use `custom` plus `native_predicate`; executors must advertise supported meanings before querying them. Spatial containment and assembly aggregation are separate graphs.
+Relations preserve `contains`, `aggregates`, `typed_by`, `assigned_to_system`, `assigned_to_zone`, `has_material`, `belongs_to_unit`, `adjacent_to`, `connected_to`, `hosted_by`, `depicts`, and `same_as`. Native IFC topology additionally uses `bounded_by`, `external_boundary`, `has_opening`, `filled_by` and `corresponding_boundary`. Unmapped source relations can use `custom` plus `native_predicate`; executors must advertise supported meanings before querying them. Spatial containment and assembly aggregation are separate graphs. A native element connection or shared boundary does not by itself establish a walkable room connection or equipment service coverage.
 
 ### Facts, language, and absence
 
@@ -113,6 +113,13 @@ Unit dimensions use SI exponent order **(length, mass, time, electric current, t
 
 `Scope` is explicit: one project, document revision IDs, optional entity roots, optional views, and a universe. Within an entity/view list, IDs are alternatives; all populated restriction families **intersect**. Entity roots include descendants. Empty entity/view lists add no restriction. `document_ids` cannot be empty. A question attachment locates available context and does not automatically impose the query's scope.
 
+`exact_entity_ids` is an optional exact membership restriction that does not
+include descendants. Null adds no restriction; an explicit empty list selects
+nothing. The IFC question API uses it for the captured browser-view inventory.
+Native spatial queries constrain inputs, intermediate objects and results to
+this membership; required hidden objects produce `incomplete_coverage` rather
+than silently widening the scope.
+
 The universe changes what a count means:
 
 | Universe | Meaning |
@@ -139,6 +146,7 @@ For a model-wide question attached to a floor PDF, resolve the associated model/
 |---|---|
 | `select` | Select canonical concepts/entity kinds with typed `where`/`exclude` predicates and explicit count policy. |
 | `traverse` | Follow an allowlisted relation in a direction, optionally recursively with a bounded depth. |
+| `spatial_query` | Execute bounded native IFC topology from an entity-set input: `containers`, `boundary_neighbors`, `door_connections` or `outdoor_access`. `container_kind` selects `space`, `storey`, `building` or `site` for containment. This is distinct from metric geometry predicates. |
 | `aggregate` | Count/sum/mean/min/max, optional grouping, declared missing-value handling, and requested output unit. Numeric aggregates require a field; count does not. A grouped result's measure column uses `value_key` (default `value`); group columns use their field keys. |
 | `project` | Retrieve catalog fields such as dimensions, materials, or localized descriptions. |
 | `rank` | Sort by a field and retain a bounded number of rows/entities. |
@@ -151,9 +159,20 @@ Arithmetic inputs are ordered. Subtraction and division fold from left to right;
 
 Typed predicates support compare, field presence, related entities, spatial predicates, and recursive all/any/not. `near` requires a distance quantity. Missing values and incompatible dimensions cannot be silently compared or added. Property aliases resolve to canonical catalog keys before execution; arbitrary SQL, Python, and unregistered function strings are not query operations.
 
+The IFC executor implements `spatial_query` using native containment, boundary,
+opening/filling and corresponding-boundary records. Corresponding native space
+boundaries support room neighbors; rooms sharing only a physical boundary
+element are explicitly partial adjacency candidates. Door connections require
+shared physical doors or door-filled openings, never a shared wall alone.
+`outdoor_access` returns room occurrences with recorded PHYSICAL EXTERNAL
+doorway boundaries, suitable for a subsequent room count. Missing required
+boundaries produce `missing_information`; an empty modeled result is not proof
+that physical access is absent. These operations do not execute represented
+metric predicates, nearest distances, orientation, routes or compliance checks.
+
 Traversal stays within the explicit scope. To query a floor's doors through model-wide type/material definitions, use model-wide scope and an explicit floor selection before traversal, or extract inherited properties onto occurrences while preserving the original type/property anchors. The plan validator checks conservative candidate sets without executing filters, so an extractor/executor remains responsible for the final selected membership and geometry suitability.
 
-`required_capabilities` and the executor's `CapabilityManifest` make representability distinct from implementation support. `operations` contains specific capability IDs such as `select`, `aggregate.count`, `aggregate.sum`, `measure.union_area`, and `arithmetic.divide`. Both declared requirements and the operations actually used must be supported. Relation/property/concept names must also be allowlisted against the manifest and catalog. A parsed `measure.volume` request does not prove a volume engine is installed. Report `unsupported_operation` when its executor is unavailable, and `insufficient_calibration` when measurement lacks the necessary physical mapping.
+`required_capabilities` and the executor's `CapabilityManifest` make representability distinct from implementation support. `operations` contains specific capability IDs such as `select`, `spatial_query`, `aggregate.count`, `aggregate.sum`, `measure.union_area`, and `arithmetic.divide`. Both declared requirements and the operations actually used must be supported. Relation/property/concept names must also be allowlisted against the manifest and catalog. A parsed `measure.volume` request does not prove a volume engine is installed. Report `unsupported_operation` when its executor is unavailable, and `insufficient_calibration` when measurement lacks the necessary physical mapping.
 
 ### Illustrative request-to-evidence flow
 
@@ -249,6 +268,15 @@ Every claim requires a root binding. The root calculation's `plan_step_id` must 
 `CalculationNode` describes explicit computation, optional associated `plan_step_id`, inputs, included/excluded sets, relevant facts/anchors/calibrations, output, quality, and counting/calculation rule. Calculation dependencies form a DAG. Internal conversion/filter/deduplication nodes may have no plan step; claimed output roots must have one. Unit conversion and duplicate-removal steps remain visible. These are operations and source inputs, not private model reasoning. A calculation trace makes its result inspectable; it does not independently prove that the extraction or geometry was correct.
 
 Result statuses are `answered`, `partial`, `needs_clarification`, `missing_source`, `missing_information`, `incomplete_coverage`, `unsupported_operation`, `conflicting_evidence`, `insufficient_calibration`, and `execution_error`. Answered/partial results require a plan and claims; partial/non-answer outcomes require issues. A non-answer outcome requires an issue with its matching code. An `answered` result cannot carry a blocking issue; non-answer outcomes do not carry successful claims. Do not call a partly extracted quantity an exact complete total; return an appropriately qualified partial claim or no answer.
+
+`partial` can also qualify the interpretation of complete source records. For
+example, native shared-wall records can supply adjacency candidates without
+establishing exact geometric neighbors. Preserve the issue and relationship
+basis in later projections; complete enumeration of candidate records does not
+turn those candidates into verified adjacency. `QueryResult.explanation` may
+summarize executed values in natural language, but never replaces claim evidence
+or removes partial/missing-information qualifications. The IFC question API
+generates these summaries deterministically without a second inference request.
 
 Issues preserve localized messages, entity/fact/anchor references, and clarification choices. Explanation text is presentation; the structured claim remains authoritative. Execution metrics separate latency, model token usage, caching, and cost amount/currency/basis so marginal compute is not confused with amortized ingestion cost.
 

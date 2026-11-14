@@ -1624,7 +1624,13 @@
             "hosted_by",
             "depicts",
             "same_as",
-            "custom"
+            "custom",
+            "bounded_by",
+            "has_opening",
+            "filled_by",
+            "assigned_to_zone",
+            "corresponding_boundary",
+            "external_boundary"
           ],
           "title": "Predicate",
           "type": "string"
@@ -1735,6 +1741,22 @@
           },
           "title": "Entity Ids",
           "type": "array"
+        },
+        "exact_entity_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exact Entity Ids"
         },
         "project_id": {
           "minLength": 1,
