@@ -2,6 +2,12 @@
 
 Prepared 13 November 2026; implementation status updated 14 November. This is a design guide using the [shared schema](SCHEMA.md). The [frontend README](../frontend/README.md) describes the implemented mock 2D workbench: synthetic sources, prepared answers, selectable overlays, local file preview, and exports. Backend integration, real-source annotation resolution, and IFC 3D viewing remain planned. The recommendations below are the target architecture, not a list of shipped features.
 
+The [hackathon roadmap](ROADMAP.md#ui-direction) sets the current minimal layout
+and implementation order. Use this document for evidence/rendering mechanics;
+its broader viewer options are conditional on a demonstrated question needing
+them. Source navigation should initially collapse into a picker, with individual
+evidence inspection taking priority over workspace chrome.
+
 Update, 14 November 2026: the user reports that the challenge organizer expects questions to be mostly limited to what is shown. The [mock frontend](../frontend/README.md) therefore defaults to the selected drawing/view and does not silently aggregate the whole model. Broader scope remains an explicit future capability. This clarification does not change the scope of existing reference rows that explicitly ask whole-model questions.
 
 The [project scope](PROJECT_SCOPE.md) is the supplied dataset's demonstrated

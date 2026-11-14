@@ -187,6 +187,7 @@ adjust commands to the actual root rather than assuming that layout.
 
 | Guide | Role |
 |---|---|
+| [Hackathon roadmap](docs/ROADMAP.md) | Current build order, minimal evidence UI, model decision gates, and overnight-work choices |
 | [Project scope](docs/PROJECT_SCOPE.md) | Dataset-defined acceptance boundary and required work versus extensions |
 | [Verification record](docs/VERIFICATION.md) | Checks rerun for this hardening pass and remaining verification gaps |
 | [Question classification](docs/QUESTION_CLASSIFICATION.md) | Generated, exhaustive analysis taxonomy; no runtime answers |

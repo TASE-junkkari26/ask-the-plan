@@ -5,6 +5,11 @@ Prepared 13 November 2026; implementation and integration priorities reviewed
 model performance. External model/version/pricing references describe the dated
 research snapshot and need verification when selecting a deployment.
 
+The [hackathon roadmap](ROADMAP.md) sets the current execution priorities:
+hosted Nemotron/Gemini where useful, native extraction and deterministic
+calculations, and a minimal evidence UI. Small-model training and self-hosting
+recommendations below are conditional options, not required sprint work.
+
 Current implementation: shared contracts, a standalone [CPU IFC query engine](IFC_ENGINE.md),
 and a [mock 2D frontend](../frontend/README.md). A [backend Nemotron client](nvidia_info.md)
 now provides sync/async text, image, and locally validated JSON requests with
@@ -26,7 +31,12 @@ hackathon's technical scope. Do not add architecture or training work to prepare
 for hypothetical unknown evaluation classes. Known rare/difficult questions
 still count toward coverage; broader product capabilities are optional.
 
-**Build a multilingual quantity engine with inspectable evidence. Use a small language model to interpret questions, format-specific parsers and geometry to execute them, and small vision models to turn raster plans into reusable objects.** The durable contribution is the connection between an answer, its scope, its calculation, and the exact source objects.
+**Build a multilingual quantity engine with inspectable evidence. Use evaluated
+models to interpret questions and difficult visual content, and format-specific
+parsers and supported computations to execute them.** Hosted visual models are
+the initial raster baseline; small vision models become candidates when measured
+failures justify them. The durable contribution is the connection between an
+answer, its scope, its calculation, and the exact source objects.
 
 ## Why this fits the challenge
 

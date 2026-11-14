@@ -7,6 +7,12 @@ families. Build real integrations and evidence views for that set; unknown
 evaluation classes and every possible renderer are not requirements. The prepared
 demo answers alone do not establish dataset coverage.
 
+The [hackathon roadmap](../docs/ROADMAP.md#ui-direction) sets the next UI direction:
+one dominant source viewport, a compact answer/evidence panel, and contextual
+inspection of individual objects and calculation inputs. That redesign and the
+real backend connection remain planned; the features below describe the current
+prototype.
+
 ## Run
 
 Install Node.js 22.12 or later (24 LTS is the tested baseline). From the
