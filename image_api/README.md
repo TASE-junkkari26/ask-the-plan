@@ -19,7 +19,7 @@ From the repository root on Linux, with Python 3.10+ (tested with 3.12):
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -e '.[api,test]'
+.venv/bin/python -m pip install -e '.[api,preprocess,test]'
 .venv/bin/python -m uvicorn image_api.app:app --host 127.0.0.1 --port 8000
 ```
 
@@ -27,7 +27,7 @@ Windows PowerShell, using a separate native virtual environment:
 
 ```powershell
 py -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[api,test]"
+.\.venv\Scripts\python.exe -m pip install -e ".[api,preprocess,test]"
 .\.venv\Scripts\python.exe -m uvicorn image_api.app:app --host 127.0.0.1 --port 8000
 ```
 
@@ -76,8 +76,9 @@ nullable original `source_label`, `geometry`, `uncertain`, nullable
 
 The envelope includes `schema_version`, `request_id`, `scope: "submitted_image"`,
 `image`, `status`, `inventory_completeness: "unverified"`, `limitations`,
-`provenance` (requested/returned model, prompt version), and `metrics` (inference
-stage elapsed milliseconds and nullable token usage). Image metadata contains
+`provenance` (requested/returned model, prompt version, and optional preprocessing
+metadata), and `metrics` (inference-stage elapsed milliseconds, nullable token
+usage, and preparation metrics). Image metadata contains
 `sha256` of the submitted bytes, `inference_sha256` of the prepared image,
 `width`, `height`, and `coordinate_system: "display_pixels_top_left"`.
 
@@ -129,8 +130,11 @@ const result: ImageCandidateResponse = await response.json();
 
 Coordinates use the **entire EXIF-oriented display image**, in pixels: top-left
 origin, X right, Y down. The backend applies EXIF orientation, composites
-transparency onto white, strips metadata, and sends a PNG to the model without
-cropping or resizing. Display the source with that same orientation on white.
+transparency onto white, and strips metadata into a canonical full-size PNG
+before optional preprocessing. The default mode sends that PNG without cropping
+or resizing. Optional overview mode sends a reduced full-source image and maps
+its proposed boxes back to the full display frame. Display the original source
+snapshot with that same orientation on white, regardless of inference mode.
 Use returned dimensions; model-normalized coordinates have already been mapped
 to display pixels by the backend.
 
@@ -156,6 +160,46 @@ the Vite server process's `IMAGE_API_PROXY_TARGET` to a different local backend;
 this value is server configuration, not a browser credential. A hosted build
 requires its hosting server to forward `/api` to the Python service.
 
+## Raster preprocessing in the candidate path
+
+The [raster preprocessor](../docs/DRAWING_PREPROCESSOR.md) runs after
+`prepare_image` has created its upright, bounded, metadata-free PNG. OCR is off
+for this integration. Layout artifacts may be cached for later local inspection,
+but candidate inference never automatically selects a `drawing_candidate` or
+other content crop. Keeping the entire page preserves relationships among
+panels, legends, scale bars, and footers.
+
+| Mode | Preparation and inference behavior |
+| --- | --- |
+| `original` (default) | Prepare/cache raster artifacts, then send the unchanged canonical PNG used before this integration. |
+| `overview` | Prepare/cache artifacts, then send only the `full_source` region's overview; reduce to the configured edge without cropping or enlargement. |
+| `off` | Skip the raster preprocessor and use the existing canonical PNG path. |
+
+Set these backend options in the existing root `.env` or process environment:
+
+```text
+IMAGE_API_PREPROCESS_MODE=original
+IMAGE_API_PREPROCESS_OVERVIEW_LONG_EDGE=1600
+IMAGE_API_PREPROCESS_CACHE_ENTRIES=8
+```
+
+The bounded cache is owned by the backend process, stores derived artifacts in
+its own `TemporaryDirectory`, and is removed at backend shutdown. It is a
+session-only cache, separate from the standalone CLI's explicit output directory;
+persistent upload storage is not enabled. Changing modes does not enable OCR,
+tool calling, IFC analysis, or a final-answer planner. Smaller overviews can lose
+fine text/symbols, so measure quality and actual provider usage before preferring
+overview mode; no accuracy or inference-cost improvement is claimed.
+
+The response keeps the submitted `image.sha256`, full display `width`/`height`,
+and original display-pixel box coordinates. `image.inference_sha256` identifies
+the actual PNG bytes sent to the model. Optional `provenance.preprocessing`
+contains `mode`, `pipeline_version`, `prepared_id`, `input_width`, and
+`input_height`; `metrics.preparation_ms` and `metrics.preparation_cache_hit`
+report preparation work. Internal cache paths and artifacts are not exposed by
+the candidate API. The frontend continues to freeze and display the original
+submitted snapshot; it must not substitute an overview PNG for that snapshot.
+
 ## Limits, settings and errors
 
 API settings load from the root `.env` with process environment taking
@@ -171,6 +215,9 @@ precedence. Optional settings (defaults shown):
 | `IMAGE_API_DEADLINE_SECONDS` | `180` |
 | `IMAGE_API_MAX_TOKENS` | `8192` (overrides the client's output default here) |
 | `IMAGE_API_ORIGINS` | `http://127.0.0.1:5173,http://localhost:5173` |
+| `IMAGE_API_PREPROCESS_MODE` | `original` (`original`, `overview`, or `off`) |
+| `IMAGE_API_PREPROCESS_OVERVIEW_LONG_EDGE` | `1600` |
+| `IMAGE_API_PREPROCESS_CACHE_ENTRIES` | `8` (per backend process) |
 
 The prepared PNG must also fit the configured image byte limit. A compact JPEG
 can exceed this limit after decoding/re-encoding; the API reports an error
@@ -182,8 +229,10 @@ this endpoint, with no change to CLI defaults. The deadline covers body receipt,
 preparation and inference. Preparation runs in a worker thread; a timed-out
 worker finishes its bounded local work and then removes its files. Inference is
 cancelled on timeout/disconnect; this does not guarantee the remote provider
-stops processing. Uploads and owned temporary files are cleaned after requests.
-No images, prompts, or raw responses are persisted by the service.
+stops processing. Request-specific upload/normalization files are cleaned after
+their local work finishes. When preprocessing is enabled, derived image artifacts
+can remain in the bounded session cache until eviction or backend shutdown.
+No persistent upload store or prompt/raw-response storage is enabled.
 
 Errors use `schema_version`, `request_id`, `code`, safe `message`, and `retryable`.
 Normal responses expose the correlation ID in `X-Request-ID` too. Provider error

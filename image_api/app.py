@@ -20,7 +20,7 @@ from contracts.models import ImageCandidateError, ImageCandidateResponse
 from nemotron import AsyncNemotronClient, ConfigurationError, NemotronSettings
 from .config import ApiSettings
 from .errors import ApiError
-from .images import prepare_image
+from .preprocessing import ImagePreprocessor
 from .service import CandidateService
 
 
@@ -114,6 +114,7 @@ def create_app(settings: ApiSettings | None = None, *,
         client = None
         app.state.service = None
         app.state.in_flight = 0
+        app.state.preprocessor = ImagePreprocessor(settings)
         try:
             try:
                 if client_factory is None:
@@ -127,6 +128,10 @@ def create_app(settings: ApiSettings | None = None, *,
                 pass
             yield
         finally:
+            # A timeout shields a running preparation worker. Drain it before
+            # removing the session cache, just as request temp cleanup waits for
+            # its preparation worker below.
+            await asyncio.to_thread(app.state.preprocessor.close)
             if client is not None:
                 await client.close()
 
@@ -178,7 +183,8 @@ def create_app(settings: ApiSettings | None = None, *,
         if len(content) > settings.max_image_bytes:
             raise ApiError(413, "image_too_large", "Image exceeds the upload byte limit.")
         directory = TemporaryDirectory(prefix="ask-plan-image-")
-        preparation = asyncio.create_task(asyncio.to_thread(prepare_image, content, settings, Path(directory.name)))
+        preparation = asyncio.create_task(asyncio.to_thread(
+            request.app.state.preprocessor.prepare, content, Path(directory.name)))
         try:
             # Shield the worker so a timeout cannot remove files it is still writing.
             image = await asyncio.shield(preparation)

@@ -14,8 +14,9 @@ from nemotron import AsyncNemotronClient, NemotronError, completion_text
 from .config import ApiSettings
 from .errors import ApiError
 from .images import PreparedImage
+from drawing_preprocessor.core import PIPELINE_VERSION
 
-PROMPT_VERSION = "candidate-v1"
+PROMPT_VERSION = "candidate-v2"
 Coordinate = Annotated[float, Field(ge=0, le=1000, allow_inf_nan=False, strict=True)]
 Nonblank = Annotated[str, Field(min_length=1, max_length=1000)]
 
@@ -80,7 +81,9 @@ class CandidateService:
         schema = json.dumps(_Proposals.model_json_schema(), ensure_ascii=False)
         system = (
             f"{self._instruction}\n"
-            f"The submitted display image is {image.width} pixels wide and {image.height} pixels high.\n"
+            f"The inference image is {image.model_width} pixels wide and {image.model_height} pixels high.\n"
+            "It contains the entire submitted display image, possibly uniformly resized, without cropping or rearranging panels.\n"
+            "Return bbox_1000 normalized to the entire inference image. Original display coordinates are mapped by the server.\n"
             f"JSON Schema:\n{schema}"
         )
         try:
@@ -109,6 +112,9 @@ class CandidateService:
                     "source_label": proposal.source_label,
                     "geometry": {
                         "kind": "box",
+                        # The full-source overview preserves normalized extent.
+                        # Keep the public geometry in the original display frame,
+                        # not the potentially resized inference pixel frame.
                         "minimum": [x1 * image.width / 1000, y1 * image.height / 1000],
                         "maximum": [x2 * image.width / 1000, y2 * image.height / 1000],
                     },
@@ -132,11 +138,20 @@ class CandidateService:
                     "requested_model": self.client.settings.model,
                     "returned_model": reply.model,
                     "prompt_version": PROMPT_VERSION,
+                    "preprocessing": {
+                        "mode": image.preprocessing_mode,
+                        "pipeline_version": PIPELINE_VERSION if image.prepared_id else None,
+                        "prepared_id": image.prepared_id,
+                        "input_width": image.model_width,
+                        "input_height": image.model_height,
+                    },
                 },
                 "metrics": {
                     "elapsed_ms": max(0, round((perf_counter() - started) * 1000)),
                     "prompt_tokens": reply.usage.prompt_tokens if reply.usage else None,
                     "completion_tokens": reply.usage.completion_tokens if reply.usage else None,
+                    "preparation_ms": image.preparation_ms,
+                    "preparation_cache_hit": image.preparation_cache_hit,
                 },
             })
         except (NemotronError, ValidationError, ValueError):

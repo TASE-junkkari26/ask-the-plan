@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const output = new URL('../src/contracts/', import.meta.url);
 await mkdir(output, { recursive: true });
-for (const name of ['QueryResult', 'QuestionRequest', 'ImageCandidateResponse', 'ImageCandidateError']) {
+for (const name of ['QueryResult', 'QuestionRequest', 'ImageCandidateResponse', 'ImageCandidateError', 'PreparedDrawing']) {
   const source = new URL(
     `../../contracts/jsonschema/${name}.schema.json`,
     import.meta.url,
@@ -16,4 +16,4 @@ for (const name of ['QueryResult', 'QuestionRequest', 'ImageCandidateResponse', 
   });
   await writeFile(new URL(`${name}.ts`, output), type);
 }
-console.log('Generated frontend request/result and image candidate wire types.');
+console.log('Generated frontend request/result, image candidate and preprocessing wire types.');

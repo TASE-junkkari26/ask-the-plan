@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Mapping
+from typing import Literal, Mapping
 from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
@@ -23,6 +23,9 @@ class ApiSettings(BaseModel):
     max_concurrent: int = Field(default=2, gt=0, le=32)
     deadline_seconds: float = Field(default=180, gt=0, le=600, allow_inf_nan=False)
     max_tokens: int = Field(default=8192, gt=0)
+    preprocess_mode: Literal["off", "original", "overview"] = "original"
+    preprocess_overview_long_edge: int = Field(default=1600, ge=128, le=8192)
+    preprocess_cache_entries: int = Field(default=8, ge=1, le=64)
     origins: list[str] = Field(default_factory=lambda: [
         "http://127.0.0.1:5173", "http://localhost:5173",
     ])

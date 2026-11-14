@@ -200,7 +200,7 @@ class ImageApiLifecycleTests(unittest.IsolatedAsyncioTestCase):
                 finished.set()
 
         async with self.api(settings=ApiSettings(deadline_seconds=0.1)) as (client, app, requests, _):
-            with patch("image_api.app.prepare_image", side_effect=slow_prepare):
+            with patch("image_api.preprocessing.prepare_image", side_effect=slow_prepare):
                 try:
                     before = perf_counter()
                     response = await self.post(client)

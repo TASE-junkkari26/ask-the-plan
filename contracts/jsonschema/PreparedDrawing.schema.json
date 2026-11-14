@@ -1,0 +1,354 @@
+{
+  "$comment": "Generated from contracts.models; do not edit manually. JSON Schema checks structure. Pydantic and semantic validators also enforce local invariants, references, units, scope, and evidence.",
+  "$defs": {
+    "OCRResult": {
+      "additionalProperties": false,
+      "properties": {
+        "engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Engine"
+        },
+        "languages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Languages",
+          "type": "array"
+        },
+        "spans": {
+          "items": {
+            "$ref": "#/$defs/OCRTextSpan"
+          },
+          "title": "Spans",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "not_requested",
+            "unavailable",
+            "complete",
+            "partial",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "OCRResult",
+      "type": "object"
+    },
+    "OCRTextSpan": {
+      "additionalProperties": false,
+      "properties": {
+        "bbox": {
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Bbox",
+          "type": "array"
+        },
+        "confidence": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence"
+        },
+        "engine": {
+          "minLength": 1,
+          "title": "Engine",
+          "type": "string"
+        },
+        "frame_id": {
+          "minLength": 1,
+          "title": "Frame Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "frame_id",
+        "bbox",
+        "engine"
+      ],
+      "title": "OCRTextSpan",
+      "type": "object"
+    },
+    "PreparedRegion": {
+      "additionalProperties": false,
+      "properties": {
+        "frame_id": {
+          "minLength": 1,
+          "title": "Frame Id",
+          "type": "string"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "integer"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "image_uri": {
+          "title": "Image Uri",
+          "type": "string"
+        },
+        "overview_frame_id": {
+          "minLength": 1,
+          "title": "Overview Frame Id",
+          "type": "string"
+        },
+        "overview_height": {
+          "exclusiveMinimum": 0,
+          "title": "Overview Height",
+          "type": "integer"
+        },
+        "overview_to_source": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "title": "Overview To Source",
+          "type": "array"
+        },
+        "overview_uri": {
+          "title": "Overview Uri",
+          "type": "string"
+        },
+        "overview_width": {
+          "exclusiveMinimum": 0,
+          "title": "Overview Width",
+          "type": "integer"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "full_source",
+            "drawing_candidate",
+            "context_candidate",
+            "unknown"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "source_bbox": {
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "minimum": 0,
+              "type": "integer"
+            }
+          ],
+          "title": "Source Bbox",
+          "type": "array"
+        },
+        "to_source": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "title": "To Source",
+          "type": "array"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "source_bbox",
+        "frame_id",
+        "image_uri",
+        "width",
+        "height",
+        "overview_uri",
+        "overview_width",
+        "overview_height",
+        "overview_frame_id",
+        "to_source",
+        "overview_to_source",
+        "reason"
+      ],
+      "title": "PreparedRegion",
+      "type": "object"
+    }
+  },
+  "$id": "urn:stoa:contracts:0.1.0:PreparedDrawing",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Config Sha256",
+      "type": "string"
+    },
+    "id": {
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "ocr": {
+      "$ref": "#/$defs/OCRResult"
+    },
+    "original_uri": {
+      "title": "Original Uri",
+      "type": "string"
+    },
+    "pipeline_version": {
+      "minLength": 1,
+      "title": "Pipeline Version",
+      "type": "string"
+    },
+    "regions": {
+      "items": {
+        "$ref": "#/$defs/PreparedRegion"
+      },
+      "minItems": 1,
+      "title": "Regions",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "0.1.0",
+      "default": "0.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_frame_id": {
+      "minLength": 1,
+      "title": "Source Frame Id",
+      "type": "string"
+    },
+    "source_height": {
+      "exclusiveMinimum": 0,
+      "title": "Source Height",
+      "type": "integer"
+    },
+    "source_image_uri": {
+      "title": "Source Image Uri",
+      "type": "string"
+    },
+    "source_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Sha256",
+      "type": "string"
+    },
+    "source_uri": {
+      "title": "Source Uri",
+      "type": "string"
+    },
+    "source_width": {
+      "exclusiveMinimum": 0,
+      "title": "Source Width",
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "id",
+    "source_sha256",
+    "config_sha256",
+    "pipeline_version",
+    "source_uri",
+    "original_uri",
+    "source_image_uri",
+    "source_width",
+    "source_height",
+    "source_frame_id",
+    "regions",
+    "ocr"
+  ],
+  "title": "PreparedDrawing",
+  "type": "object"
+}

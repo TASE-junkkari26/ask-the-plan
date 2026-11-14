@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from math import isclose
 from typing import Annotated, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -807,16 +808,29 @@ class ImageCandidate(Model):
         return self
 
 
+class CandidatePreparation(Model):
+    """Actual model image size, distinct from the unchanged display frame."""
+
+    mode: Literal["off", "original", "overview"]
+    pipeline_version: str | None = None
+    prepared_id: Id | None = None
+    input_width: PositiveInt
+    input_height: PositiveInt
+
+
 class CandidateProvenance(Model):
     requested_model: Id
     returned_model: Id
     prompt_version: Id
+    preprocessing: CandidatePreparation | None = None
 
 
 class CandidateMetrics(Model):
     elapsed_ms: float = Field(ge=0)
     prompt_tokens: NonnegativeInt | None = None
     completion_tokens: NonnegativeInt | None = None
+    preparation_ms: float | None = Field(default=None, ge=0)
+    preparation_cache_hit: bool | None = None
 
 
 class ImageCandidateResponse(Contract):
@@ -880,3 +894,150 @@ def walk_values(value: Value):
 
 for _model in (ListValue, RecordValue, TableValue, BooleanPredicate):
     _model.model_rebuild()
+
+
+# Raster preparation artifacts. Coordinates are presentation pixels, never a
+# physical calibration or a claim about complete drawing/object extraction.
+PixelBounds = tuple[NonnegativeInt, NonnegativeInt, NonnegativeInt, NonnegativeInt]
+
+
+def _artifact_uri(value: str) -> None:
+    """Artifact paths are portable and resolved below one artifact directory."""
+    if not value or "\\" in value or ":" in value or value.startswith("/") or any(
+        part in {"", ".", ".."} for part in value.split("/")
+    ):
+        raise ValueError("artifact URI must be a relative portable path without traversal")
+
+
+def _pixel_matrix(actual: list[list[float]], expected: list[list[float]]) -> None:
+    if len(actual) != 3 or any(len(row) != 3 for row in actual) or any(
+        not isclose(value, expected[i][j], rel_tol=1e-9, abs_tol=1e-7)
+        for i, row in enumerate(actual) for j, value in enumerate(row)
+    ):
+        raise ValueError("pixel transform must agree with crop bounds and image dimensions")
+
+
+class OCRTextSpan(Model):
+    id: Id
+    text: str
+    frame_id: Id
+    bbox: tuple[float, float, float, float]
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    engine: Id
+
+    @model_validator(mode="after")
+    def check_bounds(self):
+        left, top, right, bottom = self.bbox
+        if left < 0 or top < 0 or right <= left or bottom <= top:
+            raise ValueError("OCR boxes need positive area in nonnegative source pixels")
+        return self
+
+
+class InspectRegionArgs(Model):
+    view_id: Id
+    bbox: tuple[float, float, float, float]
+    coordinate_space: Literal["view", "overview"] = "view"
+    output_long_edge: Annotated[int, Field(ge=64, le=8192, strict=True)] | None = None
+
+    @model_validator(mode="after")
+    def check_bounds(self):
+        left, top, right, bottom = self.bbox
+        if left < 0 or top < 0 or right <= left or bottom <= top:
+            raise ValueError("inspection box needs positive area in nonnegative pixels")
+        return self
+
+
+class OCRResult(Model):
+    status: Literal["not_requested", "unavailable", "complete", "partial", "failed"]
+    engine: str | None = None
+    version: str | None = None
+    languages: list[str] = Field(default_factory=list)
+    spans: list[OCRTextSpan] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def check_status(self):
+        if self.status in {"not_requested", "unavailable", "failed"} and self.spans:
+            raise ValueError("unperformed or failed OCR cannot carry successful spans")
+        if self.status in {"complete", "partial"} and not self.engine:
+            raise ValueError("performed OCR needs an engine identifier")
+        if len({span.id for span in self.spans}) != len(self.spans):
+            raise ValueError("OCR span IDs must be unique")
+        return self
+
+
+class PreparedRegion(Model):
+    id: Id
+    role: Literal["full_source", "drawing_candidate", "context_candidate", "unknown"]
+    source_bbox: PixelBounds  # Half-open [left, top, right, bottom].
+    frame_id: Id
+    image_uri: str
+    width: PositiveInt
+    height: PositiveInt
+    overview_uri: str
+    overview_width: PositiveInt
+    overview_height: PositiveInt
+    overview_frame_id: Id
+    to_source: list[list[float]]
+    overview_to_source: list[list[float]]
+    reason: str
+
+    @model_validator(mode="after")
+    def check_region(self):
+        left, top, right, bottom = self.source_bbox
+        if right <= left or bottom <= top or (right - left, bottom - top) != (self.width, self.height):
+            raise ValueError("crop dimensions must match positive-area source bounds")
+        if self.overview_width > self.width or self.overview_height > self.height:
+            raise ValueError("an overview cannot enlarge its source region")
+        if self.frame_id == self.overview_frame_id:
+            raise ValueError("crop and overview frames must have separate IDs")
+        _artifact_uri(self.image_uri)
+        _artifact_uri(self.overview_uri)
+        _pixel_matrix(self.to_source, [[1., 0., float(left)], [0., 1., float(top)], [0., 0., 1.]])
+        _pixel_matrix(self.overview_to_source, [
+            [self.width / self.overview_width, 0., float(left)],
+            [0., self.height / self.overview_height, float(top)], [0., 0., 1.],
+        ])
+        return self
+
+
+class PreparedDrawing(Contract):
+    id: Id
+    source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    config_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    pipeline_version: Id
+    source_uri: str
+    original_uri: str
+    source_image_uri: str
+    source_width: PositiveInt
+    source_height: PositiveInt
+    source_frame_id: Id
+    regions: list[PreparedRegion] = Field(min_length=1)
+    ocr: OCRResult
+    warnings: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def check_artifacts(self):
+        _artifact_uri(self.original_uri)
+        _artifact_uri(self.source_image_uri)
+        full_sources = [region for region in self.regions if region.role == "full_source"]
+        if len(full_sources) != 1:
+            raise ValueError("prepared drawing must retain exactly one full_source region")
+        if full_sources[0].image_uri != self.source_image_uri:
+            raise ValueError("full_source region must reference the canonical source image")
+        if len({region.id for region in self.regions}) != len(self.regions):
+            raise ValueError("prepared region IDs must be unique")
+        frames = [self.source_frame_id]
+        for region in self.regions:
+            left, top, right, bottom = region.source_bbox
+            if right > self.source_width or bottom > self.source_height:
+                raise ValueError("region bounds exceed the source image")
+            if region.role == "full_source" and region.source_bbox != (0, 0, self.source_width, self.source_height):
+                raise ValueError("full_source region must cover the entire source image")
+            frames.extend((region.frame_id, region.overview_frame_id))
+        if len(set(frames)) != len(frames):
+            raise ValueError("source, crop and overview frame IDs must be unique")
+        for span in self.ocr.spans:
+            if span.frame_id != self.source_frame_id or span.bbox[2] > self.source_width or span.bbox[3] > self.source_height:
+                raise ValueError("OCR spans must be bounded source-frame pixels")
+        return self

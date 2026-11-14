@@ -97,6 +97,31 @@
           "title": "Elapsed Ms",
           "type": "number"
         },
+        "preparation_cache_hit": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preparation Cache Hit"
+        },
+        "preparation_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preparation Ms"
+        },
         "prompt_tokens": {
           "anyOf": [
             {
@@ -117,9 +142,77 @@
       "title": "CandidateMetrics",
       "type": "object"
     },
+    "CandidatePreparation": {
+      "additionalProperties": false,
+      "description": "Actual model image size, distinct from the unchanged display frame.",
+      "properties": {
+        "input_height": {
+          "exclusiveMinimum": 0,
+          "title": "Input Height",
+          "type": "integer"
+        },
+        "input_width": {
+          "exclusiveMinimum": 0,
+          "title": "Input Width",
+          "type": "integer"
+        },
+        "mode": {
+          "enum": [
+            "off",
+            "original",
+            "overview"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "pipeline_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pipeline Version"
+        },
+        "prepared_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prepared Id"
+        }
+      },
+      "required": [
+        "mode",
+        "input_width",
+        "input_height"
+      ],
+      "title": "CandidatePreparation",
+      "type": "object"
+    },
     "CandidateProvenance": {
       "additionalProperties": false,
       "properties": {
+        "preprocessing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CandidatePreparation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "prompt_version": {
           "minLength": 1,
           "title": "Prompt Version",

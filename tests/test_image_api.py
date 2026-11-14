@@ -332,7 +332,9 @@ class ImageApiTests(unittest.IsolatedAsyncioTestCase):
             await asyncio.sleep(1)
             return completion()
 
-        async with self.api(delayed, settings=ApiSettings(deadline_seconds=0.05), paths=paths) as client:
+        # Isolate cancellation during inference; the lifecycle suite separately
+        # holds preparation past its deadline and verifies deferred file cleanup.
+        async with self.api(delayed, settings=ApiSettings(deadline_seconds=0.2, preprocess_mode="off"), paths=paths) as client:
             self.assert_error(await self.post(client), 504)
         self.assertEqual(len(self.requests), 1)
         self.assertTrue(paths)

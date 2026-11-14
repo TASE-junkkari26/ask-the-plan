@@ -142,6 +142,39 @@ class ImageCandidateContractTests(unittest.TestCase):
         error = ImageCandidateError.model_validate(data)
         self.assertEqual(ImageCandidateError.model_validate_json(error.model_dump_json()), error)
 
+    def test_preprocessing_metadata_keeps_display_frame_and_original_payload_compatibility(self):
+        original = ImageCandidateResponse.model_validate(candidate_response_data())
+        self.assertIsNone(original.provenance.preprocessing)
+        self.assertIsNone(original.metrics.preparation_ms)
+        self.assertIsNone(original.metrics.preparation_cache_hit)
+        data = candidate_response_data()
+        data["provenance"]["preprocessing"] = {
+            "mode": "overview", "pipeline_version": "test-pipeline",
+            "prepared_id": "prepared:test", "input_width": 800, "input_height": 600,
+        }
+        data["metrics"].update(preparation_ms=14.25, preparation_cache_hit=True)
+        result = ImageCandidateResponse.model_validate(data)
+        self.assertEqual(result.image.width, 1600)
+        self.assertEqual(result.image.height, 1200)
+        self.assertEqual(result.provenance.preprocessing.input_width, 800)
+        self.assertEqual(result.candidates[0].geometry.minimum, [200.0, 300.0])
+        self.assertEqual(ImageCandidateResponse.model_validate_json(result.model_dump_json()), result)
+
+    def test_preprocessing_metadata_rejects_bad_mode_dimensions_and_timing(self):
+        for patch in ({"mode": "largest_region"}, {"input_width": 0},
+                      {"input_height": True}, {"input_width": 2.5}, {"prepared_id": ""}):
+            data = candidate_response_data()
+            data["provenance"]["preprocessing"] = {
+                "mode": "original", "input_width": 1600, "input_height": 1200, **patch,
+            }
+            with self.subTest(patch=patch), self.assertRaises(ValidationError):
+                ImageCandidateResponse.model_validate(data)
+        for timing in (-1, float("inf"), float("nan")):
+            data = candidate_response_data()
+            data["metrics"]["preparation_ms"] = timing
+            with self.subTest(timing=timing), self.assertRaises(ValidationError):
+                ImageCandidateResponse.model_validate(data)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -15,6 +15,7 @@ from .models import (
     ImageCandidateError,
     ImageCandidateResponse,
     KnowledgeBundle,
+    PreparedDrawing,
     QueryPlan,
     QueryResult,
     QuestionRequest,
@@ -30,6 +31,7 @@ ROOT_MODELS = (
     BenchmarkCase,
     ImageCandidateResponse,
     ImageCandidateError,
+    PreparedDrawing,
 )
 OUTPUT_DIRECTORY = Path(__file__).resolve().parent / "jsonschema"
 DRAFT = "https://json-schema.org/draft/2020-12/schema"

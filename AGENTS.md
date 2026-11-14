@@ -36,6 +36,10 @@ component guide before changing behavior.
   planning remains pending. See [the viewer guide](docs/IFC_VIEWER.md).
 - `image_api/`: internal HTTP adapter for one image and one question, using the
   existing Nemotron client. Returns candidate regions, not final counts/answers.
+  Its bounded session preprocessor cache consumes the already-upright display
+  PNG. Default `original` mode preserves inference pixels; optional `overview`
+  mode uses the full page, never heuristic region roles. Public source hashes,
+  display dimensions and box coordinates remain bound to the submitted snapshot.
 - `ifc_engine/`: independent CPU IFC extractor/structured query executor. See
   [its guide](docs/IFC_ENGINE.md) for supported operations and limitations. It is
   not an HTTP service or natural-language planner.
@@ -44,6 +48,17 @@ component guide before changing behavior.
   are proposals, not validated source evidence or a connected frontend planner.
 - `contracts/models.py`: source of truth for shared wire contracts.
   `contracts/validation.py` checks consistency, not source truth or all geometry.
+- `drawing_preprocessor/`: standalone raster preparation, optional local OCR,
+  and source inspection. See [its guide](docs/DRAWING_PREPROCESSOR.md). Layout
+  candidates are not semantic views, complete object inventories, or calibration.
+  Standalone setup is `python -m pip install -r drawing_preprocessor/requirements.txt`.
+  OCR stays optional/off by default. On Windows, `python scripts/setup_tesseract.py`
+  installs a verified local engine/data under ignored `.tools/`; on Debian/Ubuntu
+  use `apt install tesseract-ocr tesseract-ocr-eng tesseract-ocr-fin` when needed.
+  Use `TESSERACT_CMD`/`TESSDATA_PREFIX` only as backend overrides. Preserve source
+  frames when preparing review crops; human review exports are not runtime QA.
+  View generated galleries with `python -m drawing_preprocessor serve DIRECTORY`
+  on loopback rather than direct file links; preserve existing review IDs/notes.
 - `contracts/jsonschema/` and `frontend/src/contracts/`: generated files. Change
   the Python models, regenerate both outputs, and check relevant consumers.
 - `dataset/`: supplied challenge inputs and investigation reports. Leave drawing

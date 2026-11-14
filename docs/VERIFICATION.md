@@ -1,5 +1,106 @@
 # Sprint-one verification record
 
+## Candidate API preprocessing integration, 14 November 2026
+
+Integrated the preprocessing work after fast-forwarding to fetched main
+`6629086` (candidate UI/API and local IFC viewer). All overlapping contracts,
+generators, dependency settings and docs were reconciled; no integration commit
+was created during this pass.
+
+- Full Python suite: 220 tests ran, 218 passed and two Windows symlink-permission
+  fixtures skipped. This includes the existing API/lifecycle checks and 14 new
+  preprocessing integration regressions. One further cached-overview corruption
+  regression was added afterward and passed independently (15 integration cases
+  now exist). Source normalization, whole-page overview behavior, original-frame
+  coordinates/hashes, cache hits/eviction, request-local image safety, cancellation,
+  deadline handling and session cleanup were checked with mocked inference.
+- All 40 frontend logic tests and the TypeScript/Vite production build passed.
+  The fetched IFC dependencies emitted missing optional Three/WebGPU export
+  warnings and a large-chunk warning. Build success does not verify IFC browser
+  graphics; this backend integration did not change IFC rendering code.
+- The initial locked frontend install hit an esbuild binary held by an existing
+  developer process. An incremental scripts-disabled install completed without
+  terminating it; npm reported retained locked cleanup directories.
+- All nine exported JSON Schemas are current; five frontend wire types were
+  generated. Local Markdown checks, `pip check`, and `git diff --check` passed.
+  The API extras were installed in the existing Windows environment.
+
+Default `original` mode prepares a bounded session cache but preserves the
+canonical model image. Opt-in `overview` mode sends the full-source overview,
+including every panel/footer, and maps boxes to unchanged display pixels. The
+cache is deleted at backend shutdown; preparation metrics and inference-image
+provenance are exposed without internal paths. OCR stays off in this path.
+
+No live provider calls, token-cost comparison, end-to-end browser check, or Linux
+execution was performed in this integration pass. The reviewed 50-image gallery
+and its loopback server were left intact.
+
+## Raster preprocessing follow-up, 14 November 2026
+
+The standalone [raster preprocessor](DRAWING_PREPROCESSOR.md) was added after the
+original hardening pass below. On the existing Windows environment:
+
+- `python -m unittest discover -s tests`: 161 tests ran, 160 passed, one skipped.
+  The skip is a new symlink-escape regression because Windows denied test symlink
+  creation (WinError 1314). New executable checks cover source snapshots,
+  pixel/crop/overview mapping, cache corruption/reuse, EXIF stored-pixel handling,
+  source-frame OCR parsing/failure states, tool dispatch, artifact contracts,
+  language-data cache invalidation, and human-review sampling/gallery controls.
+- `python -m contracts.export --check`: all seven exported schemas current.
+  PreparedDrawing TypeScript was generated from the new schema.
+- `npm.cmd run build`: TypeScript and production build passed. As before,
+  Vite/esbuild required normal filesystem access after an ancestor-directory
+  sandbox denial. Frontend runtime integration was not added or browser-tested.
+- Local Markdown checks and `python -m pip check` passed. The editable package
+  reinstalled successfully and its console entry point worked from another
+  directory. A separate fresh environment containing only the standalone
+  Pydantic/Pillow/NumPy requirements ran all 55 preprocessing/contract/review tests
+  (54 passed, the same one skipped); IFC and the inference SDK were absent.
+  Linux was not rerun in this pass.
+- Prepared five real images from Swiss, CubiCasa (two), HABS, and Finna. Reused
+  their cached artifacts and checked that whole-overview inspection mapped back
+  to the selected source bounds. Observed cold times were approximately
+  0.07-1.24 seconds and cached times 0.04-0.10 seconds in this single sample pass;
+  these are not a throughput or corpus accuracy benchmark.
+- Inspected the Swiss debug layout and footer crop visually: the main drawing
+  and separate legend/scale/title region remain available. Original dimensions
+  were 1753 x 2480; the drawing crop was 527 x 1534. Uncertain sample layouts
+  conservatively retained the full source.
+
+Raw sample artifacts/report are local under `build/prepared/` and
+`build/preprocess_validation.json`, excluded from Git. No inference APIs were
+called and no token/cost saving was measured. The initial real unavailable-engine
+state was checked, then optional Tesseract 5.5.3.20260724 was installed locally
+using the hash-verified portable setup script, with six official fast language
+models. Live recognition returned 140 words from the Swiss sample, including
+literal room `5.10` and both printed `1:200` labels, in about 1.18 seconds. The
+symbol-heavy CubiCasa sample returned 19 mostly irrelevant tokens in about
+1.09 seconds. These observations support evaluating OCR selectively; they are
+not an OCR-accuracy benchmark. Raw summaries are in `build/ocr_live_check.json`.
+
+The seed-20261114 gallery at `build/preprocess-review-50/index.html` prepared all
+50 sampled images successfully, with OCR off: eight Wikimedia cases and seven
+each from Swiss, CubiCasa, HABS, Europeana, IFC raster plans, and Finna. It includes
+original overviews, candidate crops, warnings, source hashes, copied attribution,
+and editable human labels/notes with JSON export. Human visual validation is
+pending; successful preparation does not establish a correct crop or scope.
+
+## Review delivery follow-up, 14 November 2026
+
+The first file-based review failed in Firefox: staged PNGs retained restrictive
+Windows temporary-file ACLs although the index HTML was readable. The gallery is
+now served using the scoped `drawing_preprocessor serve` loopback command. The
+existing 50-case sample JSON/review identity were preserved during HTML rerender.
+All 144 image URLs in that gallery returned HTTP 200 with image content types
+and decoded successfully with Pillow. The 22 targeted server/review tests ran:
+21 passed, one symlink-permission fixture skipped. Local Markdown checks passed.
+Import/export preserves ratings when changing browser origin; missing image
+loads now produce a visible error. Firefox UI verification was attempted but
+stopped by the computer-use tool's unsupported-browser URL-policy enforcement,
+so no successful automated browser visual check is claimed.
+
+## Original documentation hardening pass
+
 Checked 14 November 2026 on Windows, using the existing virtual environment and
 frontend dependencies. This records checks performed during the documentation
 hardening pass. It does not establish complete hackathon question coverage.
