@@ -1,5 +1,10 @@
 # Hackathon roadmap: answers you can inspect
 
+15 November continuation: the [natural-language answer implementation plan](NATURAL_LANGUAGE_ANSWERS_PLAN.md)
+records the current baseline and concrete remaining work toward full supplied-family
+coverage. The dated starting-point tables and model proposals below are historical;
+current source-scope and routing decisions follow the repository instructions.
+
 Proposed working direction, 14 November 2026, based on the project owner's
 priorities. This is a **plan**, not an implementation or accuracy report. The [project scope](PROJECT_SCOPE.md)
 defines acceptance; this roadmap sets the next build order and UI direction.

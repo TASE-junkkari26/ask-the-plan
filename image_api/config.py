@@ -19,7 +19,8 @@ class ApiSettings(BaseModel):
     provider: Literal["nemotron", "gemini"] = "nemotron"
     routing_mode: Literal["off", "shadow", "auto"] = "off"
     routing_threshold: float = Field(default=0.6, ge=0.5, le=1, allow_inf_nan=False)
-    routing_timeout_seconds: float = Field(default=3, gt=0, le=30, allow_inf_nan=False)
+    routing_strong_threshold: float = Field(default=0.8, ge=0.5, le=1, allow_inf_nan=False)
+    routing_timeout_seconds: float = Field(default=10, gt=0, le=30, allow_inf_nan=False)
     routing_cache_entries: int = Field(default=32, ge=0, le=256)
     routing_strong_thinking_level: Literal["low", "medium"] = "medium"
     max_image_bytes: int = Field(default=MAX_IMAGE_BYTES, gt=0, le=MAX_IMAGE_BYTES)

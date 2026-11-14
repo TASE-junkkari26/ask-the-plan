@@ -21,6 +21,11 @@ optional extensions unless a supplied question needs them. See the
 
 ## Current state
 
+The next implementation phase is described in the
+[natural-language answer plan](docs/NATURAL_LANGUAGE_ANSWERS_PLAN.md): combine
+existing detection and IFC results with source facts, calculations and inspectable
+evidence. This is planned work; drawing candidates are not final answers yet.
+
 The frontend now includes **Detailed scan** for large drawings. It uses automatic
 panel selection, native overlapping tiles and source-bound reconciliation through
 the [callable detail tools](image_api/DETAIL_TOOLS.md). These operations are

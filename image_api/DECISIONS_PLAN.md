@@ -1,23 +1,32 @@
 # Gemini Decisions: capability routing and optional preprocessing
 
+Current routing correction: `capability-routing-v4` prefers Hydrogen. Carbon
+requires an explicit `needs_strong` assessment with probability at least 0.8;
+uncertainty, routing failures and timeouts use Hydrogen. The configurable setting
+is `IMAGE_API_ROUTING_STRONG_THRESHOLD`. Earlier v1/v2/v3 proposals and evaluation
+records below remain historical. Native detail tools from main are integrated; see [their guide](DETAIL_TOOLS.md).
+
 Date: 14 November 2026. Branch: `feature/gemini-decisions-routing`.
 Starting revision: `9db07ec` on `main`.
 Updated with the teammate's research from `main` revision `89dbae1` (14 November).
-Status: **first routing slice implemented, experimental and off by default**.
-Dataset calibration, paired evaluation and automatic preprocessing remain planned.
+Status: **capability routing and native detail tools implemented, experimental
+and off by default**. Dataset calibration and paired evaluation remain planned.
 
 ## Implementation progress
 
 The native Decisions client, allowlisted Hydrogen-low/Carbon-medium profiles,
 capability gate, bounded session decision cache, `off`/`shadow`/`auto` modes,
-single-analyzer dispatch and expandable UI trace are implemented. The trace is
+one selected analyzer profile and expandable UI trace are implemented. The trace is
 source/question bound and survives provider failures, unavailable routes and
 deadlines. It records per-assessment probabilities, actual calls and unknown
 cost components. A request cancelled before dispatch remains `pending` rather
 than claiming a selected route. Routing preserves a five-second finalization
-reserve and allows at most one decision plus one analysis attempt per request.
+reserve. The full-image endpoint allows one Decisions attempt and one analysis
+attempt. Detailed scans reuse the selected profile with up to 12 tool/provider
+attempts plus routing; see [detail tools](DETAIL_TOOLS.md).
 
-The normal capability criteria and default 0.6 threshold are **provisional**.
+The capability criteria and default 0.8 strong-selection threshold are
+**provisional**.
 Automatic routing requires explicit opt-in; no dataset accuracy improvement or
 calibrated false-easy rate is established. The fuller paired benchmark/review
 workflow below is the next implementation stage. The approved live smoke
@@ -28,10 +37,11 @@ Following the user's correction, strong analysis now defaults to **medium**, wit
 user-directed medium check completed under the same cap in 55.994 seconds and
 returned one source-supported window candidate. This verifies a single result,
 not a general quality/speed benefit; low and paired routing quality remain untested.
-Automatic crops, OCR selection, native source adapters and typed execution are
-future work. See [runtime configuration](README.md#experimental-capability-routing).
+Native region selection, crops, reconciliation and candidate membership checks
+are implemented by the detail tools. Automatic OCR selection, additional native
+source adapters and final-answer execution remain future work. See [runtime configuration](README.md#experimental-capability-routing).
 
-Policy `capability-routing-v2` corrects the initial over-escalation: v1 required
+Historical policy `capability-routing-v2` corrected the initial over-escalation: v1 required
 90% certainty on all six independent classifications and admitted only a narrow
 door/window/fixture floor-plan case. V2 uses **only overall capability fit** at a
 default 60%; other labels remain diagnostics. Ordinary readable room/object,
@@ -83,7 +93,7 @@ through opt-in streaming on the existing request, with source/request/question
 binding, actual shadow/manual dispatch, and cancellation/stale-state handling.
 It adds no model call and leaves the final expandable trace available.
 
-## 2. Current implementation and integration boundaries
+## 2. Historical planning-time implementation snapshot
 
 | Existing component | Reuse and required change |
 | --- | --- |
@@ -475,9 +485,9 @@ It is not permission to run every analyzer on every production request.
 
 Proposed initial limits, to validate and version with experiment settings:
 
-- One Decisions request, with a three-second timeout inside the existing
-  180-second request deadline. A timeout can select strong within the remaining
-  budget. Avoid a deliberately tiny thumbnail that hides fine-detail difficulty;
+- One Decisions request, with a ten-second timeout inside the existing
+  180-second request deadline. A timeout uses Hydrogen within the remaining
+  budget under policy v4. Avoid a deliberately tiny thumbnail that hides fine-detail difficulty;
   compare supported media resolutions and use original dimensions as metadata.
 - First release: one selected analysis call, so two external calls at most.
   Crop release: one whole-image plus up to four detail calls, so six including

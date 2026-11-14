@@ -477,6 +477,11 @@ test('decision labels preserve pending routes and explain routing failures witho
     const label = decisionReason({ id: 'routing', criterion: 'capability', state: 'failed', reason_code: reason }, 'en');
     assert.doesNotMatch(label, /selected|ran|completed/);
   }
+  for (const phase of ['connect', 'write', 'read', 'pool']) {
+    const node = { id: 'routing', criterion: 'capability' as const, state: 'failed' as const, reason_code: `router_${phase}_timeout` };
+    assert.match(decisionReason(node, 'en'), /no classification was received/);
+    assert.match(decisionReason(node, 'fi'), /luokittelua ei saatu/);
+  }
   assert.match(decisionReason({ id: 'budget', criterion: 'analysis', state: 'failed', reason_code: 'budget_exhausted' }, 'en'), /request time budget was exhausted/);
 });
 

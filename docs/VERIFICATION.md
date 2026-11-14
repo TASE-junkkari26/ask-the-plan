@@ -21,6 +21,84 @@ Checked on Linux with Node.js 24.22.3 and headless Firefox 160.0:
 Browser analysis responses were mocked. This verifies the edited interface,
 without establishing live provider accuracy or new IFC viewer compatibility.
 
+## Hydrogen-first routing and detailed-scan integration, 14 November 2026
+
+Integrated the routing correction with main through `f03eb50`, preserving its
+native detailed-scan tools and whole-model IFC question preference. Policy
+`capability-routing-v4` uses Carbon only for an explicit `needs_strong` assessment
+at or above `IMAGE_API_ROUTING_STRONG_THRESHOLD` (default 0.8). Uncertain decisions,
+router outages and timeouts select Hydrogen for both full-image and detailed
+analysis. Detailed scans retain Hydrogen panel selection, the selected detector
+and membership verifier, actual crop bounds/hashes and the bounded provider ledger.
+
+The new version distinguishes this policy from main's earlier v3 normal-fit gate.
+The UI preserves v1/v2/v3 meanings and labels v4's advanced-interpretation
+probability correctly. Cache identities retain preparation mode and include the
+new policy, capabilities and strong threshold. Default timeout is ten seconds;
+transport phase diagnostics do not imply a completed classification.
+
+Validation on Linux, Python 3.12.3 and Node 24.22.3:
+
+- **626 Python tests passed**, no skips, in 76.861 seconds, with mocked providers.
+  Integration regressions cover the 79.9%/80% Carbon boundary, uncertain decisions,
+  routing failures/timeouts, actual streamed model handoff, crop hashes/boxes
+  and preparation-specific cache reuse.
+- All **18 frontend test files**, TypeScript/production build and SSR checks
+  passed. SSR includes both the historical main v3 gate and current v4 gate.
+  Existing optional Three/IFC export and bundle-size warnings remain.
+- All **15 generated contracts** are current; documentation and whitespace
+  checks passed. No live provider calls or new browser checks were run for this
+  merge, and local credentials and supplied dataset assets were unchanged.
+- Exactly **one Astra-6 Max** reviewer inspected integration against both parents
+  and confirmed no blocking code findings. Its documentation observations were
+  resolved by distinguishing the current policy from historical planning notes.
+
+Ignored check logs: `experiments/runs/hydrogen-main-integration/20261114T215533Z/`.
+These checks establish integration behavior, not a paired model-quality gain.
+
+## Pre-merge Hydrogen-first routing, 14 November 2026
+
+Before integrating the newer main branch, the local policy
+`capability-routing-v3` used Carbon only when
+Decisions explicitly selects `needs_strong` with probability at least 0.8.
+`IMAGE_API_ROUTING_STRONG_THRESHOLD` configures that gate. Uncertain or lower
+confidence assessments, unavailable routing, failures and timeouts use Hydrogen.
+The previous normal-fit threshold remained accepted for configuration compatibility
+and did not control this local v3. Cache keys include the new policy and strong threshold.
+The UI shows the advanced-interpretation probability and Carbon gate, while
+retaining historical v1/v2 explanations.
+The newer main branch independently used v3 for its older normal-fit gate;
+the integrated Hydrogen-first policy is v4 to keep those meanings distinct. This cost preference can under-escalate
+hard cases when Decisions is uncertain or unavailable.
+
+The bounded live development exercise covered 12 unique images/questions: five
+ordinary plans, four technical/scope cases and three historical drawings. Two
+requests used the actual browser UI; the others used the same streaming endpoint.
+Nine completed Decisions classifications all selected Hydrogen. All three
+historical cases hit the ten-second routing deadline and selected Carbon under
+v2; two Carbon analyses returned partial candidates and one failed with provider
+unavailable. Three earlier localhost connection failures are preserved, for
+15 attempted app requests total. No additional paid followup was required for v3.
+Replaying those recorded outcomes under v3 changes the three timeout fallbacks to
+Hydrogen; it does not establish the quality of new Hydrogen outputs.
+
+One Astra-6 Max reviewer inspected all 12 sources. It preferred normal for nine,
+strong for one, and left two ambiguous. Labels are `agent_reviewed`, not human
+ground truth or a paired analyzer benchmark. An interruption delayed saving the
+source labels until after some unsolicited summary exposure; that blinding
+limitation is recorded. Five of the first nine successful routing calls took
+longer than the former three-second timeout. Default routing/transport timeout
+is now ten seconds with no hidden three-second connection cap; safe phase-specific
+reasons distinguish connection/upload/read/pool failures where reported.
+
+Focused Linux validation: 44 routing/stream/Decisions tests passed; frontend
+candidate API tests, v3 and historical SSR fixtures, TypeScript/production build
+passed. Existing optional Three/IFC export and bundle-size warnings remain.
+The preceding timeout-only full suite passed 490 tests; that full-suite result
+predates v3 and is not a claim of final-policy coverage. Live evidence is ignored
+under `experiments/runs/routing-tuning/20261114T213230Z/`. Original images,
+reference answers and local credential files were unchanged.
+
 ## Integrated routing, detail, IFC and DXF, 14 November 2026
 
 Main was fast-forwarded from `89dbae1` to fetched `2bc9476`, then the preserved

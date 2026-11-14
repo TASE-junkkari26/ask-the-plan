@@ -42,7 +42,7 @@ class DecisionsSettingsTests(unittest.TestCase):
     def test_secrets_defaults_and_independent_settings(self):
         settings = DecisionsSettings(api_key=TEST_KEY)
         self.assertEqual(settings.model, "gemini-decision-1")
-        self.assertEqual(settings.timeout_seconds, 3)
+        self.assertEqual(settings.timeout_seconds, 10)
         self.assertNotIn(TEST_KEY, repr(settings))
         self.assertNotIn(TEST_KEY, settings.model_dump_json())
         with self.assertRaises(ValidationError):
@@ -271,6 +271,46 @@ class DecisionsClientTests(unittest.IsolatedAsyncioTestCase):
                 await task
             self.assertTrue(cancelled.is_set())
         self.assertEqual(closed, [True])
+
+    async def test_configured_budget_reaches_every_transport_phase(self):
+        # A larger total setting must not leave connection establishment capped
+        # at the former hidden three seconds. Short explicit budgets still apply.
+        for seconds in (1.5, 10):
+            calls = []
+
+            def handler(request):
+                calls.append(request)
+                self.assertEqual(request.extensions["timeout"],
+                                 {phase: seconds for phase in ("connect", "write", "read", "pool")})
+                return httpx.Response(200, json=result())
+
+            settings = DecisionsSettings(api_key=TEST_KEY, timeout_seconds=seconds)
+            async with AsyncDecisionsClient(settings, transport=httpx.MockTransport(handler)) as client:
+                await client.decide("Find windows", image=self.image, questions=QUESTIONS)
+            self.assertEqual(len(calls), 1)
+
+    async def test_timeout_phase_is_safe_and_does_not_retry_or_claim_a_decision(self):
+        for kind, phase in ((httpx.ConnectTimeout, "connect"), (httpx.WriteTimeout, "write"),
+                            (httpx.ReadTimeout, "read"), (httpx.PoolTimeout, "pool"),
+                            (httpx.TimeoutException, None)):
+            with self.subTest(phase=phase):
+                calls = []
+
+                def handler(request):
+                    calls.append(request)
+                    raise kind(f"Private provider details {TEST_KEY}", request=request)
+
+                with self.assertRaises(GeminiError) as raised:
+                    await self.request(handler)
+                error = raised.exception
+                self.assertEqual(len(calls), 1)
+                self.assertEqual(error.code, "provider_timeout")
+                self.assertEqual(error.timeout_phase, phase)
+                self.assertTrue(error.retryable)
+                self.assertIsNone(error.usage)
+                self.assertIsNone(error.returned_model)
+                self.assertNotIn(TEST_KEY, str(error))
+        self.assertIsNone(GeminiError("Safe", timeout_phase=TEST_KEY).timeout_phase)
 
 
 if __name__ == "__main__":
