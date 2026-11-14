@@ -84,7 +84,7 @@ PNG, JPEG, WebP, SVG, GIF, and BMP**, with a **35 MiB limit per file**. **IFC** 
 have a separate **512 MiB limit** and are converted locally when selected. The importer
 also recognizes supported filename extensions when the browser omits the MIME
 type. DWG/DXF drawings need a PDF or SVG export. IFCZIP and binary IFC are not supported.
-Model conversion has progress, cancellation, retry, and removal controls. Source reading/hashing and conversion run in a worker; reopening the most recent model reuses its converted buffer. The size cap is a desktop input target, with actual memory use depending on model complexity.
+Model conversion has progress, cancellation, retry, and removal controls. A native geometry abort can trigger one recovery attempt: malformed source faces are omitted only from a derived preview, with a persistent **Partial geometry** warning and inspectable omission counts. The original IFC is retained; complete geometry requires a corrected source. Source reading/hashing and conversion run in a worker; reopening the most recent model reuses its converted buffer. The size cap is a desktop input target, with actual memory use depending on model complexity.
 
 Open **Drawings** to search imported filenames, select a thumbnail, or remove a
 file. The library contains only your imports. The last successfully imported file

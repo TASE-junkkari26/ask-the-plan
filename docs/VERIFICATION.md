@@ -388,3 +388,34 @@ or a baseline comparison. No 512 MiB model or physical mobile/Windows device was
 validated. The worker still holds the full source; hashing may copy it, and native
 geometry/WASM/GPU allocations need additional RAM. Raster bias improves depth
 precision and coplanar presentation without repairing contradictory source solids.
+
+## Dental-clinic native abort recovery — 14 November 2026
+
+Reproduced the reported `Aborted(native code called abort())` with the original
+`dataset/junction-dataset/data/ifc_bench/dental_clinic_mep.ifc` (125,780,663 bytes,
+IFC2X3) on the existing pinned web-ifc 0.0.77. This was not a size-cap or initial
+parse failure: metadata opened in about 3 seconds, then native mesh extraction
+failed at flexible-duct STEP `#9226`, GUID `0B8zmgmwv0dg357dK6blEx`.
+Its face `#613515` reaches polygon loop `#1641100`, which references point IDs
+`#76504` / `#78337` absent from the source. An isolated temporary 0.0.79 check
+also failed; the application's parser version was not changed.
+
+| Check | Observed result |
+|---|---|
+| Native topology recovery | Omitted 40,382 unique invalid faces from 1,505 connected/shell face sets. Diagnostics include 40,380 invalid loops and 7,552 native-unresolvable point IDs; a raw-text audit found 7,551 undefined point IDs, so these counts are not asserted to be identical. |
+| Native source preservation | Original source was not modified. Only face-list membership changed in the in-memory derivative; native product/property IDs and scalar values remained intact. The derivative was 122,715,822 bytes. |
+| Full conversion | Recovery plus the installed Fragments importer completed in about 39 seconds in Node, producing 12,750,033 fragment bytes. All 16,545 geometry-category items attempted afterward completed native mesh reads; this does not mean every item has complete drawable geometry. |
+| Production browser reproduction/fix | Before the fix, the real file failed in 4.61 seconds. Afterward, it opened in 49.5 seconds with exactly one fresh-worker recovery. The persistent partial-geometry banner reported 40,382 omitted faces. |
+| Original failing object | STEP `#9226` retained `Flex Duct Round:Flex Duct - Round:1115248`, its original GUID, and drawable geometry with Focus enabled. |
+| Disclosure/cache/source changes | Warning remained visible with the inspector collapsed; View omissions opened its details. Switching to SVG and back reused cached fragments without another conversion worker and retained the warning. A healthy FZK-Haus import cleared the warning. |
+| Recovery cancellation | Cancelling while the fresh worker checked source geometry terminated both conversion workers, left the cancelled state visible, and produced no late model or page errors. |
+| Native-WASM fixtures | Five regression tests cover valid-file pass-through, malformed outer/inner loops and wrong/missing references, whole-face omission, original native IDs/Finnish names/tags/quantities, bounded diagnostics and API disposal. |
+| Worker/cache policy | Tests cover one-time native retry, ordinary-error/cancellation bypass, cancelled-source guards, no retry loop, typed native failure, report validation and warning retention through cache ownership/eviction. |
+| Frontend build/tests | All 13 frontend test files and the TypeScript/Vite production build passed. Existing SDK optional-WebGPU export and large-chunk warnings remain. The prepared FZK artifact/manifest were regenerated for the new converter policy identity. |
+| Browser layout/errors | Desktop and 500-pixel-wide partial-preview layouts inspected; no horizontal overflow. No uncaught page errors or unhandled rejections were observed. |
+
+This recovery does not restore the missing source coordinates or establish full
+model geometry. It preserves an inspectable partial preview; a corrected export
+is needed for a complete model. No dataset originals, QA answers, backend engines
+or wire contracts were changed. Tests used Linux Node 26.13.1 and Firefox 160
+headless/software WebGL; physical mobile/Windows behavior was not retested here.

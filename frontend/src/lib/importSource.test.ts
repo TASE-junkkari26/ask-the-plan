@@ -113,3 +113,28 @@ test('removing IFC releases its converted cache without treating it as a 2D URL'
   releaseSource(entry);
   assert.equal(ifcCache.get('hash:converter'), undefined);
 });
+
+test('partial geometry warnings remain attached to cached artifacts and duplicate owners', () => {
+  const cache = new SingleModelCache();
+  const bytes = new Uint8Array([1]);
+  const report = {
+    omittedFaceCount: 1,
+    invalidLoopCount: 1,
+    missingPointCount: 2,
+    modifiedFaceSetCount: 1,
+    sampleFaceIds: [100],
+    sampleMissingPointIds: [201, 202],
+  };
+  const source = new File(['model'], 'partial.ifc');
+  cache.rememberGeometryRecovery(source);
+  cache.set('first', 'hash:policy', bytes, report);
+  assert.equal(cache.get('hash:policy', 'second'), bytes);
+  cache.forget('first');
+  assert.deepEqual(cache.getGeometryRecovery('hash:policy'), report);
+  assert.equal(cache.needsGeometryRecovery(source), true);
+  cache.evictBuffer();
+  assert.equal(cache.getGeometryRecovery('hash:policy'), undefined);
+  assert.equal(cache.needsGeometryRecovery(source), true);
+  cache.clear();
+  assert.equal(cache.needsGeometryRecovery(source), false);
+});

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   Box,
   ChevronDown,
+  CircleAlert,
   Expand,
   Eye,
   EyeOff,
@@ -26,6 +27,7 @@ import type {
 } from '../ifc/adapter';
 import { loadIfc } from '../ifc/load';
 import type { LoadState } from '../ifc/load';
+import type { GeometryRecoveryReport } from '../ifc/geometryRecovery';
 
 const labels: Record<IfcStatus, string> = {
   idle: 'Ready to open',
@@ -239,6 +241,11 @@ export default function IfcWorkbench({
   const [info, setInfo] = useState<ModelInfo | null>(null);
   const [selection, setSelection] = useState<ModelSelection | null>(null);
   const [hash, setHash] = useState('');
+  const [geometryRecovery, setGeometryRecovery] =
+    useState<GeometryRecoveryReport | null>(null);
+  const recoveryDetailsRef = useRef<HTMLElement>(null);
+  const [recoveryDetailsRequested, setRecoveryDetailsRequested] =
+    useState(false);
   const [orthographic, setOrthographic] = useState(false);
   const [projectionPending, setProjectionPending] = useState(false);
   const projectionRequest = useRef(0);
@@ -271,6 +278,8 @@ export default function IfcWorkbench({
     setInfo(null);
     setSelection(null);
     setHash('');
+    setGeometryRecovery(null);
+    setRecoveryDetailsRequested(false);
     setOrthographic(false);
     setProjectionPending(false);
     projectionInFlight.current = false;
@@ -295,6 +304,7 @@ export default function IfcWorkbench({
       });
       setInfo(null);
       setSelection(null);
+      setGeometryRecovery(null);
       controller.abort();
       if (adapterRef.current === adapter) adapterRef.current = null;
       dispose(adapter);
@@ -320,6 +330,11 @@ export default function IfcWorkbench({
         const converted = await loadIfc(source, controller.signal, report);
         controller.signal.throwIfAborted();
         setHash(converted.hash);
+        setGeometryRecovery(
+          'geometryRecovery' in converted
+            ? (converted.geometryRecovery ?? null)
+            : null,
+        );
         report({ status: 'rendering' });
         const loaded = await adapter.load(
           converted.bytes,
@@ -350,6 +365,15 @@ export default function IfcWorkbench({
     };
     // A status update on the library entry must not restart its renderer.
   }, [source.id, attempt]);
+
+  useEffect(() => {
+    if (!recoveryDetailsRequested || !ready || !geometryRecovery) return;
+    const details = recoveryDetailsRef.current;
+    if (!details || !inspectorContainer) return;
+    details.scrollIntoView({ block: 'nearest' });
+    details.focus({ preventScroll: true });
+    setRecoveryDetailsRequested(false);
+  }, [recoveryDetailsRequested, ready, geometryRecovery, inspectorContainer]);
 
   const run = useCallback(
     async (operation: (adapter: IfcAdapter) => Promise<unknown> | void) => {
@@ -411,6 +435,7 @@ export default function IfcWorkbench({
     void adapterRef.current?.dispose().catch(() => {});
     adapterRef.current = null;
     setState({ status: 'cancelled' });
+    setGeometryRecovery(null);
     onStatus(source.id, 'cancelled');
   };
   const retry = () => setAttempt((value) => value + 1);
@@ -523,6 +548,31 @@ export default function IfcWorkbench({
         )}
         {ready && (
           <>
+            {geometryRecovery && geometryRecovery.omittedFaceCount > 0 && (
+              <div
+                className="ifc-partial-banner"
+                role="status"
+                aria-label="Partial model geometry"
+              >
+                <CircleAlert size={18} aria-hidden="true" />
+                <div>
+                  <strong>Partial geometry · incomplete source</strong>
+                  <p>
+                    {geometryRecovery.omittedFaceCount.toLocaleString('en')}{' '}
+                    invalid faces omitted. Source properties are retained.
+                  </p>
+                </div>
+                <button
+                  className="secondary-button"
+                  onClick={() => {
+                    setRecoveryDetailsRequested(true);
+                    if (!inspectorOpen) toggleInspector();
+                  }}
+                >
+                  View omissions
+                </button>
+              </div>
+            )}
             <div className="ifc-navigation-hint">
               Drag to orbit · Right-drag to pan · Scroll to zoom
             </div>
@@ -558,7 +608,13 @@ export default function IfcWorkbench({
           <Box size={12} />
           {source.name}
         </span>
-        <span>{ready ? 'Local 3D inspection' : labels[state.status]}</span>
+        <span>
+          {ready
+            ? geometryRecovery && geometryRecovery.omittedFaceCount > 0
+              ? 'Partial geometry · source properties retained'
+              : 'Local 3D inspection'
+            : labels[state.status]}
+        </span>
       </div>
       {inspectorContainer &&
         createPortal(
@@ -587,6 +643,87 @@ export default function IfcWorkbench({
                 Viewing and inspection only; question answering is not
                 connected.
               </p>
+              {ready &&
+                geometryRecovery &&
+                geometryRecovery.omittedFaceCount > 0 && (
+                  <section
+                    className="ifc-recovery-details"
+                    ref={recoveryDetailsRef}
+                    role="note"
+                    aria-label="Partial geometry details"
+                    tabIndex={-1}
+                  >
+                    <h3>
+                      <CircleAlert size={14} aria-hidden="true" />
+                      Source geometry omissions
+                    </h3>
+                    <p>
+                      The source geometry is incomplete. Invalid source faces
+                      were omitted from this preview; the remaining geometry can
+                      be inspected.
+                    </p>
+                    <dl className="ifc-properties">
+                      <div>
+                        <dt>Faces omitted</dt>
+                        <dd>
+                          {geometryRecovery.omittedFaceCount.toLocaleString(
+                            'en',
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Invalid loops</dt>
+                        <dd>
+                          {geometryRecovery.invalidLoopCount.toLocaleString(
+                            'en',
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Unresolvable point IDs</dt>
+                        <dd>
+                          {geometryRecovery.missingPointCount.toLocaleString(
+                            'en',
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Face sets affected</dt>
+                        <dd>
+                          {geometryRecovery.modifiedFaceSetCount.toLocaleString(
+                            'en',
+                          )}
+                        </dd>
+                      </div>
+                    </dl>
+                    {!!geometryRecovery.sampleFaceIds.length && (
+                      <p className="ifc-recovery-samples">
+                        <strong>Omitted face STEP IDs (sample)</strong>
+                        <code>
+                          {geometryRecovery.sampleFaceIds
+                            .map((id) => `#${id}`)
+                            .join(', ')}
+                        </code>
+                      </p>
+                    )}
+                    {!!geometryRecovery.sampleMissingPointIds.length && (
+                      <p className="ifc-recovery-samples">
+                        <strong>Unresolvable point STEP IDs (sample)</strong>
+                        <code>
+                          {geometryRecovery.sampleMissingPointIds
+                            .map((id) => `#${id}`)
+                            .join(', ')}
+                        </code>
+                      </p>
+                    )}
+                    <p>
+                      The original IFC file and source properties are retained.
+                      No replacement point coordinates were created. Visible
+                      geometry is partial and does not establish model
+                      completeness.
+                    </p>
+                  </section>
+                )}
               {info && !info.hasGeometry && (
                 <p className="ifc-note">
                   No drawable geometry was extracted. Available source metadata

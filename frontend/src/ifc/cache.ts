@@ -1,7 +1,15 @@
+import type { GeometryRecoveryReport } from './geometryRecovery';
+
 /** One converted buffer for the entire tab, never one per library entry. No SDK imports. */
 export class SingleModelCache {
-  private entry?: { sourceIds: Set<string>; key: string; bytes: Uint8Array };
+  private entry?: {
+    sourceIds: Set<string>;
+    key: string;
+    bytes: Uint8Array;
+    geometryRecovery?: GeometryRecoveryReport;
+  };
   private fileHashes = new WeakMap<File, string>();
+  private recoveryFiles = new WeakSet<File>();
   private generation = 0;
   private loadingSourceId?: string;
   beginLoad(sourceId: string) {
@@ -17,17 +25,36 @@ export class SingleModelCache {
   rememberFileHash(file: File, hash: string) {
     this.fileHashes.set(file, hash);
   }
+  needsGeometryRecovery(file: File) {
+    return this.recoveryFiles.has(file);
+  }
+  rememberGeometryRecovery(file: File) {
+    this.recoveryFiles.add(file);
+  }
   get(key: string, sourceId?: string) {
     if (this.entry?.key !== key) return undefined;
     if (sourceId) this.entry.sourceIds.add(sourceId);
     return this.entry.bytes;
   }
-  set(sourceId: string, key: string, bytes: Uint8Array) {
+  getGeometryRecovery(key: string) {
+    return this.entry?.key === key ? this.entry.geometryRecovery : undefined;
+  }
+  set(
+    sourceId: string,
+    key: string,
+    bytes: Uint8Array,
+    geometryRecovery?: GeometryRecoveryReport,
+  ) {
     if (this.entry?.key === key && this.entry.bytes === bytes) {
       this.entry.sourceIds.add(sourceId);
       return;
     }
-    this.entry = { sourceIds: new Set([sourceId]), key, bytes };
+    this.entry = {
+      sourceIds: new Set([sourceId]),
+      key,
+      bytes,
+      geometryRecovery,
+    };
   }
   forget(sourceId: string) {
     if (this.entry?.sourceIds.delete(sourceId) && !this.entry.sourceIds.size)
@@ -43,6 +70,7 @@ export class SingleModelCache {
   clear() {
     this.entry = undefined;
     this.fileHashes = new WeakMap();
+    this.recoveryFiles = new WeakSet();
     this.loadingSourceId = undefined;
     this.generation++;
   }

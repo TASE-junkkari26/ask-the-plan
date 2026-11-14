@@ -131,6 +131,38 @@ often several times the input size. The higher cap admits the supplied 326.8 MiB
 model but does not establish that every 512 MiB model fits every device. See the
 [verification record](VERIFICATION.md) for measured large-model checks.
 
+## Native geometry failures and partial previews
+
+Some IFC exports contain dangling or malformed face geometry even though their
+header, schema and product metadata parse correctly. The supplied
+`dental_clinic_mep.ifc` is one such file: flexible duct STEP `#9226` reaches a
+polygon loop containing unresolved CartesianPoint references, which aborts the
+native tessellator.
+
+After a recognized native geometry abort, the failed WASM worker is terminated.
+The loader makes at most one recovery attempt in a fresh worker. The
+[recovery helper](../frontend/src/ifc/geometryRecovery.ts) inspects polygon loops,
+face bounds and connected/shell face lists. It omits entire invalid faces from
+an in-memory rendering derivative; a malformed inner bound causes the whole face
+to be omitted rather than inventing a filled hole. It does not invent point
+coordinates or alter the original file. Product/property STEP IDs, GUIDs, names,
+quantities and units remain available; the source SHA-256 still identifies the
+original file, not the derivative.
+
+A recovered model is explicitly **partial geometry**. An amber viewport banner
+remains visible when the inspector is collapsed. **View omissions** shows unique
+source-face/loop/reference counts and bounded samples of original STEP IDs.
+These are source records, not counts of rendered triangles or physical objects.
+The cached fragment retains its diagnostics, so reopening it cannot hide the
+warning. A healthy source has no partial-geometry banner.
+
+This is a viewing fallback, not a source repair or completeness claim. Correcting
+or re-exporting the source is necessary for complete geometry. Unrelated native
+failures with no safely isolatable invalid faces still report an error. Ordinary
+validation failures/cancellation do not enter recovery, and a failed recovery is
+not retried indefinitely. Valid models use the original single-pass pipeline;
+recovery requires an additional native parse/export and therefore takes longer.
+
 ## Prepared demo and attribution
 
 The checked-in [FZK-Haus fragment](../frontend/public/models/fzk-haus.frag) and

@@ -2862,6 +2862,86 @@ kbd {
 .ifc-notice .icon-button {
   flex-shrink: 0;
 }
+.ifc-partial-banner {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 11px 12px;
+  color: #78531d;
+  background: #fff5dcf5;
+  border: 1px solid #d8b36d;
+  border-radius: 7px;
+  box-shadow: 0 2px 8px #6d4d1710;
+}
+.ifc-partial-banner > svg {
+  margin-top: 1px;
+}
+.ifc-partial-banner strong {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.ifc-partial-banner p {
+  margin: 3px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.ifc-partial-banner .secondary-button {
+  padding: 6px 9px;
+  font-size: 10px;
+  color: #78531d;
+  background: #fffaf0;
+  border-color: #dfc393;
+}
+.ifc-inspector-content .ifc-recovery-details {
+  margin: 16px 0;
+  padding: 13px;
+  background: #fff8e9;
+  border: 1px solid #e2c591;
+  border-radius: 7px;
+  scroll-margin: 14px;
+}
+.ifc-recovery-details:focus-visible {
+  outline: 2px solid #b98c42;
+  outline-offset: 3px;
+}
+.ifc-recovery-details h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  color: #815e28;
+}
+.ifc-recovery-details p {
+  margin: 9px 0;
+  color: #896a3b;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.ifc-recovery-details .ifc-properties > div {
+  border-bottom-color: #eadcc1;
+}
+.ifc-recovery-details .ifc-properties dt {
+  color: #957b53;
+}
+.ifc-recovery-details .ifc-properties dd {
+  color: #755323;
+}
+.ifc-recovery-samples strong {
+  display: block;
+  font-size: 10px;
+}
+.ifc-recovery-samples code {
+  display: block;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
 .ifc-import-error {
   color: #9d6a36 !important;
   white-space: normal !important;
@@ -2890,6 +2970,18 @@ kbd {
   }
 }
 @media (max-width: 600px) {
+  .ifc-partial-banner {
+    top: 8px;
+    left: 8px;
+    right: 8px;
+    grid-template-columns: 18px minmax(0, 1fr);
+    gap: 6px 8px;
+    padding: 9px;
+  }
+  .ifc-partial-banner .secondary-button {
+    grid-column: 2;
+    justify-self: start;
+  }
   .ifc-toolbar {
     padding: 0 8px;
     gap: 5px;

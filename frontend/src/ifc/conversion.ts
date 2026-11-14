@@ -1,17 +1,48 @@
+import type { GeometryRecoveryReport } from './geometryRecovery';
+import { NativeIfcConversionError } from './conversionError.ts';
+
 export interface ConversionInput {
   type: 'read';
   file: File;
   wasmPath: string;
   knownHash?: string;
+  recoverGeometry?: boolean;
 }
 export interface ConvertedIfc {
   bytes: Uint8Array;
   hash: string;
+  geometryRecovery?: GeometryRecoveryReport;
 }
 export type ConversionWorker = Pick<
   Worker,
   'onerror' | 'onmessage' | 'onmessageerror' | 'postMessage' | 'terminate'
 >;
+
+function validRecoveryReport(value: unknown): value is GeometryRecoveryReport {
+  if (!value || typeof value !== 'object') return false;
+  const report = value as Record<string, unknown>;
+  for (const name of [
+    'omittedFaceCount',
+    'invalidLoopCount',
+    'missingPointCount',
+    'modifiedFaceSetCount',
+  ])
+    if (!Number.isSafeInteger(report[name]) || Number(report[name]) < 0)
+      return false;
+  if (
+    Number(report.omittedFaceCount) === 0 ||
+    Number(report.modifiedFaceSetCount) === 0
+  )
+    return false;
+  return ['sampleFaceIds', 'sampleMissingPointIds'].every((name) => {
+    const ids = report[name];
+    return (
+      Array.isArray(ids) &&
+      ids.length <= 12 &&
+      ids.every((id) => Number.isSafeInteger(id) && id > 0)
+    );
+  });
+}
 
 /** Own the worker until it succeeds, fails or is aborted. No raw IFC buffer
  * crosses the main thread: File structured cloning shares its immutable data.
@@ -21,7 +52,7 @@ export function convertIfc(
   input: ConversionInput,
   signal: AbortSignal,
   onHash: (hash: string) => Uint8Array | undefined,
-  onProgress: (progress: number) => void,
+  onProgress: (progress: number, message?: string) => void,
 ): Promise<ConvertedIfc> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -76,16 +107,32 @@ export function convertIfc(
           hash &&
           Number.isFinite(data.progress)
         ) {
-          onProgress(Math.max(0, Math.min(1, data.progress)));
+          onProgress(
+            Math.max(0, Math.min(1, data.progress)),
+            typeof data.message === 'string' ? data.message : undefined,
+          );
         } else if (
           data?.type === 'result' &&
           hash &&
           data.bytes instanceof Uint8Array &&
-          data.bytes.byteLength
+          data.bytes.byteLength &&
+          (data.geometryRecovery === undefined ||
+            validRecoveryReport(data.geometryRecovery))
         ) {
-          finish({ bytes: data.bytes, hash });
+          finish({
+            bytes: data.bytes,
+            hash,
+            ...(data.geometryRecovery
+              ? { geometryRecovery: data.geometryRecovery }
+              : {}),
+          });
         } else if (data?.type === 'error' && typeof data.message === 'string') {
-          finish(undefined, new Error(data.message));
+          finish(
+            undefined,
+            data.code === 'native_geometry_abort'
+              ? new NativeIfcConversionError(data.message)
+              : new Error(data.message),
+          );
         } else {
           finish(
             undefined,

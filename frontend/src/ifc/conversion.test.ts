@@ -149,3 +149,51 @@ test('a superseded or removed load can reject at hash lookup before conversion s
   assert.equal(mock.sent.length, 1);
   assert.equal(mock.terminations, 1);
 });
+
+test('native abort is identified separately so the loader can replace its poisoned worker', async () => {
+  const mock = harness();
+  const pending = convertIfc(
+    mock.worker,
+    input,
+    new AbortController().signal,
+    () => undefined,
+    () => {},
+  );
+  mock.message({
+    type: 'error',
+    code: 'native_geometry_abort',
+    message: 'Aborted(native code called abort())',
+  });
+  await assert.rejects(pending, { name: 'NativeIfcConversionError' });
+  assert.equal(mock.terminations, 1);
+});
+
+test('partial geometry diagnostics survive conversion and malformed reports reject', async () => {
+  const report = {
+    omittedFaceCount: 2,
+    invalidLoopCount: 2,
+    missingPointCount: 1,
+    modifiedFaceSetCount: 1,
+    sampleFaceIds: [10, 20],
+    sampleMissingPointIds: [99],
+  };
+  for (const diagnostics of [report, { omittedFaceCount: 'unknown' }]) {
+    const mock = harness();
+    const pending = convertIfc(
+      mock.worker,
+      input,
+      new AbortController().signal,
+      () => undefined,
+      () => {},
+    );
+    mock.message({ type: 'hash', hash });
+    mock.message({
+      type: 'result',
+      bytes: new Uint8Array([1]),
+      geometryRecovery: diagnostics,
+    });
+    if (diagnostics === report)
+      assert.deepEqual((await pending).geometryRecovery, report);
+    else await assert.rejects(pending, /unexpected response/);
+  }
+});
