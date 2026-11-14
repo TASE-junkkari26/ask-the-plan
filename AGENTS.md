@@ -35,7 +35,8 @@ component guide before changing behavior.
   viewing and source-property inspection, without Nemotron analysis. Final-answer
   planning remains pending. See [the viewer guide](docs/IFC_VIEWER.md).
 - `image_api/`: internal HTTP adapter for one image and one question, using the
-  existing Nemotron client. Returns candidate regions, not final counts/answers.
+  selected Nemotron or Gemini image provider. Returns candidate regions, not
+  final counts/answers.
   Its bounded session preprocessor cache consumes the already-upright display
   PNG. Default `original` mode preserves inference pixels; optional `overview`
   mode uses the full page, never heuristic region roles. Public source hashes,
@@ -46,6 +47,9 @@ component guide before changing behavior.
 - `nemotron/`: backend-only sync/async Verda client and text/image/JSON CLI.
   See [its guide](docs/nvidia_info.md). Loads local `.env` settings; model outputs
   are proposals, not validated source evidence or a connected frontend planner.
+- `gemini/`: backend-only native Gemini Interactions client for image candidates.
+  Uses `GEMINI_API_KEY`, `gemini-4-hydrogen`, and low thinking. The image provider
+  selector does not affect IFC planning, which continues to use Nemotron.
 - `contracts/models.py`: source of truth for shared wire contracts.
   `contracts/validation.py` checks consistency, not source truth or all geometry.
 - `drawing_preprocessor/`: standalone raster preparation, optional local OCR,

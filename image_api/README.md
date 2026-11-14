@@ -1,8 +1,8 @@
 # Image candidate API
 
 An internal Python HTTP service for locating question-relevant objects in one
-image using the existing Nemotron client. It returns unreviewed candidate boxes,
-literal labels, visual cues, and uncertainty. It does not return a final answer
+image using Nemotron or Gemini Hydrogen with low thinking. It returns unreviewed
+candidate boxes, literal labels, visual cues, and uncertainty. It does not return a final answer
 or object count. The React frontend uses this endpoint for imported 2D drawings;
 IFC viewing and the CPU executor also connect through the separate
 [IFC question API](../docs/IFC_QUESTIONS.md) on this same server.
@@ -13,6 +13,10 @@ The first integration targets are the supplied raster window/door question
 families. Other question-relevant candidates may be returned, but no general
 dataset coverage is claimed. See the [implementation plan](PLAN.md) and
 [Nemotron guide](../docs/nvidia_info.md).
+
+The [Gemini Hydrogen implementation plan](GEMINI_PLAN.md) records the provider
+boundary and protocol research. The image provider is selected on the backend;
+IFC planning continues to use its existing Nemotron integration.
 
 ## Install and run
 
@@ -32,15 +36,63 @@ py -m venv .venv
 .\.venv\Scripts\python.exe -m uvicorn image_api.app:app --host 127.0.0.1 --port 8000
 ```
 
-Reuse an existing environment when already installed. Set `VERDA_INFERENCE_KEY`
-in the existing root `.env`; never overwrite that file during setup. The backend
-loads it using the [existing configuration rules](../docs/nvidia_info.md#local-setup).
-No key goes into browser code or the HTTP request.
+Reuse an existing environment when already installed. Configure the selected
+image provider in the existing root `.env`; never overwrite that file during
+setup. No key goes into browser code or the HTTP upload request.
 
 Open <http://127.0.0.1:8000/docs> for the upload form/OpenAPI documentation.
 `GET /health` returns 200 when configured and 503 when backend configuration is
 missing/invalid. Health and documentation requests never spend inference calls;
-health does not test current provider availability. Stop the server with Ctrl+C.
+health checks image configuration, not current provider availability or IFC
+readiness. Stop the server with Ctrl+C.
+
+## Choose the image provider
+
+To use Gemini, preserve the key already in your existing `.env` and add the
+selector. Set the key only if it is missing:
+
+```dotenv
+IMAGE_API_PROVIDER=gemini
+GEMINI_API_KEY=
+```
+
+Restart the Python server after changing settings. Images use the native Google
+Interactions API with `gemini-4-hydrogen`, explicit low thinking, structured JSON
+output, and `store=false`. One image request makes one provider call; no retries,
+repair requests, or provider fallback are enabled. The same current UI displays
+the returned candidates and actual model provenance.
+
+The image provider defaults to `nemotron`. To select it explicitly, set
+`IMAGE_API_PROVIDER=nemotron` and configure `VERDA_INFERENCE_KEY` using the
+[Nemotron configuration rules](../docs/nvidia_info.md#local-setup).
+
+The selector affects `POST /api/v1/candidates` only. IFC queries keep their
+existing Nemotron client and `VERDA_*` settings. Gemini configuration failure
+does not disable configured IFC queries; missing Verda settings do not disable
+configured Gemini image analysis.
+
+Gemini configuration uses the same root `.env` discovery and process-over-file
+precedence, without changing `os.environ` or interpolating dollar sequences.
+The backend reads `GEMINI_API_KEY` explicitly; `GOOGLE_API_KEY` is not an alias.
+Credentials, images, and provider error bodies are omitted from API errors.
+
+| Gemini setting | Default and meaning |
+| --- | --- |
+| `GEMINI_API_KEY` | Empty; required when Gemini is selected. |
+| `GEMINI_MODEL` | `gemini-4-hydrogen`; this implementation accepts that exact model. |
+| `GEMINI_THINKING_LEVEL` | `low`; this implementation accepts that exact setting. |
+| `GEMINI_MAX_OUTPUT_TOKENS` | `65536`; range 1–65536, shared by thinking and final output. |
+| `GEMINI_TIMEOUT_SECONDS` | `120`; HTTP network-phase timeout, bounded by the total API deadline. |
+
+Low thinking still uses reasoning tokens. Gemini response `completion_tokens`
+includes both final-output and thinking tokens, while `prompt_tokens` reports
+input tokens. Missing usage fields remain null. The existing Nemotron
+`IMAGE_API_MAX_TOKENS` budget is separate from Gemini's output cap. See the
+[official documentation collected in the plan](GEMINI_PLAN.md#feasibility-and-official-documentation)
+for protocol, pricing, quota, and structured-output details. One live drawing
+request and the browser handoff passed; broader localization accuracy requires
+case-specific evaluation. See the
+[verification record](GEMINI_PLAN.md#implementation-and-verification-record).
 
 ## Request and response
 
@@ -150,7 +202,7 @@ The React integration rasterizes the selected imported image or PDF page onto
 white PNG at the displayed source dimensions, hashes that submitted raster, and
 freezes the preview to that same snapshot while analysing/reviewing candidates.
 This also supports SVG/GIF/BMP previews without changing the API's accepted
-formats. Submitting sends the snapshot and question to Nemotron; importing alone
+formats. Submitting sends the snapshot and question to the selected image provider; importing alone
 does not. Original upload bytes and backend-submitted raster hashes can differ.
 Source/page changes abort the request and clear stale results; the client rejects
 responses whose submitted hash or dimensions differ from the prepared snapshot.
@@ -221,7 +273,8 @@ On Windows use `.\.venv\Scripts\python.exe`. If `uvicorn` is missing, install th
 
 Open <http://127.0.0.1:8000/health>. A configured service returns
 `{"status":"ok","configured":true}`. If it returns HTTP 503 with
-`"configured":false`, check `VERDA_INFERENCE_KEY` and the other backend settings
+`"configured":false`, check `IMAGE_API_PROVIDER`, its required key
+(`GEMINI_API_KEY` or `VERDA_INFERENCE_KEY`), and the other backend settings
 in the existing root `.env`, then restart the API. This check makes no inference
 request and does not establish provider availability.
 
@@ -247,13 +300,14 @@ precedence. Optional settings (defaults shown):
 
 | Variable | Default |
 | --- | --- |
+| `IMAGE_API_PROVIDER` | `nemotron` (`nemotron` or `gemini`; image candidates only) |
 | `IMAGE_API_MAX_IMAGE_BYTES` | `20971520` (20 MiB, also the maximum accepted setting) |
 | `IMAGE_API_MAX_BODY_BYTES` | `23068672` (22 MiB, including multipart overhead) |
 | `IMAGE_API_MAX_PIXELS` | `40000000` (decoded image pixels) |
 | `IMAGE_API_MAX_QUESTION_CHARS` | `4000` (may be lowered) |
 | `IMAGE_API_MAX_CONCURRENT` | `2` (per worker process) |
 | `IMAGE_API_DEADLINE_SECONDS` | `180` |
-| `IMAGE_API_MAX_TOKENS` | `8192` (overrides the client's output default here) |
+| `IMAGE_API_MAX_TOKENS` | `8192` (Nemotron image output budget only) |
 | `IMAGE_API_ORIGINS` | `http://127.0.0.1:5173,http://localhost:5173` |
 | `IMAGE_API_PREPROCESS_MODE` | `original` (`original`, `overview`, or `off`) |
 | `IMAGE_API_PREPROCESS_OVERVIEW_LONG_EDGE` | `1600` |
@@ -263,6 +317,13 @@ The prepared PNG must also fit the configured image byte limit. A compact JPEG
 can exceed this limit after decoding/re-encoding; the API reports an error
 rather than silently shrinking it. The body cap applies even without a truthful
 Content-Length. Local multipart parsing also bounds field/file multiplicity.
+
+Gemini additionally bounds the entire serialized inline request to 20,000,000
+bytes, including base64 PNG, question, instructions, and schema. A file accepted
+under the image limit may therefore still exceed the Gemini limit and receive
+413 before inference. The server does not silently resize it or upload it using
+a separate Files API request. Its private normalized `[ymin, xmin, ymax, xmax]`
+boxes are converted to the same public X/Y display pixels described above.
 
 One inference attempt is made per accepted request; SDK retries are disabled for
 this endpoint, with no change to CLI defaults. The deadline covers body receipt,
@@ -280,14 +341,14 @@ bodies, credentials, image payloads, and local filesystem paths are omitted.
 
 | HTTP | Meaning |
 | --- | --- |
-| 413 | Multipart body, upload, decoded pixel count, or prepared PNG exceeds a limit. |
+| 413 | Multipart body, upload, decoded pixel count, prepared PNG, or Gemini inline request exceeds a limit. |
 | 415 | Wrong request content type or unsupported actual image format. |
 | 422 | Missing/repeated/extra fields, invalid question, corrupt or animated image. |
 | 429 | All local request slots are busy; retry later. |
 | 499 | Client disconnected while awaiting inference. |
 | 500 | Internal preparation/service failure. |
 | 502 | Provider failure or invalid/truncated model candidates. |
-| 503 | Missing backend settings, provider configuration/access problem, or transient provider unavailability/rate limit. |
+| 503 | Missing backend settings, provider configuration/access/billing problem, or transient provider unavailability/rate limit. |
 | 504 | Total request deadline exceeded. |
 
 Scope restrictions and candidate relevance are model-proposed and remain subject
@@ -300,7 +361,7 @@ physical measurements, or a final-answer planner.
 From the root, with no key or live calls required:
 
 ```bash
-.venv/bin/python -m unittest tests.test_image_api tests.test_image_candidate_contracts tests.test_nemotron tests.test_contracts -v
+.venv/bin/python -m unittest tests.test_image_api tests.test_image_candidate_contracts tests.test_nemotron tests.test_gemini tests.test_contracts -v
 .venv/bin/python -m contracts.export --check
 npm --prefix frontend run generate:contracts
 npm run build
