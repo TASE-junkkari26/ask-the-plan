@@ -32,7 +32,18 @@ The core distinction is **source evidence → canonical entities and facts → a
 | `BenchmarkCase` | Reference answer, source JSONL location, split/leakage group, tolerance, and adjudication | [BenchmarkCase](../contracts/jsonschema/BenchmarkCase.schema.json) |
 | `ImageCandidateResponse` | One image's candidate boxes, uncertainty, status, provenance and metrics; no final count/answer | [ImageCandidateResponse](../contracts/jsonschema/ImageCandidateResponse.schema.json) |
 | `ImageCandidateError` | Versioned safe HTTP failure with request ID, code, message and retryability | [ImageCandidateError](../contracts/jsonschema/ImageCandidateError.schema.json) |
+| `DxfPreviewResponse` | One source-hash-bound SVG layout, display dimensions, layout names, literal units metadata and rendering warnings; no native CAD inventory or measurements | [DxfPreviewResponse](../contracts/jsonschema/DxfPreviewResponse.schema.json) |
 | `PreparedDrawing` | Original/source raster artifacts, candidate regions, pixel transforms and optional source-frame OCR | [PreparedDrawing](../contracts/jsonschema/PreparedDrawing.schema.json) |
+| `IfcModelResponse` | Temporary uploaded source handle, verified revision hash and extraction warnings | [IfcModelResponse](../contracts/jsonschema/IfcModelResponse.schema.json) |
+| `IfcQuestionRequest` | IFC question with authoritative model/view scope and exact visible STEP inventory | [IfcQuestionRequest](../contracts/jsonschema/IfcQuestionRequest.schema.json) |
+| `IfcQuestionResponse` | Executed plan/result, included/excluded/unresolved identities, source facts and planner provenance | [IfcQuestionResponse](../contracts/jsonschema/IfcQuestionResponse.schema.json) |
+
+`IfcQuestionResponse.unresolved_elements` keeps unknown membership separate from
+definite exclusions. Optional `planning` records the actual provider/model,
+reasoning setting, bounded request/inspection counts and nullable token usage.
+It contains neither raw prompts nor provider response bodies. Existing execution
+token counters also preserve unreported model usage as null; a pure native query
+can report zero model tokens. See [IFC questions](IFC_QUESTIONS.md).
 
 The [raster preprocessor](DRAWING_PREPROCESSOR.md) implements `PreparedDrawing`.
 It retains exactly one full-source region and validates source/crop/overview
@@ -71,6 +82,7 @@ All models forbid unknown fields. Internal IDs are opaque nonempty strings. `sch
 | `anchors`, `features` | Exact source locators and extracted source content, including text/OCR, primitives, detections, segmentation, tables, rows, and cells. |
 | `entities`, `representations` | Canonical building/site objects and their potentially many source depictions. A representation connects an entity to asset/view, feature, geometry, and anchor IDs. |
 | `facts`, `relations` | Provenanced property assertions and entity relationships. Multiple competing assertions remain separate. |
+| `space_boundaries` | Individual native IFC boundary records, including classifications, source locators and parent/corresponding links. |
 | `coverage` | What concepts/properties were exhaustively extracted or modeled for a precise scope and counting policy. |
 
 ### Source identity and canonical identity
@@ -146,7 +158,8 @@ For a model-wide question attached to a floor PDF, resolve the associated model/
 |---|---|
 | `select` | Select canonical concepts/entity kinds with typed `where`/`exclude` predicates and explicit count policy. |
 | `traverse` | Follow an allowlisted relation in a direction, optionally recursively with a bounded depth. |
-| `spatial_query` | Execute bounded native IFC topology from an entity-set input: `containers`, `boundary_neighbors`, `door_connections` or `outdoor_access`. `container_kind` selects `space`, `storey`, `building` or `site` for containment. This is distinct from metric geometry predicates. |
+| `spatial_query` | Execute bounded IFC topology and supported geometry from an entity-set input: `containers`, `boundary_neighbors`, `door_connections`, `outdoor_access` or `exterior_doors`. `container_kind` selects containment level; `method` and `tolerance_m` control supported geometry. Exterior doors use `exterior_basis` combined/classification/boundary. This is distinct from generic metric geometry predicates. |
+| `related_entities` | Extract and deduplicate source-object references from a table column, defaulting to `related`. Preserves relationship evidence and uncertainty before counting or looking up the related objects. |
 | `aggregate` | Count/sum/mean/min/max, optional grouping, declared missing-value handling, and requested output unit. Numeric aggregates require a field; count does not. A grouped result's measure column uses `value_key` (default `value`); group columns use their field keys. |
 | `project` | Retrieve catalog fields such as dimensions, materials, or localized descriptions. |
 | `rank` | Sort by a field and retain a bounded number of rows/entities. |
@@ -160,7 +173,8 @@ Arithmetic inputs are ordered. Subtraction and division fold from left to right;
 Typed predicates support compare, field presence, related entities, spatial predicates, and recursive all/any/not. `near` requires a distance quantity. Missing values and incompatible dimensions cannot be silently compared or added. Property aliases resolve to canonical catalog keys before execution; arbitrary SQL, Python, and unregistered function strings are not query operations.
 
 The IFC executor implements `spatial_query` using native containment, boundary,
-opening/filling and corresponding-boundary records. Corresponding native space
+opening/filling and corresponding-boundary records, with bounded geometry support
+for containment and adjacency. Corresponding native space
 boundaries support room neighbors; rooms sharing only a physical boundary
 element are explicitly partial adjacency candidates. Door connections require
 shared physical doors or door-filled openings, never a shared wall alone.
@@ -169,6 +183,33 @@ doorway boundaries, suitable for a subsequent room count. Missing required
 boundaries produce `missing_information`; an empty modeled result is not proof
 that physical access is absent. These operations do not execute represented
 metric predicates, nearest distances, orientation, routes or compliance checks.
+
+`exterior_doors` starts from door occurrences and returns a deduplicated door set.
+Its combined basis resolves membership from recorded exterior flags and physical
+external door/filled-opening boundaries. Missing classification without a positive
+boundary path remains unknown; known positive subsets produce `partial` claims
+with `quality: lower_bound` and partial coverage. Unknown-only and contradictory
+cases are non-answers. Boundary-only enumeration is explicitly a statement about
+recorded source paths, not complete physical access. These semantics propagate
+through counts and source/calculation evidence; the UI must display the bound.
+
+`KnowledgeBundle.space_boundaries` also preserves individual native boundary
+identities, classifications, optional related elements, parent/corresponding
+links and connection-geometry STEP locators. `spatial_query.method` chooses
+`native`, `geometry` or `auto`; `tolerance_m` is explicit and bounded. The geometry
+fallback supports finite boundary patches and whole-object containment in valid
+closed convex room solids. The object representation must also be a closed
+manifold; it can be nonconvex. Thin overlaps at the tolerance boundary and
+unsupported shapes remain unresolved.
+
+Calculation nodes retain typed `spatial_evidence` per subject, with verified,
+candidate, unavailable or recorded-empty status, method, source anchors and
+geometry inputs. Evidence bindings distinguish candidates from verified rows.
+Coverage includes operation identities and examined/unresolved/candidate object
+IDs. Those IDs are scope checked. Partial reports preserve known relationships,
+while exact aggregates reject unresolved inputs and candidates, including after
+`related_entities` projection. Recorded-empty topology describes inspected model
+records and does not prove physical absence.
 
 Traversal stays within the explicit scope. To query a floor's doors through model-wide type/material definitions, use model-wide scope and an explicit floor selection before traversal, or extract inherited properties onto occurrences while preserving the original type/property anchors. The plan validator checks conservative candidate sets without executing filters, so an extractor/executor remains responsible for the final selected membership and geometry suitability.
 

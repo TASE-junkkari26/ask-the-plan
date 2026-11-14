@@ -15,8 +15,8 @@ dataset coverage is claimed. See the [implementation plan](PLAN.md) and
 [Nemotron guide](../docs/nvidia_info.md).
 
 The [Gemini Hydrogen implementation plan](GEMINI_PLAN.md) records the provider
-boundary and protocol research. The image provider is selected on the backend;
-IFC planning continues to use its existing Nemotron integration.
+boundary and protocol research. Image and IFC providers are selected independently;
+see [IFC planner configuration](../docs/IFC_QUESTIONS.md#choose-the-ifc-planner).
 
 The [Gemini Decisions plan](DECISIONS_PLAN.md) records the experimental router:
 familiar tasks use Hydrogen-low and difficult, unfamiliar or uncertain cases go
@@ -40,7 +40,7 @@ Keep `GEMINI_API_KEY` on the backend. Set `IMAGE_API_PROVIDER=gemini` and choose
 `GEMINI_MODEL=gemini-4-hydrogen` with `GEMINI_THINKING_LEVEL=low` remains the
 manual default; `gemini-4-carbon` accepts `low` or `medium`. Auto mode defaults
 to Carbon medium; set `IMAGE_API_ROUTING_STRONG_THINKING_LEVEL=low` for lower
-thinking. High thinking is outside the application allowlist. Profile selection
+thinking. High thinking is outside the image-profile allowlist. Profile selection
 preserves the configured output-token and timeout limits.
 Carbon model access is required for the strong route. If it is unavailable,
 return a traced error rather than silently using Hydrogen.
@@ -84,7 +84,8 @@ their original explanation. Policy and criteria changes invalidate cached routes
 Scores are routing estimates, not answer accuracy. Exported candidate JSON retains
 the trace; failures retain it in the error state. Total cost estimates sum each
 call's timestamp/model/usage and mark missing information as unknown. IFC continues
-through its separate Nemotron integration. See [.env.example](../.env.example).
+through its independently configured Nemotron/Hydrogen planner and native executor.
+See [.env.example](../.env.example).
 
 ## Live model handoff while loading
 
@@ -167,10 +168,10 @@ The image provider defaults to `nemotron`. To select it explicitly, set
 `IMAGE_API_PROVIDER=nemotron` and configure `VERDA_INFERENCE_KEY` using the
 [Nemotron configuration rules](../docs/nvidia_info.md#local-setup).
 
-The selector affects `POST /api/v1/candidates` only. IFC queries keep their
-existing Nemotron client and `VERDA_*` settings. Gemini configuration failure
-does not disable configured IFC queries; missing Verda settings do not disable
-configured Gemini image analysis.
+The selector affects `POST /api/v1/candidates` only. IFC queries use
+`IFC_API_PROVIDER`, defaulting to Nemotron, with their own reasoning/request
+budgets. A missing image-provider credential does not disable an independently
+configured IFC planner, and missing IFC configuration does not disable images.
 
 Gemini configuration uses the same root `.env` discovery and process-over-file
 precedence, without changing `os.environ` or interpolating dollar sequences.
@@ -302,11 +303,18 @@ in that unrelated frame. Candidate IDs should remain separate from `entityId`.
 The React integration rasterizes the selected imported image or PDF page onto
 white PNG at the displayed source dimensions, hashes that submitted raster, and
 freezes the preview to that same snapshot while analysing/reviewing candidates.
-This also supports SVG/GIF/BMP previews without changing the API's accepted
+This also supports SVG/GIF/BMP and rendered DXF layout previews without changing the API's accepted
 formats. Submitting sends the snapshot and question to the selected image provider; importing alone
 does not. Original upload bytes and backend-submitted raster hashes can differ.
 Source/page changes abort the request and clear stale results; the client rejects
 responses whose submitted hash or dimensions differ from the prepared snapshot.
+
+DXF import first uses a separate, credential-free `/api/dxf/preview` route on
+this server. It receives the original file, renders one source layout using
+ezdxf, and returns a source-hash-bound SVG preview. Switching DXF layouts clears
+candidates before a new question can submit the displayed raster. See the
+[DXF guide](../docs/DXF_PREVIEW.md) for setup, limits, omissions and the distinction
+between visual candidates and native CAD answers.
 
 Run the Python server above and `npm run dev` in separate terminals. Vite proxies
 `/api` to `http://127.0.0.1:8000` in development and local preview. Optionally set

@@ -1,16 +1,29 @@
 # IFC object discovery investigation
 
-Verified against this checkout on 14 November 2026. The search and orchestration
-design below is **proposed**, not implemented. The investigation used local
-source models and credential-free probes; it did not measure live Nemotron
-interpretation accuracy or the deployment's context-window limit.
+Initial investigation on 14 November 2026. Follow-up implementation now provides
+per-session source metadata indexing, automatic retrieval/facets and bounded
+search/property/fact/relationship inspection shared by Nemotron and Hydrogen.
+See [current behavior](IFC_QUESTIONS.md). Exhaustive-selection handles, broader
+semantic retrieval and the remaining design below are **proposed**. The historical
+probes used local source models and no credentials; they did not measure live
+planner interpretation accuracy or the deployment's context-window limit.
+
+Current discovery normalizes Unicode and case for matching while retaining
+literal source values, fact/anchor references and explicit truncation. Entity
+discovery and inspection stay within the captured inventory, and the initial
+catalog reports spatial prerequisites. Large catalogs reduce general labels and
+property definitions with explicit truncation instead of rejecting every question
+at the former property-count cap. One invalid schema/reference/shape proposal can
+be repaired against the same source and scope within the shared request/deadline
+caps. Search samples remain candidates, not proof of complete selection. The
+older limitations and catalog sizes below record the original probes.
 
 The recommended change is a searchable source-metadata index with a bounded
 discovery loop before final query execution. Keep the complete IFC and answer
 computation on the backend. Give Nemotron ways to discover the model's actual
 vocabulary and inspect candidate facts without knowing full source names first.
 
-The current integration follows this path:
+The integration at the time of those probes followed this path:
 
 1. The [question panel](../frontend/src/components/IfcQuestionPanel.tsx#L139)
    captures the selected scope and uploads the original IFC when first asked.
@@ -30,15 +43,15 @@ The current integration follows this path:
    facts, anchors and calculation inputs. Its narrative is assembled
    deterministically; there is no second inference call for the final prose.
 
-The README and IFC question guide describe this implemented integration.
-`AGENTS.md` still describes IFC questions/planning as pending; that description
-does not match the current executable code.
+This sequence records the earlier implementation. The README, repository
+instructions and IFC question guide describe the current provider-independent
+planning and discovery loop.
 
-The discovery gaps are narrower than an inability to query IFC without names:
+The original discovery gaps were narrower than an inability to query IFC without names:
 class-based queries already work without object names. They become relevant
 when a question requires a function, named subset, type or property value.
 
-| Current behavior | Consequence |
+| Behavior at investigation | Consequence |
 | --- | --- |
 | Ordinary element/type labels are absent from the general entity list. It includes project, site, building, storey, space, system, zone and material labels, capped at the first 1,000 entries. | Door types and equipment labels can be unavailable even when the source contains them. The truncation flag reports omission but provides no pagination. |
 | `matching_elements` requires a complete source label in the question, a matching token containing a digit, or an explicit STEP/GUID locator. Only the first 100 matches are sent. | A natural partial phrase without digits, such as “single-flush doors”, can miss every relevant object. There is no ranked search over description, type or property values. |

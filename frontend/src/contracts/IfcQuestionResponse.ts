@@ -24,14 +24,17 @@ export type Sha256 = string;
 export type SourceCollection = string;
 export type Uri = string;
 export type Assets = Asset[];
+export type CandidateEntityIds = string[];
 export type Completeness = 'complete' | 'partial' | 'not_modeled' | 'not_extracted' | 'unknown';
 export type ConceptIds = string[];
 export type DistinctBy = 'canonical_entity_id';
 export type Grain = 'logical_object' | 'occurrence' | 'assembly' | 'part' | 'schedule_row';
 export type Hierarchy = 'all_matches' | 'topmost_matches' | 'leaves';
 export type RuleKey = string;
+export type ExaminedEntityIds = string[];
 export type Explanation = string;
 export type Id2 = string;
+export type OperationKeys = string[];
 export type PropertyKeys = string[];
 export type AnchorIds = string[];
 export type Method = 'native' | 'computed' | 'ocr' | 'detected' | 'inferred' | 'human';
@@ -48,6 +51,7 @@ export type ProjectId = string;
 export type Universe =
   'source_records' | 'modeled_objects' | 'depicted_objects' | 'schedule_entries' | 'physical_building';
 export type ViewIds = string[];
+export type UnresolvedEntityIds = string[];
 export type Coverage = Coverage1[];
 export type EntityId = string;
 export type Guid = string | null;
@@ -157,6 +161,7 @@ export type Operation =
   | TraverseOperation
   | AggregateOperation
   | SpatialQueryOperation
+  | RelatedEntitiesOperation
   | ProjectOperation
   | RankOperation
   | MeasureOperation
@@ -230,23 +235,29 @@ export type MissingValues = 'fail' | 'partial';
 export type OutputUnitId = string | null;
 export type ValueKey = string;
 export type ContainerKind = 'space' | 'storey' | 'building' | 'site';
+export type ExteriorBasis = 'combined' | 'classification' | 'boundary';
 export type InputStepId2 = string;
 export type Kind19 = 'spatial_query';
-export type Relation = 'containers' | 'boundary_neighbors' | 'door_connections' | 'outdoor_access';
+export type Method2 = 'native' | 'geometry' | 'auto';
+export type Relation = 'containers' | 'boundary_neighbors' | 'door_connections' | 'outdoor_access' | 'exterior_doors';
+export type ToleranceM = number;
+export type Column = string;
+export type InputStepId3 = string;
+export type Kind20 = 'related_entities';
 /**
  * @minItems 1
  */
 export type Fields1 = [FieldRef, ...FieldRef[]];
-export type InputStepId3 = string;
-export type Kind20 = 'project';
-export type Direction2 = 'ascending' | 'descending';
 export type InputStepId4 = string;
-export type Kind21 = 'rank';
+export type Kind21 = 'project';
+export type Direction2 = 'ascending' | 'descending';
+export type InputStepId5 = string;
+export type Kind22 = 'rank';
 export type Limit = number;
 export type Basis1 = string;
 export type CalibrationIds = string[];
-export type InputStepId5 = string;
-export type Kind22 = 'measure';
+export type InputStepId6 = string;
+export type Kind23 = 'measure';
 export type Metric = 'area' | 'union_area' | 'length' | 'perimeter' | 'volume' | 'distance' | 'angle';
 export type OutputUnitId1 = string;
 export type ReferenceEntityIds = string[];
@@ -254,9 +265,20 @@ export type ReferenceEntityIds = string[];
  * @minItems 2
  */
 export type InputStepIds = [string, string, ...string[]];
-export type Kind23 = 'arithmetic';
+export type Kind24 = 'arithmetic';
 export type Operator2 = 'add' | 'subtract' | 'multiply' | 'divide';
 export type OutputUnitId2 = string | null;
+export type CompletionTokens = number | null;
+export type DiscoveryVersion = string;
+export type InspectionCount = number;
+export type ModelRequests = number;
+export type PromptTokens = number | null;
+export type PromptVersion = string;
+export type Provider = string;
+export type RequestedModel = string;
+export type ReturnedModel = string;
+export type ThinkingLevel = string | null;
+export type ThoughtTokens = number | null;
 export type Definition = string;
 export type Dimension = [unknown, unknown, unknown, unknown, unknown, unknown, unknown] | null;
 export type Key2 = string;
@@ -277,6 +299,7 @@ export type Operation1 =
   | 'select'
   | 'traverse'
   | 'spatial_query'
+  | 'related_entities'
   | 'project'
   | 'rank'
   | 'count'
@@ -307,6 +330,14 @@ export type Output =
 export type PlanStepId = string | null;
 export type Quality1 = 'exact' | 'estimated' | 'lower_bound' | 'upper_bound';
 export type RuleKey1 = string | null;
+export type AnchorIds2 = string[];
+export type Method3 = string;
+export type RelatedIds = string[];
+export type Relation1 = 'containers' | 'boundary_neighbors' | 'door_connections' | 'outdoor_access' | 'exterior_doors';
+export type Status1 = 'verified' | 'candidate' | 'unavailable' | 'recorded_empty';
+export type SubjectId1 = string;
+export type ToleranceM1 = number | null;
+export type SpatialEvidence = SpatialEvaluation[];
 export type Calculations = CalculationNode[];
 export type ConceptIds2 = string[];
 /**
@@ -317,9 +348,10 @@ export type CoverageIds = [string, ...string[]];
  * @minItems 1
  */
 export type Evidence = [EvidenceBinding, ...EvidenceBinding[]];
-export type AnchorIds2 = string[];
+export type AnchorIds3 = string[];
 export type CalculationId = string;
 export type EntitySetIds = string[];
+export type EvidenceKind = 'verified' | 'candidate' | 'unavailable';
 export type FactIds1 = string[];
 export type ValuePath = string;
 export type Id8 = string;
@@ -346,7 +378,7 @@ export type MembersUri = string | null;
 export type EntitySets = EntitySet[];
 export type ExecutorVersion = string;
 export type Id10 = string;
-export type AnchorIds3 = string[];
+export type AnchorIds4 = string[];
 export type Code =
   | 'needs_clarification'
   | 'missing_source'
@@ -365,12 +397,12 @@ export type CostAmount = string | null;
 export type CostBasis = ('marginal' | 'amortized' | 'estimated') | null;
 export type CostCurrency = string | null;
 export type LatencyMs = number;
-export type ModelInputTokens = number;
-export type ModelOutputTokens = number;
+export type ModelInputTokens = number | null;
+export type ModelOutputTokens = number | null;
 export type PlanId = string | null;
 export type RequestId2 = string;
 export type SchemaVersion1 = '0.1.0';
-export type Status1 =
+export type Status2 =
   | 'answered'
   | 'partial'
   | 'needs_clarification'
@@ -387,11 +419,12 @@ export type ScopeLabel = string;
 export type SourceSha256 = string;
 export type Dimension1 = [unknown, unknown, unknown, unknown, unknown, unknown, unknown] | null;
 export type Id11 = string;
-export type Kind24 = 'physical' | 'presentation';
+export type Kind25 = 'physical' | 'presentation';
 export type SiMultiplier = string | null;
 export type SiOffset = string;
 export type Symbol = string;
 export type Units = Unit[];
+export type UnresolvedElements = IfcElement[];
 export type Warnings = string[];
 
 export interface IfcQuestionResponse {
@@ -405,6 +438,7 @@ export interface IfcQuestionResponse {
   interpretation: Interpretation;
   model_id: ModelId;
   plan?: QueryPlan | null;
+  planning?: IfcPlanningProvenance | null;
   properties?: Properties;
   question: Question;
   request_id: RequestId1;
@@ -414,6 +448,7 @@ export interface IfcQuestionResponse {
   scope_label: ScopeLabel;
   source_sha256: SourceSha256;
   units?: Units;
+  unresolved_elements?: UnresolvedElements;
   warnings?: Warnings;
 }
 export interface EvidenceAnchor {
@@ -448,14 +483,18 @@ export interface Asset {
   uri: Uri;
 }
 export interface Coverage1 {
+  candidate_entity_ids?: CandidateEntityIds;
   completeness: Completeness;
   concept_ids: ConceptIds;
   count_policy?: CountPolicy | null;
+  examined_entity_ids?: ExaminedEntityIds;
   explanation: Explanation;
   id: Id2;
+  operation_keys?: OperationKeys;
   property_keys?: PropertyKeys;
   provenance: Provenance;
   scope: Scope;
+  unresolved_entity_ids?: UnresolvedEntityIds;
 }
 export interface CountPolicy {
   distinct_by?: DistinctBy;
@@ -651,40 +690,64 @@ export interface AggregateOperation {
   value_key?: ValueKey;
 }
 /**
- * Bounded native IFC topology, separate from mesh/metric spatial predicates.
+ * Bounded IFC topology and supported source-geometry checks.
  */
 export interface SpatialQueryOperation {
   container_kind?: ContainerKind;
+  exterior_basis?: ExteriorBasis;
   input_step_id: InputStepId2;
   kind: Kind19;
+  method?: Method2;
   relation: Relation;
+  tolerance_m?: ToleranceM;
+}
+/**
+ * Deduplicate references from one table column at occurrence grain.
+ */
+export interface RelatedEntitiesOperation {
+  column?: Column;
+  input_step_id: InputStepId3;
+  kind: Kind20;
 }
 export interface ProjectOperation {
   fields: Fields1;
-  input_step_id: InputStepId3;
-  kind: Kind20;
+  input_step_id: InputStepId4;
+  kind: Kind21;
 }
 export interface RankOperation {
   direction: Direction2;
   field: FieldRef;
-  input_step_id: InputStepId4;
-  kind: Kind21;
+  input_step_id: InputStepId5;
+  kind: Kind22;
   limit: Limit;
 }
 export interface MeasureOperation {
   basis: Basis1;
   calibration_ids?: CalibrationIds;
-  input_step_id: InputStepId5;
-  kind: Kind22;
+  input_step_id: InputStepId6;
+  kind: Kind23;
   metric: Metric;
   output_unit_id: OutputUnitId1;
   reference_entity_ids?: ReferenceEntityIds;
 }
 export interface ArithmeticOperation {
   input_step_ids: InputStepIds;
-  kind: Kind23;
+  kind: Kind24;
   operator: Operator2;
   output_unit_id?: OutputUnitId2;
+}
+export interface IfcPlanningProvenance {
+  completion_tokens?: CompletionTokens;
+  discovery_version: DiscoveryVersion;
+  inspection_count: InspectionCount;
+  model_requests: ModelRequests;
+  prompt_tokens?: PromptTokens;
+  prompt_version: PromptVersion;
+  provider: Provider;
+  requested_model: RequestedModel;
+  returned_model: ReturnedModel;
+  thinking_level?: ThinkingLevel;
+  thought_tokens?: ThoughtTokens;
 }
 export interface PropertyDefinition {
   definition: Definition;
@@ -706,7 +769,7 @@ export interface QueryResult {
   plan_id?: PlanId;
   request_id: RequestId2;
   schema_version?: SchemaVersion1;
-  status: Status1;
+  status: Status2;
 }
 export interface CalculationNode {
   anchor_ids?: AnchorIds1;
@@ -721,6 +784,23 @@ export interface CalculationNode {
   plan_step_id?: PlanStepId;
   quality: Quality1;
   rule_key?: RuleKey1;
+  spatial_evidence?: SpatialEvidence;
+}
+/**
+ * Machine-readable support and unresolved inputs for one spatial subject.
+ */
+export interface SpatialEvaluation {
+  anchor_ids?: AnchorIds2;
+  metadata?: Metadata;
+  method: Method3;
+  related_ids?: RelatedIds;
+  relation: Relation1;
+  status: Status1;
+  subject_id: SubjectId1;
+  tolerance_m?: ToleranceM1;
+}
+export interface Metadata {
+  [k: string]: unknown;
 }
 export interface Claim {
   concept_ids: ConceptIds2;
@@ -736,9 +816,10 @@ export interface Claim {
   value: Value5;
 }
 export interface EvidenceBinding {
-  anchor_ids?: AnchorIds2;
+  anchor_ids?: AnchorIds3;
   calculation_id: CalculationId;
   entity_set_ids?: EntitySetIds;
+  evidence_kind?: EvidenceKind;
   fact_ids?: FactIds1;
   value_path?: ValuePath;
 }
@@ -752,7 +833,7 @@ export interface EntitySet {
   scope: Scope;
 }
 export interface Issue {
-  anchor_ids?: AnchorIds3;
+  anchor_ids?: AnchorIds4;
   code: Code;
   entity_ids?: EntityIds4;
   fact_ids?: FactIds2;
@@ -771,7 +852,7 @@ export interface ExecutionMetrics {
 export interface Unit {
   dimension?: Dimension1;
   id: Id11;
-  kind: Kind24;
+  kind: Kind25;
   si_multiplier?: SiMultiplier;
   si_offset?: SiOffset;
   symbol: Symbol;

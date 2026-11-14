@@ -1,10 +1,10 @@
-"""Local HTTP adapters for image candidates and evidence-backed IFC queries."""
+"""Local HTTP adapters for image candidates, DXF previews and IFC queries."""
 from __future__ import annotations
 
 import asyncio
 import hashlib
 import anyio
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from copy import deepcopy
 from tempfile import TemporaryDirectory
 from pathlib import Path
@@ -21,9 +21,13 @@ from starlette.responses import JSONResponse, StreamingResponse
 
 from contracts.models import (CandidateImage, ImageCandidateError, ImageCandidateResponse,
                               ImageDecisionTrace, ImageCandidateProgress, ImageCandidateStreamEvent)
-from gemini import AsyncGeminiClient
+from dxf_api.render import MAX_DXF_BODY_BYTES
+from dxf_api.routes import install_dxf_routes
+from gemini import AsyncGeminiClient, GeminiSettings
 from gemini.decisions import AsyncDecisionsClient
 from gemini.decisions_config import DecisionsSettings
+from ifc_api.config import IfcSettings
+from ifc_api.providers import GeminiPlanner, NemotronPlanner, Planner
 from ifc_api.routes import install_ifc_routes
 from ifc_api.service import IfcService, MAX_IFC_BODY_BYTES
 from nemotron import AsyncNemotronClient, ConfigurationError, NemotronSettings
@@ -69,19 +73,23 @@ class _CandidateStreamResponse(StreamingResponse):
 class BodyLimitMiddleware:
     """Bound received bytes even when Content-Length is absent or incorrect."""
 
-    def __init__(self, app, max_bytes: int, ifc_max_bytes: int = MAX_IFC_BODY_BYTES):
+    def __init__(self, app, max_bytes: int, ifc_max_bytes: int = MAX_IFC_BODY_BYTES,
+                 dxf_max_bytes: int = MAX_DXF_BODY_BYTES):
         self.app = app
         self.max_bytes = max_bytes
         self.ifc_max_bytes = ifc_max_bytes
+        self.dxf_max_bytes = dxf_max_bytes
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         request_id = uuid4().hex
         scope.setdefault("state", {})["request_id"] = request_id
-        # IFC uploads stream into multipart's spool instead of the image body
-        # buffer. Preserve the image cap while allowing the viewer's file limit.
-        max_bytes = (self.ifc_max_bytes if scope.get("path") == "/api/ifc/models"
+        # Source uploads stream into multipart's spool instead of the image body
+        # buffer. Each source format retains its own limit.
+        path = scope.get("path")
+        max_bytes = (self.ifc_max_bytes if path == "/api/ifc/models"
+                     else self.dxf_max_bytes if path == "/api/dxf/preview"
                      else self.max_bytes)
         received = 0
         response_started = False
@@ -152,9 +160,24 @@ def create_app(settings: ApiSettings | None = None, *,
                client_factory: Callable[[], AsyncNemotronClient] | None = None,
                gemini_client_factory: Callable[[], AsyncGeminiClient] | None = None,
                strong_client_factory: Callable[[], AsyncGeminiClient] | None = None,
-               decisions_client_factory: Callable[[], AsyncDecisionsClient] | None = None) -> FastAPI:
-    """Build the app; injection keeps HTTP tests independent of keys/network."""
+               decisions_client_factory: Callable[[], AsyncDecisionsClient] | None = None,
+               ifc_settings: IfcSettings | None = None,
+               ifc_planner_factory: Callable[[], Planner] | None = None,
+               ifc_gemini_client_factory: Callable[[], AsyncGeminiClient] | None = None) -> FastAPI:
+    """Build the app; injection keeps HTTP tests independent of keys/network.
+
+    Client factories transfer client ownership to the app. A planner factory
+    injects an externally owned adapter; its caller retains transport ownership.
+    """
     settings = settings if settings is not None else ApiSettings.from_env()
+    ifc_configuration_error = None
+    try:
+        ifc_settings = ifc_settings if ifc_settings is not None else IfcSettings.from_env()
+    except ConfigurationError:
+        # Retain image readiness. Structural defaults are never used to plan a
+        # request after an invalid IFC setting; the explicit error blocks IFC.
+        ifc_settings = IfcSettings()
+        ifc_configuration_error = "Invalid IFC planner settings. Check IFC_API_* and IFC_GEMINI_* values on the backend."
     request_body = deepcopy(_REQUEST_BODY)
     request_body["requestBody"]["content"]["multipart/form-data"]["schema"]["properties"]["question"]["maxLength"] = settings.max_question_chars
 
@@ -163,6 +186,7 @@ def create_app(settings: ApiSettings | None = None, *,
         client = None
         gemini_client = None
         extra_clients = []
+        ifc_gemini_client = None
         app.state.service = None
         app.state.in_flight = 0
         app.state.preprocessor = ImagePreprocessor(settings)
@@ -178,8 +202,26 @@ def create_app(settings: ApiSettings | None = None, *,
             except ConfigurationError:
                 # Keep health/docs available to diagnose missing local setup.
                 pass
-            app.state.ifc_service = IfcService(client)
-            # IFC always retains its Nemotron client, regardless of image provider.
+            planner = None
+            try:
+                if ifc_configuration_error is not None:
+                    pass
+                elif ifc_planner_factory is not None:
+                    planner = ifc_planner_factory()
+                elif ifc_settings.provider == "nemotron" and client is not None:
+                    planner = NemotronPlanner(client, ifc_settings)
+                elif ifc_settings.provider == "gemini":
+                    ifc_gemini_client = (ifc_gemini_client_factory() if ifc_gemini_client_factory is not None
+                                         else AsyncGeminiClient(GeminiSettings.from_env().profile("normal")))
+                    planner = GeminiPlanner(ifc_gemini_client, ifc_settings)
+            except ConfigurationError:
+                # IFC provider configuration is independent of image readiness.
+                pass
+            app.state.ifc_service = IfcService(
+                None if ifc_configuration_error is not None else client,
+                planner=planner, settings=ifc_settings)
+            app.state.ifc_service.configuration_error = ifc_configuration_error
+            # Image and IFC provider choices have separate clients and budgets.
             if settings.provider == "gemini":
                 try:
                     gemini_client = (gemini_client_factory() if gemini_client_factory is not None
@@ -218,23 +260,18 @@ def create_app(settings: ApiSettings | None = None, *,
                     pass
             yield
         finally:
-            # A timeout shields a running preparation worker. Drain it before
-            # removing the session cache, just as request temp cleanup waits for
-            # its preparation worker below.
-            await asyncio.to_thread(app.state.preprocessor.close)
-            if hasattr(app.state, "ifc_service"):
-                await asyncio.to_thread(app.state.ifc_service.close)
-            try:
-                for owned in extra_clients:
-                    await owned.close()
-                if gemini_client is not None:
-                    await gemini_client.close()
-            finally:
-                if client is not None:
-                    await client.close()
+            # Attempt every owned cleanup even if an earlier one fails. The
+            # stack drains source workers before closing provider transports.
+            async with AsyncExitStack() as cleanup:
+                for owned in (client, gemini_client, ifc_gemini_client, *extra_clients):
+                    if owned is not None:
+                        cleanup.push_async_callback(owned.close)
+                if hasattr(app.state, "ifc_service"):
+                    cleanup.push_async_callback(asyncio.to_thread, app.state.ifc_service.close)
+                cleanup.push_async_callback(asyncio.to_thread, app.state.preprocessor.close)
 
     app = FastAPI(title="Ask the Plan analysis", version="0.1.0", lifespan=lifespan,
-                  description="Image candidate regions and Nemotron-planned, engine-computed IFC answers with source evidence.")
+                  description="Image candidate regions, local DXF layout previews and model-planned, engine-computed IFC answers with source evidence.")
     app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)
     app.add_middleware(CORSMiddleware, allow_origins=settings.origins,
                        allow_methods=["GET", "POST", "DELETE"], allow_headers=["Content-Type"],
@@ -437,6 +474,7 @@ def create_app(settings: ApiSettings | None = None, *,
                     release()
 
     install_ifc_routes(app)
+    install_dxf_routes(app)
     return app
 
 

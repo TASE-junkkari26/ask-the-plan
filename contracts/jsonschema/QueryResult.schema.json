@@ -92,6 +92,7 @@
             "select",
             "traverse",
             "spatial_query",
+            "related_entities",
             "project",
             "rank",
             "count",
@@ -193,6 +194,13 @@
           ],
           "default": null,
           "title": "Rule Key"
+        },
+        "spatial_evidence": {
+          "items": {
+            "$ref": "#/$defs/SpatialEvaluation"
+          },
+          "title": "Spatial Evidence",
+          "type": "array"
         }
       },
       "required": [
@@ -497,6 +505,16 @@
           "title": "Entity Set Ids",
           "type": "array"
         },
+        "evidence_kind": {
+          "default": "verified",
+          "enum": [
+            "verified",
+            "candidate",
+            "unavailable"
+          ],
+          "title": "Evidence Kind",
+          "type": "string"
+        },
         "fact_ids": {
           "items": {
             "minLength": 1,
@@ -574,16 +592,30 @@
           "type": "number"
         },
         "model_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 0,
-          "minimum": 0,
-          "title": "Model Input Tokens",
-          "type": "integer"
+          "title": "Model Input Tokens"
         },
         "model_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 0,
-          "minimum": 0,
-          "title": "Model Output Tokens",
-          "type": "integer"
+          "title": "Model Output Tokens"
         }
       },
       "required": [
@@ -1029,6 +1061,85 @@
         "universe"
       ],
       "title": "Scope",
+      "type": "object"
+    },
+    "SpatialEvaluation": {
+      "additionalProperties": false,
+      "description": "Machine-readable support and unresolved inputs for one spatial subject.",
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "related_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Related Ids",
+          "type": "array"
+        },
+        "relation": {
+          "enum": [
+            "containers",
+            "boundary_neighbors",
+            "door_connections",
+            "outdoor_access",
+            "exterior_doors"
+          ],
+          "title": "Relation",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "verified",
+            "candidate",
+            "unavailable",
+            "recorded_empty"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "subject_id": {
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "tolerance_m": {
+          "anyOf": [
+            {
+              "maximum": 0.1,
+              "minimum": 1e-06,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tolerance M"
+        }
+      },
+      "required": [
+        "relation",
+        "subject_id",
+        "status",
+        "method"
+      ],
+      "title": "SpatialEvaluation",
       "type": "object"
     },
     "TableColumn": {

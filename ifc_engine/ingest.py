@@ -19,6 +19,8 @@ from . import __version__
 from .catalog import ATTRIBUTES, CLASS_KEY, CONCEPT_CLASSES, LENGTH_ATTRIBUTES, attribute_key, property_key
 from .units import DIMENSIONS, SI_TARGETS, UNIT_TYPES, convert, decimal_string, source_unit, standard_units
 
+EXTRACTOR_REVISION = "spatial-boundary-records-v1"
+
 
 def file_sha256(path: Path) -> str:
     with path.open("rb") as stream:
@@ -50,7 +52,7 @@ def load_ifc(path: str | Path, *, cache_dir: str | Path | None = None,
     """No network, geometry generation, or changes to the original IFC."""
     path = Path(path).resolve(strict=True)
     digest = file_sha256(path)
-    config = {"engine": __version__, "ifcopenshell": ifcopenshell.version,
+    config = {"engine": __version__, "extractor_revision": EXTRACTOR_REVISION, "ifcopenshell": ifcopenshell.version,
               "uri": path.as_uri(), "sha256": digest, "source_collection": source_collection,
               "attribution": attribution, "license": license}
     config_hash = hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()
@@ -90,7 +92,7 @@ class _Extractor:
         self.asset_id = _id("asset", path.as_uri() + digest)
         self.run_id = _id("run", config_hash)
         self.anchors, self.units, self.entities = {}, standard_units(), {}
-        self.facts, self.relations, self.representations = [], [], []
+        self.facts, self.relations, self.representations, self.space_boundaries = [], [], [], []
         self.warnings = set()
         self.class_chains = {}
         self.property_labels = {}
@@ -274,6 +276,20 @@ class _Extractor:
                 if subject is not None and target is not None and physical_boundary:
                     self.add_relation(subject, predicate, target, rel, objects)
                 if root == "IfcRelSpaceBoundary":
+                    counterpart = getattr(rel, "CorrespondingBoundary", None)
+                    parent = getattr(rel, "ParentBoundary", None)
+                    connection = getattr(rel, "ConnectionGeometry", None)
+                    if subject is not None:
+                        self.space_boundaries.append(m.IfcSpaceBoundary(
+                            id=_id("boundary", self.asset_id + ":" + str(rel.id())),
+                            native_step_id=rel.id(), space_id=self.entity_id(subject),
+                            element_id=self.entity_id(target) if target is not None else None,
+                            corresponding_boundary_id=_id("boundary", self.asset_id + ":" + str(counterpart.id())) if counterpart else None,
+                            parent_boundary_id=_id("boundary", self.asset_id + ":" + str(parent.id())) if parent else None,
+                            physical_or_virtual=rel.PhysicalOrVirtualBoundary,
+                            internal_or_external=rel.InternalOrExternalBoundary,
+                            connection_geometry_step_id=connection.id() if connection else None,
+                            provenance=self.provenance(self.anchor(rel), *([self.anchor(connection)] if connection else []))))
                     if target is None or not physical_boundary:
                         self.warnings.add("Virtual or unbound IfcRelSpaceBoundary records do not establish shared-element neighbors or door connections.")
                     if (subject is not None and target is not None and
@@ -352,7 +368,8 @@ class _Extractor:
         bundle = m.KnowledgeBundle(**self.bundle_base, concepts=concepts, properties=properties,
             units=list(self.units.values()), anchors=list(self.anchors.values()),
             entities=list(self.entities.values()), facts=self.facts,
-            relations=list({relation.id: relation for relation in self.relations}.values()), representations=self.representations)
+            relations=list({relation.id: relation for relation in self.relations}.values()),
+            representations=self.representations, space_boundaries=self.space_boundaries)
         return LoadedModel(bundle, self.model.schema_identifier, sorted(self.warnings))
 
     def add_relation(self, subject, predicate, obj, source, objects, *, anchors=None):

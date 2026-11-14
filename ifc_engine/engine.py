@@ -17,13 +17,14 @@ from .ingest import load_ifc
 from .units import SI_TARGETS, convert, decimal_string
 
 EXECUTOR_VERSION = "ifc-engine/" + __version__
-OPERATIONS = ["select", "traverse", "spatial_query", "project", "rank", *["aggregate." + name for name in ["count", "sum", "mean", "min", "max"]]]
+OPERATIONS = ["select", "traverse", "spatial_query", "related_entities", "project", "rank", *["aggregate." + name for name in ["count", "sum", "mean", "min", "max"]]]
 
 
 class QueryError(ValueError):
-    def __init__(self, code: str, message: str, entity_ids=(), fact_ids=(), options=()):
+    def __init__(self, code: str, message: str, entity_ids=(), fact_ids=(), options=(), anchor_ids=()):
         super().__init__(message)
         self.code, self.entity_ids, self.fact_ids, self.options = code, list(entity_ids), list(fact_ids), list(options)
+        self.anchor_ids = list(anchor_ids)
 
 
 @dataclass
@@ -32,6 +33,8 @@ class _Support:
     facts: set[str] = field(default_factory=set)
     anchors: set[str] = field(default_factory=set)
     operation: str = "lookup"
+    evidence_kind: str = "verified"
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -48,6 +51,15 @@ class _State:
     conversions: list[tuple[m.QuantityValue, _Support]] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     issues: list[m.Issue] = field(default_factory=list)
+    quality: str = "exact"
+    completeness: str = "complete"
+    coverage_explanation: str | None = None
+    excluded: set[str] = field(default_factory=set)
+    spatial_records: list[dict] = field(default_factory=list)
+    unresolved: set[str] = field(default_factory=set)
+    candidate_members: set[str] = field(default_factory=set)
+    coverage_complete: bool = True
+    operation_keys: list[str] = field(default_factory=list)
 
 
 def _reachable(graph, roots):
@@ -64,6 +76,7 @@ class IfcQueryEngine:
     def __init__(self, bundle: m.KnowledgeBundle, *, schema="unknown", warnings=(), cache_hit=False):
         validate_bundle(bundle)
         self.bundle, self.schema, self.warnings, self.cache_hit = bundle, schema, list(warnings), cache_hit
+        self.geometry = None
         self.entities = {item.id: item for item in bundle.entities}
         self.properties = {item.key: item for item in bundle.properties}
         self.units = {item.id: item for item in bundle.units}
@@ -99,8 +112,8 @@ class IfcQueryEngine:
                 "Single IFC revision; only source_records and modeled_objects scopes are supported.",
                 "Counts describe supported records in the supplied model, not physical building completeness.",
                 "Only scalar attributes, single-value properties and simple quantities are extracted.",
-                "Native spatial topology is supported; geometry measurement, metric spatial predicates, routes and arithmetic are not implemented.",
-                "Missing values fail explicitly; partial aggregates and counting derived table rows are not implemented.",
+                "Native spatial topology and bounded boundary/room geometry are supported when source prerequisites exist; metric spatial predicates, routes and arithmetic are not implemented.",
+                "Missing values fail explicitly; exterior-door lower-bound counts are supported, while unresolved topology aggregates and derived table-row counts are not.",
                 "Only the registered IFC occurrence, topmost-assembly and leaf policies are supported.",
                 "Ranking is bounded; ties use stable entity/row order and do not establish a unique extremum.",
             ])
@@ -108,7 +121,10 @@ class IfcQueryEngine:
     @classmethod
     def open(cls, path: str | Path, **kwargs):
         loaded = load_ifc(path, **kwargs)
-        return cls(loaded.bundle, schema=loaded.schema, warnings=loaded.warnings, cache_hit=loaded.cache_hit)
+        engine = cls(loaded.bundle, schema=loaded.schema, warnings=loaded.warnings, cache_hit=loaded.cache_hit)
+        from .geometry import GeometryProvider
+        engine.geometry = GeometryProvider(Path(path), loaded.bundle.assets[0].sha256)
+        return engine
 
     def scope(self, storey: str | None = None, entity: str | None = None) -> m.Scope:
         roots = []
@@ -205,6 +221,7 @@ class IfcQueryEngine:
             request_id=request_id, plan_id=plan_id, status=error.code,
             issues=[m.Issue(code=error.code, message=m.LocalizedText(text=str(error)),
                             entity_ids=error.entity_ids, fact_ids=error.fact_ids,
+                            anchor_ids=error.anchor_ids,
                             options=[m.LocalizedText(text=text) for text in error.options])],
             executor_version=EXECUTOR_VERSION, metrics=m.ExecutionMetrics(latency_ms=latency, cache_hit=self.cache_hit))
 
@@ -278,11 +295,43 @@ class IfcQueryEngine:
                 previous = states[op.input_step_id]
                 state = _State(previous.value, set(previous.members), previous.policy, set(previous.concepts),
                                set(previous.properties), set(previous.facts), set(previous.anchors), previous.shape,
-                               cells=[dict(row) for row in previous.cells], notes=list(previous.notes), issues=list(previous.issues))
+                               cells=[dict(row) for row in previous.cells], notes=list(previous.notes), issues=list(previous.issues),
+                               quality=previous.quality, completeness=previous.completeness,
+                               coverage_explanation=previous.coverage_explanation,
+                               spatial_records=list(previous.spatial_records), unresolved=set(previous.unresolved),
+                               candidate_members=set(previous.candidate_members), coverage_complete=previous.coverage_complete,
+                               operation_keys=list(previous.operation_keys))
                 inputs = ["calculation:" + op.input_step_id]
+                if state.quality != "exact" and (op.kind != "aggregate" or op.method != "count"):
+                    raise QueryError("unsupported_operation", "An incomplete exterior-door selection supports occurrence counting only; other operations need complete membership.")
                 if op.kind == "spatial_query":
                     from .spatial import execute_spatial
                     execute_spatial(self, state, op, scope_members)
+                    if state.excluded:
+                        excluded_id = "set:" + step.id + ":excluded"
+                        sets.append(m.EntitySet(id=excluded_id, scope=plan.scope, count_policy=state.policy,
+                            count=len(state.excluded), entity_ids=sorted(state.excluded)))
+                elif op.kind == "related_entities":
+                    members = set()
+                    for index, row in enumerate(previous.value.rows):
+                        value = row[op.column]
+                        if isinstance(value, m.UnavailableValue):
+                            continue
+                        if not isinstance(value, m.ReferencesValue):
+                            raise QueryError("needs_clarification", "The requested result column does not contain source objects.")
+                        support = previous.cells[index][op.column]
+                        members.update(value.entity_ids)
+                        state.anchors.update(support.anchors)
+                        state.facts.update(support.facts)
+                        if support.evidence_kind == "candidate":
+                            state.candidate_members.update(value.entity_ids)
+                    if not members <= scope_members:
+                        raise QueryError("incomplete_coverage", "The related source objects include objects outside the captured scope.",
+                                         sorted(previous.members))
+                    state.members, state.shape, state.cells = members, "entities", []
+                    state.concepts = {concept for item in members for concept in self.entities[item].concept_ids}
+                    state.policy = POLICIES["all_matches"]
+                    state.value = m.ReferencesValue(kind="references", entity_ids=sorted(members))
                 elif op.kind == "traverse":
                     graph = self.graphs[op.predicate, op.direction]
                     members, frontier = set(), set(state.members)
@@ -294,6 +343,8 @@ class IfcQueryEngine:
                         if not frontier:
                             break
                     state.members = members - previous.members if op.recursive else members
+                    if previous.candidate_members:
+                        state.candidate_members.update(state.members)
                     state.concepts = set().union(*(self.entities[e].concept_ids for e in state.members)) if state.members else set()
                     state.value = m.ReferencesValue(kind="references", entity_ids=sorted(state.members))
                     # Traversal produces occurrences; do not imply the input's assembly policy still applies.
@@ -331,6 +382,8 @@ class IfcQueryEngine:
                         sets.append(m.EntitySet(id=excluded_id, scope=plan.scope, count_policy=POLICIES["all_matches"],
                                                 count=len(excluded), entity_ids=sorted(excluded)))
             set_id = "set:" + step.id
+            operation_hash = hashlib.sha256(json.dumps(op.model_dump(mode="json"), sort_keys=True).encode()).hexdigest()[:24]
+            state.operation_keys.append(op.kind + ":" + operation_hash)
             sets.append(m.EntitySet(id=set_id, scope=plan.scope, count_policy=state.policy,
                                     count=len(state.members), entity_ids=sorted(state.members)))
             state.anchors.update(a for e in state.members for a in self.entities[e].provenance.anchor_ids)
@@ -348,14 +401,16 @@ class IfcQueryEngine:
             calculations.append(m.CalculationNode(id="calculation:" + step.id, plan_step_id=step.id,
                 operation=operation, input_node_ids=inputs, fact_ids=sorted(state.facts),
                 included_set_id=set_id, excluded_set_id=excluded_id, anchor_ids=sorted(state.anchors), output=state.value,
-                quality="exact", rule_key=state.policy.rule_key))
+                quality="estimated" if state.candidate_members else state.quality, rule_key=state.policy.rule_key,
+                spatial_evidence=[m.SpatialEvaluation(**record) for record in state.spatial_records]))
             states[step.id] = state
         claims = []
         for output_key, step_id in plan.outputs.items():
             state = states[step_id]
             coverage = self._coverage(plan, state)
             bindings = [m.EvidenceBinding(calculation_id="calculation:" + step_id, fact_ids=sorted(state.facts),
-                        anchor_ids=sorted(state.anchors), entity_set_ids=["set:" + step_id])]
+                        anchor_ids=sorted(state.anchors), entity_set_ids=["set:" + step_id],
+                        evidence_kind="candidate" if state.candidate_members else "verified")]
             if isinstance(state.value, m.TableValue):
                 for row_index, row in enumerate(state.value.rows):
                     for column, value in row.items():
@@ -366,13 +421,14 @@ class IfcQueryEngine:
                             count=len(support.members), entity_ids=sorted(support.members)))
                         calculations.append(m.CalculationNode(id=cell_node_id, operation=support.operation,
                             fact_ids=sorted(support.facts), included_set_id=cell_set_id, anchor_ids=sorted(support.anchors),
-                            output=value, quality="exact", rule_key=state.policy.rule_key))
+                            output=value, quality="estimated" if support.evidence_kind == "candidate" else state.quality, rule_key=state.policy.rule_key))
                         pointer = f"/rows/{row_index}/" + column.replace("~", "~0").replace("/", "~1")
                         bindings.append(m.EvidenceBinding(value_path=pointer, calculation_id=cell_node_id,
-                            fact_ids=sorted(support.facts), anchor_ids=sorted(support.anchors), entity_set_ids=[cell_set_id]))
+                            fact_ids=sorted(support.facts), anchor_ids=sorted(support.anchors), entity_set_ids=[cell_set_id],
+                            evidence_kind=support.evidence_kind))
             claims.append(m.Claim(id="claim:" + output_key, output_key=output_key, name=output_key,
                 scope=plan.scope, concept_ids=sorted(state.concepts), property_keys=sorted(state.properties),
-                value=state.value, quality="exact", coverage_ids=[coverage.id], count_policy=state.policy,
+                value=state.value, quality="estimated" if state.candidate_members else state.quality, coverage_ids=[coverage.id], count_policy=state.policy,
                 evidence=bindings))
         issues = {issue.message.text: issue for step_id in plan.outputs.values() for issue in states[step_id].issues}
         notes = list(dict.fromkeys(note for step_id in plan.outputs.values() for note in states[step_id].notes))
@@ -384,15 +440,24 @@ class IfcQueryEngine:
         return result
 
     def _coverage(self, plan, state):
-        data = [plan.scope.model_dump(), sorted(state.concepts), sorted(state.properties), state.policy.model_dump()]
+        unresolved = state.unresolved | {entity_id for issue in state.issues
+            if issue.code in {"incomplete_coverage", "missing_information", "conflicting_evidence"}
+            for entity_id in issue.entity_ids}
+        data = [plan.scope.model_dump(), sorted(state.concepts), sorted(state.properties), state.policy.model_dump(),
+                state.completeness, state.coverage_explanation, sorted(state.anchors), state.operation_keys,
+                state.spatial_records, sorted(unresolved), sorted(state.candidate_members), state.coverage_complete]
         identifier = "coverage:" + hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:24]
         existing = next((c for c in self.bundle.coverage if c.id == identifier), None)
         if existing:
             return existing
         coverage = m.Coverage(id=identifier, scope=plan.scope, concept_ids=sorted(state.concepts),
-            property_keys=sorted(state.properties), count_policy=state.policy, completeness="complete",
-            explanation="Complete enumeration of supported source records and evaluation of the requested fields. "
-                        "Applies to this supplied model revision and query universe; physical building completeness is unverified.",
+            property_keys=sorted(state.properties), count_policy=state.policy,
+            completeness=state.completeness if state.coverage_complete and not unresolved and not state.candidate_members else "partial",
+            operation_keys=state.operation_keys,
+            examined_entity_ids=sorted({record["subject_id"] for record in state.spatial_records}),
+            unresolved_entity_ids=sorted(unresolved), candidate_entity_ids=sorted(state.candidate_members),
+            explanation=state.coverage_explanation or ("Evaluation of the specified operations and source inputs; unresolved and candidate spatial objects are listed separately. "
+                        "Applies to this supplied model revision and query universe; physical building completeness is unverified."),
             provenance=m.Provenance(run_id=self.bundle.runs[0].id, method="computed", anchor_ids=sorted(state.anchors)))
         self.bundle.coverage.append(coverage)
         return coverage
@@ -452,12 +517,14 @@ class IfcQueryEngine:
         anchors = set(self.entity_anchors[item])
         anchors.update(a for f in facts for a in f.provenance.anchor_ids)
         anchors.update(a for f in facts if isinstance(f.value, m.QuantityValue) for a in f.value.unit_anchor_ids)
-        return _Support({item}, {f.id for f in facts}, anchors)
+        return _Support({item}, {f.id for f in facts}, anchors,
+                        evidence_kind="candidate" if item in state.candidate_members else "verified")
 
     def _combined_support(self, items, ref, state, operation="lookup"):
         supports = [self._support(item, ref, state) if ref else _Support({item} if isinstance(item, str) else set()) for item in items]
         return _Support(set().union(*(s.members for s in supports)), set().union(*(s.facts for s in supports)),
-                        set().union(*(s.anchors for s in supports)), operation)
+                        set().union(*(s.anchors for s in supports)), operation,
+                        evidence_kind="candidate" if any(s.evidence_kind == "candidate" for s in supports) else "verified")
 
     def _check_predicate(self, predicate):
         if predicate is None:
@@ -478,7 +545,10 @@ class IfcQueryEngine:
             return True if True in values else None if None in values else False
         if predicate.kind == "related_to":
             graph = self.graphs[predicate.predicate, predicate.direction]
-            return bool(graph[entity] & set(predicate.entity_ids) & scope_members)
+            matches = graph[entity] & set(predicate.entity_ids) & scope_members
+            state.anchors.update(anchor for related in matches
+                for anchor in self.edge_anchors[predicate.predicate, predicate.direction, entity, related])
+            return bool(matches)
         if predicate.kind == "spatial":
             raise QueryError("unsupported_operation", "Spatial predicates require a geometry executor.")
         actual = self._read(entity, predicate.field, state)
@@ -536,6 +606,9 @@ class IfcQueryEngine:
         return self._comparison_signature(value), self._scalar(value)
 
     def _aggregate(self, state, op):
+        if state.unresolved or state.candidate_members or not state.coverage_complete:
+            raise QueryError("incomplete_coverage", "An exact aggregate cannot be established from unresolved or candidate spatial relationships.",
+                             sorted(state.unresolved | state.candidate_members))
         if state.shape == "table" and op.method == "count":
             raise QueryError("unsupported_operation", "Counting derived table rows needs a separate evidence grain.")
         items = list(state.value.entity_ids) if state.shape == "entities" else state.value.rows

@@ -12,6 +12,7 @@ import hashlib
 import json
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -55,6 +56,7 @@ class IfcApiTests(unittest.IsolatedAsyncioTestCase):
         source, doors, rooms, stairs, ground, upper = sample_model(cls.path)
         cls.windows = [source.create_entity("IfcWindow", GlobalId=ifcopenshell.guid.new(), Name=name,
             OverallWidth=width, OverallHeight=1500.) for name, width in [("121.A", 900.), ("121.B", 1200.), ("121.C", 1000.)]]
+        cls.windows[0].ObjectType = "M_Single-Flush"
         source.create_entity("IfcRelContainedInSpatialStructure", GlobalId=ifcopenshell.guid.new(),
                             RelatingStructure=ground, RelatedElements=cls.windows[:2])
         source.create_entity("IfcRelContainedInSpatialStructure", GlobalId=ifcopenshell.guid.new(),
@@ -214,8 +216,9 @@ class IfcApiTests(unittest.IsolatedAsyncioTestCase):
             model = await self.upload(client)
             response = await self.question(client, model)
             self.assertEqual(response.status_code, 200, response.text)
-            self.assertEqual(response.json()["result"]["status"], "execution_error")
+            self.assertEqual(response.json()["result"]["status"], "needs_clarification")
             self.assertFalse(response.json()["result"]["claims"])
+            self.assertEqual(len(self.provider_requests), 2)
 
     async def test_unsupported_planner_outcome_is_honest(self):
         self.reply = {"status": "unsupported_operation", "interpretation": "Shortest egress paths require geometry not implemented by this engine.",
@@ -299,10 +302,132 @@ class IfcApiTests(unittest.IsolatedAsyncioTestCase):
                 async with self.api(lambda r: completion(None, content=text, finish=finish)) as (client, _):
                     model = await self.upload(client)
                     response = await self.question(client, model)
-                    self.assertEqual(response.status_code, 502)
+                    self.assertEqual(response.status_code, 200)
                     self.assertNotIn(KEY, response.text)
                     self.assertNotIn("private", response.text)
-                    self.assertNotIn("claims", response.text)
+                    self.assertEqual(response.json()["result"]["claims"], [])
+                    self.assertEqual(response.json()["result"]["status"], "needs_clarification")
+                    self.assertEqual(len(self.provider_requests), 2)
+                self.provider_requests.clear()
+
+    async def test_one_schema_repair_preserves_scope_and_accounts_for_both_calls(self):
+        def handler(_):
+            return completion(None, content="{") if len(self.provider_requests) == 1 else completion(proposal())
+        async with self.api(handler) as (client, _):
+            model = await self.upload(client)
+            response = await self.question(client, model)
+            answer = response.json()
+            self.assertEqual(answer["result"]["status"], "answered", response.text)
+            self.assertEqual(answer["result"]["claims"][0]["value"]["value"], 2)
+            self.assertEqual(len(self.provider_requests), 2)
+            self.assertEqual(answer["result"]["metrics"]["model_input_tokens"], 246)
+            repaired = json.loads(self.provider_requests[1]["messages"][-1]["content"])
+            self.assertEqual(repaired["scope"], "view")
+            self.assertIn("plan_repair", repaired)
+            self.assertEqual(len(answer["plan"]["scope"]["exact_entity_ids"]), 2)
+
+    async def test_shape_preflight_repairs_before_query_execution(self):
+        invalid = proposal()
+        invalid["steps"].append({"id": "invalid", "operation": {"kind": "traverse",
+            "input_step_id": "answer", "predicate": "contains", "direction": "outgoing"}})
+        invalid["output_step_id"] = "invalid"
+        def handler(_):
+            return completion(invalid if len(self.provider_requests) == 1 else proposal())
+        async with self.api(handler) as (client, app):
+            model = await self.upload(client)
+            engine = app.state.ifc_service._model(model["model_id"], self.sha).engine
+            with patch.object(engine, "execute", wraps=engine.execute) as execute:
+                response = await self.question(client, model)
+            self.assertEqual(response.json()["result"]["status"], "answered", response.text)
+            self.assertEqual(execute.call_count, 1)
+            self.assertEqual(len(self.provider_requests), 2)
+
+    async def test_catalog_searches_partial_source_values_and_reports_scope_prerequisites(self):
+        async with self.api() as (client, _):
+            model = await self.upload(client)
+            response = await self.question(client, model, question="Show the single-flush windows.")
+            self.assertEqual(response.status_code, 200, response.text)
+            catalog = json.loads(self.provider_requests[0]["messages"][-1]["content"])["catalog"]
+            self.assertEqual(catalog["spatial_prerequisites"]["scope_object_count"], 2)
+            self.assertEqual(catalog["classes"], {"IfcWindow": 2})
+            hits = catalog["matching_elements"]
+            self.assertEqual({hit["step_id"] for hit in hits}, {self.window_steps[0]})
+            match = next(field for field in hits[0]["matched_fields"] if field.get("property_key") == attribute_key("ObjectType"))
+            self.assertEqual(match["literal_value"], "M_Single-Flush")
+            self.assertTrue(match["fact_id"])
+            self.assertTrue(match["anchor_ids"])
+            self.assertFalse(catalog["matching_elements_truncated"])
+
+    async def test_source_is_retained_until_model_deletion(self):
+        async with self.api() as (client, app):
+            model = await self.upload(client)
+            state = app.state.ifc_service._model(model["model_id"], self.sha)
+            path = state.source_path
+            self.assertTrue(path.is_file())
+            self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), self.sha)
+            await client.delete("/api/ifc/models/" + model["model_id"])
+            self.assertFalse(path.exists())
+
+    async def test_deleting_active_model_defers_source_cleanup(self):
+        async with self.api() as (client, app):
+            model = await self.upload(client)
+            state = app.state.ifc_service._model(model["model_id"], self.sha)
+            path = state.source_path
+            state.active += 1
+            app.state.ifc_service.delete(model["model_id"])
+            self.assertTrue(path.exists())
+            app.state.ifc_service._release(state)
+            self.assertFalse(path.exists())
+
+    async def test_cancelled_native_work_holds_scope_gate_and_source_until_completion(self):
+        entered, release = threading.Event(), threading.Event()
+        async with self.api() as (client, app):
+            model = await self.upload(client)
+            service = app.state.ifc_service
+            state = service._model(model["model_id"], self.sha)
+            path = state.source_path
+            execute = service._execute
+            def pending(*args):
+                entered.set()
+                if not release.wait(3):
+                    raise RuntimeError("Test native-worker release was not received")
+                return execute(*args)
+            with patch.object(service, "_execute", side_effect=pending):
+                task = asyncio.create_task(self.question(client, model))
+                try:
+                    async def wait_for_worker():
+                        while not entered.is_set():
+                            await asyncio.sleep(.01)
+                    await asyncio.wait_for(wait_for_worker(), 2)
+                    task.cancel()
+                    await asyncio.sleep(.02)
+                    service.delete(model["model_id"])
+                    self.assertTrue(path.is_file())
+                    self.assertTrue(service._gate.locked())
+                    self.assertEqual(state.active, 1)
+                finally:
+                    release.set()
+                    with self.assertRaises(asyncio.CancelledError):
+                        await task
+            self.assertFalse(path.exists())
+            self.assertFalse(service._gate.locked())
+            self.assertEqual(state.active, 0)
+
+    async def test_duplicate_upload_cleans_only_the_unused_source_copy(self):
+        created = []
+        def directory(**kwargs):
+            result = tempfile.TemporaryDirectory(**kwargs)
+            created.append(Path(result.name))
+            return result
+        async with self.api() as (client, app):
+            with patch("ifc_api.service.TemporaryDirectory", side_effect=directory):
+                first = await self.upload(client)
+                second = await self.upload(client)
+            self.assertEqual(first["model_id"], second["model_id"])
+            self.assertTrue(created[0].is_dir())
+            self.assertFalse(created[1].exists())
+            app.state.ifc_service.delete(first["model_id"])
+            self.assertFalse(created[0].exists())
 
     async def test_provider_errors_are_safe(self):
         for status in [401, 429, 500]:

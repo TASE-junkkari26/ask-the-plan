@@ -25,7 +25,7 @@ DIMENSIONS = {
 TABLES = (
     "projects", "documents", "assets", "runs", "concepts", "properties", "units",
     "frames", "transforms", "views", "geometries", "anchors", "calibrations",
-    "features", "entities", "representations", "facts", "relations", "coverage",
+    "features", "entities", "representations", "facts", "relations", "coverage", "space_boundaries",
 )
 
 
@@ -494,10 +494,45 @@ def validate_bundle(bundle: KnowledgeBundle) -> None:
             _fail("custom relations need a native predicate")
         ctx.provenance(relation.provenance)
     _acyclic(ctx.children, "contains/aggregates hierarchy")
+    boundary_locators = set()
+    for boundary in bundle.space_boundaries:
+        space = _get(ctx.entities, boundary.space_id, "boundary space")
+        locator = space.document_id, boundary.native_step_id
+        if locator in boundary_locators:
+            _fail("duplicate native space boundary locator")
+        boundary_locators.add(locator)
+        if space.kind != "space" and "ifc:IfcExternalSpatialElement" not in space.concept_ids:
+            _fail("space boundary must belong to a space")
+        if boundary.element_id:
+            element = _get(ctx.entities, boundary.element_id, "boundary element")
+            if element.document_id != space.document_id:
+                _fail("space boundary joins different source revisions")
+        for linked_id in [boundary.corresponding_boundary_id, boundary.parent_boundary_id]:
+            if linked_id:
+                linked = _get(ctx.space_boundaries, linked_id, "linked space boundary")
+                if ctx.entities[linked.space_id].document_id != space.document_id:
+                    _fail("linked boundaries belong to different source revisions")
+        ctx.provenance(boundary.provenance)
+        if not boundary.provenance.anchor_ids:
+            _fail("space boundary needs source evidence")
+        if not any(ctx.anchors[anchor_id].selector.kind == "step_id"
+                   and ctx.anchors[anchor_id].selector.value == str(boundary.native_step_id)
+                   and not ctx.anchors[anchor_id].selector.property_path
+                   for anchor_id in boundary.provenance.anchor_ids):
+            _fail("space boundary STEP locator must match its native evidence")
+        for anchor_id in boundary.provenance.anchor_ids:
+            if ctx.assets[ctx.anchors[anchor_id].asset_id].document_id != space.document_id:
+                _fail("boundary evidence belongs to another source revision")
     for coverage in bundle.coverage:
         _scope(coverage.scope, ctx)
         _refs(ctx.concepts, coverage.concept_ids, "coverage concept")
         _refs(ctx.properties, coverage.property_keys, "coverage property")
+        members = _scope_members(coverage.scope, ctx)
+        for identifiers in [coverage.examined_entity_ids, coverage.unresolved_entity_ids, coverage.candidate_entity_ids]:
+            if not set(identifiers) <= members:
+                _fail("spatial coverage objects are outside scope")
+        if coverage.completeness == "complete" and (coverage.unresolved_entity_ids or coverage.candidate_entity_ids):
+            _fail("complete coverage cannot contain unresolved spatial objects")
         ctx.provenance(coverage.provenance)
 
 
@@ -665,7 +700,7 @@ def validate_plan(plan: QueryPlan, bundle: KnowledgeBundle,
         elif op.kind == "spatial_query":
             if shape != "entities":
                 _fail("native spatial queries require an entity-set input")
-            if op.relation != "outdoor_access":
+            if op.relation not in {"outdoor_access", "exterior_doors"}:
                 shape = "table"
                 result_columns[step.id] = {
                     "subject": ("references", None), "related": ("references", None),
@@ -673,6 +708,12 @@ def validate_plan(plan: QueryPlan, bundle: KnowledgeBundle,
                 }
                 # Conservative candidates; the executor resolves native paths.
                 current = set(scope_members)
+        elif op.kind == "related_entities":
+            if shape != "table" or columns is None:
+                _fail("related_entities requires a table input")
+            if op.column not in columns or columns[op.column][0] != "references":
+                _fail("related_entities requires a references column")
+            shape = "entities"
         elif op.kind == "project":
             if shape == "scalar":
                 _fail("projection requires entities or table rows")
@@ -755,6 +796,14 @@ def validate_result(result: QueryResult, bundle: KnowledgeBundle,
         if not set(node.input_node_ids) <= prior:
             _fail("calculation inputs must refer to earlier nodes (DAG order)")
         prior.add(node.id)
+        for spatial in node.spatial_evidence:
+            _refs(ctx.entities, [spatial.subject_id, *spatial.related_ids], "spatial evidence object")
+            _refs(ctx.anchors, spatial.anchor_ids, "spatial evidence anchor")
+            if plan is not None and not {spatial.subject_id, *spatial.related_ids} <= _scope_members(plan.scope, ctx):
+                _fail("spatial evidence objects are outside the captured scope")
+        if node.operation in {"count", "sum", "mean", "min", "max", "group_by"} and node.quality == "exact" and any(
+                spatial.status in {"candidate", "unavailable"} for spatial in node.spatial_evidence):
+            _fail("exact aggregation cannot consume unresolved spatial evidence")
         if plan is not None and node.plan_step_id is not None:
             _refs({step.id: step for step in plan.steps}, [node.plan_step_id], "calculation plan step")
         _refs(ctx.facts, node.fact_ids, "calculation fact")

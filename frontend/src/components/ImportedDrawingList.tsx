@@ -50,7 +50,7 @@ export function ImportedDrawingList({
               <small>
                 {drawing.kind === 'ifc' ? (
                   <Box size={11} />
-                ) : drawing.kind === 'pdf' ? (
+                ) : drawing.kind === 'pdf' || drawing.kind === 'dxf' ? (
                   <FileText size={11} />
                 ) : (
                   <FileImage size={11} />
@@ -67,11 +67,13 @@ export function ImportedDrawingList({
                         : drawing.status === 'ready'
                           ? '3D model open'
                           : 'Ready to open · 3D'
-                  : drawing.kind === 'pdf'
-                    ? `${drawing.pages} ${language === 'fi' ? 'sivua' : drawing.pages === 1 ? 'page' : 'pages'}`
-                    : language === 'fi'
-                      ? 'Kuva'
-                      : 'Image'}
+                  : drawing.kind === 'dxf'
+                    ? `DXF · ${drawing.dxf?.layouts[drawing.page - 1] ?? ''}`
+                    : drawing.kind === 'pdf'
+                      ? `${drawing.pages} ${language === 'fi' ? 'sivua' : drawing.pages === 1 ? 'page' : 'pages'}`
+                      : language === 'fi'
+                        ? 'Kuva'
+                        : 'Image'}
                 <span>·</span>
                 {fileSize(drawing.file.size)}
               </small>

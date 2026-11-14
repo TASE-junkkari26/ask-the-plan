@@ -1075,6 +1075,43 @@ kbd {
   height: 24px;
   width: 24px;
 }
+.dxf-layout-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 55%;
+  font-size: 11px;
+}
+.dxf-layout-picker select {
+  min-width: 0;
+  max-width: 220px;
+  font: inherit;
+  border: 1px solid #d8dfd2;
+  border-radius: 4px;
+  padding: 3px;
+  background: white;
+}
+.dxf-preview-note {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-top: 1px solid #d8dfd2;
+  font-size: 11px;
+  color: #65735d;
+}
+.dxf-preview-partial {
+  background: #fff8e8;
+  color: #76561d;
+}
+.dxf-preview-note details {
+  margin-top: 4px;
+  max-height: 110px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+.dxf-preview-note summary {
+  cursor: pointer;
+}
 .workspace-footnote {
   height: 34px;
   display: flex;

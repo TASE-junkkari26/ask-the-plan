@@ -18,7 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 test = ["jsonschema>=4.18,<5", "pytest>=8,<10", "Pillow>=12,<13", "numpy>=1.24,<3"]
 experiments = ["Pillow>=12,<13"]
-api = ["fastapi>=0.115.12,<1", "starlette>=0.46,<2", "uvicorn>=0.30,<1", "python-multipart>=0.0.20,<1", "Pillow>=12,<13", "numpy>=1.24,<3"]
+api = ["fastapi>=0.115.12,<1", "starlette>=0.46,<2", "uvicorn>=0.30,<1", "python-multipart>=0.0.20,<1", "Pillow>=12,<13", "numpy>=1.24,<3", "ezdxf>=1.4.3,<2"]
 preprocess = ["Pillow>=12,<13", "numpy>=1.24,<3"]
 
 [project.scripts]
@@ -27,7 +27,7 @@ nemotron = "nemotron.cli:main"
 drawing-preprocess = "drawing_preprocessor.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["contracts*", "ifc_engine*", "ifc_api*", "nemotron*", "gemini*", "image_api*", "drawing_preprocessor*"]
+include = ["contracts*", "ifc_engine*", "ifc_api*", "dxf_api*", "nemotron*", "gemini*", "image_api*", "drawing_preprocessor*"]
 
 [tool.setuptools.package-data]
 image_api = ["prompt.txt", "gemini_prompt.txt", "decision_questions.json"]

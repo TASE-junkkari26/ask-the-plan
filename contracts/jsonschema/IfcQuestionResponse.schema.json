@@ -343,6 +343,7 @@
             "select",
             "traverse",
             "spatial_query",
+            "related_entities",
             "project",
             "rank",
             "count",
@@ -444,6 +445,13 @@
           ],
           "default": null,
           "title": "Rule Key"
+        },
+        "spatial_evidence": {
+          "items": {
+            "$ref": "#/$defs/SpatialEvaluation"
+          },
+          "title": "Spatial Evidence",
+          "type": "array"
         }
       },
       "required": [
@@ -738,6 +746,14 @@
     "Coverage": {
       "additionalProperties": false,
       "properties": {
+        "candidate_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Candidate Entity Ids",
+          "type": "array"
+        },
         "completeness": {
           "enum": [
             "complete",
@@ -768,6 +784,14 @@
           ],
           "default": null
         },
+        "examined_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Examined Entity Ids",
+          "type": "array"
+        },
         "explanation": {
           "title": "Explanation",
           "type": "string"
@@ -776,6 +800,13 @@
           "minLength": 1,
           "title": "Id",
           "type": "string"
+        },
+        "operation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Operation Keys",
+          "type": "array"
         },
         "property_keys": {
           "items": {
@@ -790,6 +821,14 @@
         },
         "scope": {
           "$ref": "#/$defs/Scope"
+        },
+        "unresolved_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Unresolved Entity Ids",
+          "type": "array"
         }
       },
       "required": [
@@ -959,6 +998,16 @@
           "title": "Entity Set Ids",
           "type": "array"
         },
+        "evidence_kind": {
+          "default": "verified",
+          "enum": [
+            "verified",
+            "candidate",
+            "unavailable"
+          ],
+          "title": "Evidence Kind",
+          "type": "string"
+        },
         "fact_ids": {
           "items": {
             "minLength": 1,
@@ -1036,16 +1085,30 @@
           "type": "number"
         },
         "model_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 0,
-          "minimum": 0,
-          "title": "Model Input Tokens",
-          "type": "integer"
+          "title": "Model Input Tokens"
         },
         "model_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 0,
-          "minimum": 0,
-          "title": "Model Output Tokens",
-          "type": "integer"
+          "title": "Model Output Tokens"
         }
       },
       "required": [
@@ -1314,6 +1377,103 @@
         "name"
       ],
       "title": "IfcElement",
+      "type": "object"
+    },
+    "IfcPlanningProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "completion_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completion Tokens"
+        },
+        "discovery_version": {
+          "title": "Discovery Version",
+          "type": "string"
+        },
+        "inspection_count": {
+          "minimum": 0,
+          "title": "Inspection Count",
+          "type": "integer"
+        },
+        "model_requests": {
+          "minimum": 0,
+          "title": "Model Requests",
+          "type": "integer"
+        },
+        "prompt_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Tokens"
+        },
+        "prompt_version": {
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "requested_model": {
+          "title": "Requested Model",
+          "type": "string"
+        },
+        "returned_model": {
+          "title": "Returned Model",
+          "type": "string"
+        },
+        "thinking_level": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Thinking Level"
+        },
+        "thought_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Thought Tokens"
+        }
+      },
+      "required": [
+        "provider",
+        "requested_model",
+        "returned_model",
+        "prompt_version",
+        "discovery_version",
+        "model_requests",
+        "inspection_count"
+      ],
+      "title": "IfcPlanningProvenance",
       "type": "object"
     },
     "Issue": {
@@ -1634,6 +1794,7 @@
               "measure": "#/$defs/MeasureOperation",
               "project": "#/$defs/ProjectOperation",
               "rank": "#/$defs/RankOperation",
+              "related_entities": "#/$defs/RelatedEntitiesOperation",
               "select": "#/$defs/SelectOperation",
               "spatial_query": "#/$defs/SpatialQueryOperation",
               "traverse": "#/$defs/TraverseOperation"
@@ -1652,6 +1813,9 @@
             },
             {
               "$ref": "#/$defs/SpatialQueryOperation"
+            },
+            {
+              "$ref": "#/$defs/RelatedEntitiesOperation"
             },
             {
               "$ref": "#/$defs/ProjectOperation"
@@ -2288,6 +2452,34 @@
       "title": "ReferencesValue",
       "type": "object"
     },
+    "RelatedEntitiesOperation": {
+      "additionalProperties": false,
+      "description": "Deduplicate references from one table column at occurrence grain.",
+      "properties": {
+        "column": {
+          "default": "related",
+          "minLength": 1,
+          "title": "Column",
+          "type": "string"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "related_entities",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id"
+      ],
+      "title": "RelatedEntitiesOperation",
+      "type": "object"
+    },
     "RelationPredicate": {
       "additionalProperties": false,
       "properties": {
@@ -2527,6 +2719,85 @@
       "title": "SelectOperation",
       "type": "object"
     },
+    "SpatialEvaluation": {
+      "additionalProperties": false,
+      "description": "Machine-readable support and unresolved inputs for one spatial subject.",
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "related_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Related Ids",
+          "type": "array"
+        },
+        "relation": {
+          "enum": [
+            "containers",
+            "boundary_neighbors",
+            "door_connections",
+            "outdoor_access",
+            "exterior_doors"
+          ],
+          "title": "Relation",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "verified",
+            "candidate",
+            "unavailable",
+            "recorded_empty"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "subject_id": {
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "tolerance_m": {
+          "anyOf": [
+            {
+              "maximum": 0.1,
+              "minimum": 1e-06,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tolerance M"
+        }
+      },
+      "required": [
+        "relation",
+        "subject_id",
+        "status",
+        "method"
+      ],
+      "title": "SpatialEvaluation",
+      "type": "object"
+    },
     "SpatialPredicate": {
       "additionalProperties": false,
       "properties": {
@@ -2574,7 +2845,7 @@
     },
     "SpatialQueryOperation": {
       "additionalProperties": false,
-      "description": "Bounded native IFC topology, separate from mesh/metric spatial predicates.",
+      "description": "Bounded IFC topology and supported source-geometry checks.",
       "properties": {
         "container_kind": {
           "default": "storey",
@@ -2587,6 +2858,16 @@
           "title": "Container Kind",
           "type": "string"
         },
+        "exterior_basis": {
+          "default": "combined",
+          "enum": [
+            "combined",
+            "classification",
+            "boundary"
+          ],
+          "title": "Exterior Basis",
+          "type": "string"
+        },
         "input_step_id": {
           "minLength": 1,
           "title": "Input Step Id",
@@ -2597,15 +2878,33 @@
           "title": "Kind",
           "type": "string"
         },
+        "method": {
+          "default": "auto",
+          "enum": [
+            "native",
+            "geometry",
+            "auto"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
         "relation": {
           "enum": [
             "containers",
             "boundary_neighbors",
             "door_connections",
-            "outdoor_access"
+            "outdoor_access",
+            "exterior_doors"
           ],
           "title": "Relation",
           "type": "string"
+        },
+        "tolerance_m": {
+          "default": 0.01,
+          "maximum": 0.1,
+          "minimum": 1e-06,
+          "title": "Tolerance M",
+          "type": "number"
         }
       },
       "required": [
@@ -2969,6 +3268,17 @@
       ],
       "default": null
     },
+    "planning": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/IfcPlanningProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "properties": {
       "items": {
         "$ref": "#/$defs/PropertyDefinition"
@@ -3016,6 +3326,13 @@
         "$ref": "#/$defs/Unit"
       },
       "title": "Units",
+      "type": "array"
+    },
+    "unresolved_elements": {
+      "items": {
+        "$ref": "#/$defs/IfcElement"
+      },
+      "title": "Unresolved Elements",
       "type": "array"
     },
     "warnings": {

@@ -72,6 +72,10 @@ def summarize(engine, result: m.QueryResult) -> str | None:
                         statements.append(f"{subject} has a modeled door connection to {related}, via {via}.")
                     elif basis == "Native corresponding space boundaries":
                         statements.append(f"{subject} and {related} have corresponding native space boundaries.")
+                    elif basis == "Geometry-verified overlapping boundary patches":
+                        statements.append(f"{subject} and {related} have overlapping modeled boundary patches within the recorded tolerance, via {via}.")
+                    elif basis == "Geometry-verified space containment":
+                        statements.append(f"{subject} is contained in the modeled space {related}, according to the recorded geometry check.")
                     else:
                         statements.append(f"{subject} shares {via} with {related}; this is a candidate neighbor based on a shared boundary element.")
                 else:
@@ -90,7 +94,8 @@ def summarize(engine, result: m.QueryResult) -> str | None:
                 statements.append(f"The summary shows 12 of {len(output.rows)} rows; the structured results and evidence contain the full result.")
         elif isinstance(output, m.CountValue):
             grain = claim.count_policy.grain.replace("_", " ") if claim.count_policy else "source object"
-            statements.append(f"{claim.output_key}: {output.value} modeled {grain}(s) in the selected scope.")
+            qualifier = {"lower_bound": "at least ", "upper_bound": "at most ", "estimated": "approximately "}.get(claim.quality, "")
+            statements.append(f"{claim.output_key}: {qualifier}{output.value} modeled {grain}(s) in the selected scope.")
         elif isinstance(output, m.ReferencesValue):
             statements.append("Modeled source objects in the selected scope: " + value(output) + ".")
         else:

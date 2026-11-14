@@ -16,7 +16,7 @@ class ApiBodyLimitTests(unittest.IsolatedAsyncioTestCase):
             body = await Request(scope, receive).body()
             await JSONResponse({"bytes": len(body)})(scope, receive, send)
 
-        app = BodyLimitMiddleware(consume, max_bytes=20, ifc_max_bytes=40)
+        app = BodyLimitMiddleware(consume, max_bytes=20, ifc_max_bytes=40, dxf_max_bytes=35)
 
         async def chunks():
             yield b"a" * (size // 2)
@@ -47,6 +47,13 @@ class ApiBodyLimitTests(unittest.IsolatedAsyncioTestCase):
         response = await self.post("/api/ifc/models", streaming=True, size=41)
         self.assertEqual(response.status_code, 413, response.text)
         self.assertEqual(response.json()["code"], "request_too_large")
+
+    async def test_dxf_has_a_separate_cap_with_and_without_content_length(self):
+        for streaming in (False, True):
+            with self.subTest(streaming=streaming):
+                self.assertEqual((await self.post("/api/dxf/preview", streaming=streaming)).status_code, 200)
+                response = await self.post("/api/dxf/preview", streaming=streaming, size=36)
+                self.assertEqual(response.status_code, 413, response.text)
 
 
 if __name__ == "__main__":

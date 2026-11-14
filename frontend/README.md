@@ -1,16 +1,17 @@
 # Ask the Plan frontend
 
 A local React/TypeScript drawing workbench. It opens on a file import screen,
-then shows an image/PDF with a chat panel on the right or an IFC model with its
+then shows an image/PDF/DXF with a chat panel on the right or an IFC model with its
 3D inspector. No demo drawings or prepared answers are shown. Submitting a
-question about an image/PDF uses the internal image API with its selected
+question about an image/PDF/DXF uses the internal image API with its selected
 Nemotron or Gemini provider and shows candidate boxes, uncertainty, and source
 close-ups. Optional backend capability routing chooses Hydrogen or Carbon and
 records the path for the expandable explanation. While analysis is loading, the
 workbench shows image preparation, model selection and then **Handing to [model]**
 as soon as the backend dispatches the selected analyzer. Inference credentials stay
-on the Python backend. IFC viewing stays local until a question uploads the model
-to that backend for Nemotron planning and CPU engine execution.
+on the Python backend. DXF previews upload the original to the local backend for
+2D rendering without inference. IFC viewing stays local until a question uploads the model
+to that backend for the independently selected IFC planner and CPU engine execution.
 
 The [project scope](../docs/PROJECT_SCOPE.md) is the supplied dataset's question
 families. Build real integrations and evidence views for that set; unknown
@@ -65,10 +66,11 @@ still needs verification on the target demo devices.
 
 - Opening screen with a keyboard-accessible file selector and drag-and-drop area. Loading and invalid-file states stay on this screen until a preview is ready.
 - Local image/SVG/PDF previews with pan, zoom, fit, quarter-turn rotation, and PDF page navigation.
+- DXF previews rendered by the local backend, with source layout selection, original source hashes and persistent partial-rendering warnings. See [DXF support](../docs/DXF_PREVIEW.md).
 - IFC imports with a separate 3D renderer, original object properties/IDs, storey filtering, visibility controls, sectioning, and engine-backed questions. Questions and the inspector share the right panel for models.
-- Chat panel opens automatically after an image/PDF loads or is selected. It displays the original filename and preview details, and sends the selected image/page for candidate analysis when a question is submitted.
-- Loading image/PDF requests announce the backend-selected model immediately in the viewer and chat panel, in English/Finnish. A source/page change, cancellation or new request clears that status. The opt-in NDJSON response carries progress and the final result in one POST; JSON-only backends remain compatible without resubmitting analysis.
-- Completed image/PDF responses show the returned model, total response time, and estimated USD token cost, with an expandable usage and pricing breakdown. The collapsed **How this was analyzed** panel displays the recorded capability check, chosen route, preparation and execution. Failed requests retain their recorded path too; responses without a trace explicitly say so.
+- Chat panel opens automatically after an image/PDF/DXF loads or is selected. It displays the original filename and preview details, and sends the selected image/page/layout for candidate analysis when a question is submitted.
+- Loading image/PDF/DXF requests announce the backend-selected model immediately in the viewer and chat panel, in English/Finnish. A source/page change, cancellation or new request clears that status. The opt-in NDJSON response carries progress and the final result in one POST; JSON-only backends remain compatible without resubmitting analysis.
+- Completed image/PDF/DXF responses show the returned model, total response time, and estimated USD token cost, with an expandable usage and pricing breakdown. The collapsed **How this was analyzed** panel displays the recorded capability check, chosen route, preparation and execution. Failed requests retain their recorded path too; responses without a trace explicitly say so.
 - Searchable drawing picker containing only imported files, with thumbnails and removal. The native dialog supports focus containment, Escape, and the `/` or Ctrl/Cmd+K shortcuts.
 - English/Finnish core UI labels; original filenames and source text stay unchanged.
 - Current-drawing scope by default, following the organizer clarification reported on 14 November 2026. Whole-building requests do not aggregate unseen drawings.
@@ -92,10 +94,11 @@ and is not listed in the import-only application library.
 On first open, click **Select files** or drop files onto the import screen.
 After loading, use **Import drawings** in the header or drawing picker, or drop
 files anywhere on the workbench. Select multiple files at once. Supported previews are **PDF,
-PNG, JPEG, WebP, SVG, GIF, and BMP**, with a **35 MiB limit per file**. **IFC** models
+PNG, JPEG, WebP, SVG, GIF, BMP, and DXF**, with a **35 MiB limit per file**. **IFC** models
 have a separate **512 MiB limit** and are converted locally when selected. The importer
 also recognizes supported filename extensions when the browser omits the MIME
-type. DWG/DXF drawings need a PDF or SVG export. IFCZIP and binary IFC are not supported.
+type. DXF needs the running local backend and its `api` dependencies, including
+ezdxf. DWG drawings need a DXF, PDF or SVG export. IFCZIP and binary IFC are not supported.
 Model conversion has progress, cancellation, retry, and removal controls. A native geometry abort can trigger one recovery attempt: malformed source faces are omitted only from a derived preview, with a persistent **Partial geometry** warning and inspectable omission counts. The original IFC is retained; complete geometry requires a corrected source. Source reading/hashing and conversion run in a worker; reopening the most recent model reuses its converted buffer. The size cap is a desktop input target, with actual memory use depending on model complexity.
 
 Open **Drawings** to search imported filenames, select a thumbnail, or remove a
@@ -106,10 +109,11 @@ lists each failure and its filename. Before any file has loaded, failures appear
 directly on the import screen. Removing the selected file opens another import,
 or returns to the import screen with the chat/inspector hidden when no imports remain.
 
-Imported images/PDFs have pan, zoom, fit, and rotation controls.
+Imported images/PDFs/DXFs have pan, zoom, fit, and rotation controls.
 The footer navigates PDF pages; each PDF remembers its current page while you
 browse other drawings. PDF previews limit their canvas size for large sheets.
-Exported SVGs embed the displayed image or rendered PDF page, so they do not
+DXF previews have a named layout selector; only its displayed layout is analysed.
+Exported SVGs embed the displayed image or rendered PDF/DXF view, so they do not
 depend on a temporary browser URL.
 
 IFC models use orbit/pan/zoom, perspective or orthographic projection, storeys,
@@ -118,7 +122,7 @@ original attributes, property/type/quantity links, units, GUIDs, and STEP IDs;
 metadata-only items remain inspectable. IFC has no SVG export or PDF pagination.
 
 Files stay in memory in the current tab and are cleared on refresh. For an
-image/PDF, submitting a question rasterizes the selected image/page onto white
+image/PDF/DXF, submitting a question rasterizes the selected image/page/layout onto white
 PNG and sends that snapshot and question to the API. The same frozen snapshot
 appears beneath candidate boxes. Analysis limits are 20 MiB for that PNG and 40
 megapixels; larger previews receive an explicit analysis-limit error.
@@ -129,8 +133,8 @@ toggles, marked SVG export, and candidate JSON export work with these proposals.
 An empty list does not establish a true object count of zero. Partial, unreadable,
 unsupported, and error results remain distinct.
 
-The chat panel opens for each selected image/PDF, including after it was manually
-hidden. Source/page changes abort analysis, clear candidates, and discard stale
+The chat panel opens for each selected image/PDF/DXF, including after it was manually
+hidden. Source/page/layout changes abort analysis, clear candidates, and discard stale
 responses. Returned image hashes/dimensions must match the submitted snapshot.
 Preview URLs are released when a file is removed, a PDF page is replaced, or the
 workbench unmounts. Switching sources cancels pending page rendering without
@@ -156,7 +160,7 @@ from the root requires its optional dataset source.
 
 ### Response metrics and cost estimates
 
-Image/PDF responses show elapsed time measured in the browser, from question
+Image/PDF/DXF responses show elapsed time measured in the browser, from question
 submission through image preparation, upload and the validated response. The
 details also show the backend's model-request and raster-preparation timings.
 These timings measure different parts of the request and are not added together.
@@ -179,14 +183,21 @@ same display. Gemini Decisions is estimated at $0.10 per million input tokens an
 
 The application does not call `src/demo/engine.ts`. Its `askDemo` adapter and
 synthetic sources remain for offline fixture and contract checks. Imported
-images/PDF pages use `/api/v1/candidates`, the generated `ImageCandidateResponse`,
+images/PDF pages/DXF layouts use `/api/v1/candidates`, the generated `ImageCandidateResponse`,
 and a separate candidate overlay. Select the image provider on the backend with
 `IMAGE_API_PROVIDER`; see [provider setup](../image_api/README.md#choose-the-image-provider).
 Response-local candidate IDs are not canonical
 building entity IDs. IFC uses `/api/ifc/models` and `/api/ifc/questions`, generated
-IFC wire contracts and the engine's `QueryResult` with source evidence. Nemotron
-proposes bounded queries; the backend validates and executes them. Final answers
-for image/PDF questions remain pending.
+IFC wire contracts and the engine's `QueryResult` with source evidence. The configured
+Nemotron or Hydrogen planner uses bounded source inspection before proposing
+queries; the backend validates and executes them. Exterior-door partial counts
+show “At least” and unresolved doors separately from exclusions. Select the IFC
+provider using [the independent settings](../docs/IFC_QUESTIONS.md#choose-the-ifc-planner).
+Final answers
+for image/PDF/DXF questions remain pending. DXF import uses the independent,
+credential-free `/api/dxf/preview` endpoint and generated `DxfPreviewResponse`.
+DXF candidate exports include source/layout metadata and `candidate_response`
+as separate records, retaining the original source hash alongside the PNG hash.
 
 `src/types.ts` defines UI-only `Mark` and `DemoResponse` presentation records. They resolve the canonical entity, source geometry, label, ordinal, and calculation display. They are not additional physical facts or changes to the shared Python contracts. `src/contracts/` is generated from the committed request/result JSON Schemas.
 

@@ -108,7 +108,7 @@ class IfcSpatialQueryTests(unittest.TestCase):
     def entity(self, name):
         return self.engine.resolve_entity(name)
 
-    def plan(self, names, relation, *, container_kind="storey", count=False, exact_names=None):
+    def plan(self, names, relation, *, container_kind="storey", count=False, exact_names=None, method="auto"):
         entity_ids = [self.entity(name) for name in names]
         concepts = sorted({concept for entity_id in entity_ids for concept in self.engine.entities[entity_id].concept_ids
                            if concept.startswith("ifc:")})
@@ -121,7 +121,7 @@ class IfcSpatialQueryTests(unittest.TestCase):
                     operator="eq", value=m.ReferencesValue(kind="references", entity_ids=[entity_id]))
                 for entity_id in entity_ids]))),
             m.PlanStep(id="locations", operation=m.SpatialQueryOperation(kind="spatial_query", input_step_id="objects",
-                relation=relation, container_kind=container_kind))]
+                relation=relation, container_kind=container_kind, method=method))]
         if count:
             steps.append(m.PlanStep(id="count", operation=m.AggregateOperation(kind="aggregate", input_step_id="locations", method="count")))
         return m.QueryPlan(id="plan:spatial-test", request_id="request:spatial-test", scope=scope,
@@ -308,6 +308,165 @@ class IfcSpatialQueryTests(unittest.TestCase):
         self.assertTrue({relationships["wall_a"].id(), objects["wall"].id()}
                         <= self.anchor_steps(result.claims[0].evidence[0].anchor_ids))
         self.assertIn("Shared walls alone do not establish a connection", result.explanation.text)
+
+
+    def test_mixed_known_and_missing_rooms_retain_proven_relationships(self):
+        result = self.execute(self.plan(["1B07", "7.16"], "door_connections"), "partial")
+        self.assertEqual(len(result.claims[0].value.rows), 1)
+        self.assertEqual(result.claims[0].value.rows[0]["related"].entity_ids, [self.entity("1B08")])
+        self.assertTrue(any(self.entity("7.16") in issue.entity_ids for issue in result.issues))
+        coverage = next(item for item in self.engine.bundle.coverage if item.id in result.claims[0].coverage_ids)
+        self.assertEqual(coverage.completeness, "partial")
+        self.assertEqual(coverage.unresolved_entity_ids, [self.entity("7.16")])
+        evaluations = [item for calculation in result.calculations for item in calculation.spatial_evidence]
+        missing = next(item for item in evaluations if item.subject_id == self.entity("7.16"))
+        self.assertEqual(missing.status, "unavailable")
+
+    def test_partial_outdoor_access_cannot_be_promoted_to_an_exact_total(self):
+        result = self.execute(self.plan(["1B07", "7.16"], "outdoor_access"), "partial")
+        self.assertEqual(result.claims[0].value.entity_ids, [self.entity("1B07")])
+        count = self.execute(self.plan(["1B07", "7.16"], "outdoor_access", count=True), "incomplete_coverage")
+        self.assertFalse(count.claims)
+
+    def test_candidate_evidence_and_relation_specific_coverage_survive_execution(self):
+        neighbors = self.execute(self.plan(["1B07"], "boundary_neighbors"), "partial")
+        self.assertEqual(neighbors.claims[0].quality, "estimated")
+        row_index = next(index for index, value in enumerate(neighbors.claims[0].value.rows)
+                         if value["related"].entity_ids == [self.entity("121.A")])
+        binding = next(value for value in neighbors.claims[0].evidence if value.value_path == f"/rows/{row_index}/related")
+        self.assertEqual(binding.evidence_kind, "candidate")
+        connections = self.execute(self.plan(["1B07"], "door_connections"))
+        self.assertNotEqual(neighbors.claims[0].coverage_ids, connections.claims[0].coverage_ids)
+
+    def test_boundary_geometry_rejects_separated_long_wall_candidates(self):
+        path = Path(self.directory.name) / "patches.ifc"
+        source, objects, relationships = spatial_source(path)
+        # A valid native surface connection record is enough for the executor
+        # fixture; geometry mathematics is independently tested by its provider.
+        point = source.create_entity("IfcCartesianPoint", Coordinates=(0., 0., 0.))
+        placement = source.create_entity("IfcAxis2Placement3D", Location=point)
+        surface = source.create_entity("IfcPlane", Position=placement)
+        for key in ("wall_a", "wall_b", "wall_c"):
+            relationships[key].ConnectionGeometry = source.create_entity("IfcConnectionSurfaceGeometry", SurfaceOnRelatingElement=surface)
+        source.write(str(path))
+        self.engine = IfcQueryEngine.open(path)
+        calls = []
+
+        class Geometry:
+            def compare_boundaries(_, first, second, tolerance, *, timeout_seconds=None):
+                calls.append((first, second))
+                return {"status": "no_match", "method": "boundary_patch_overlap.v1", "unit": "m",
+                        "frame": "ifc_world", "tolerance_m": tolerance,
+                        "source_step_ids": [first, second], "reason": "Disjoint projected boundary patches"}
+
+        self.engine.geometry = Geometry()
+        result = self.execute(self.plan(["1B07"], "boundary_neighbors"))
+        self.assertEqual({value["related"].entity_ids[0] for value in result.claims[0].value.rows}, {self.entity("1B08")})
+        self.assertIn((relationships["wall_a"].id(), relationships["wall_c"].id()), calls)
+        self.assertTrue({relationships["wall_a"].id(), relationships["wall_c"].id()}
+                        <= self.anchor_steps(result.claims[0].evidence[0].anchor_ids))
+
+    def test_native_and_geometric_disagreement_is_a_conflict(self):
+        path = Path(self.directory.name) / "conflicting-patches.ifc"
+        source, _, relationships = spatial_source(path, corresponding=True)
+        point = source.create_entity("IfcCartesianPoint", Coordinates=(0., 0., 0.))
+        placement = source.create_entity("IfcAxis2Placement3D", Location=point)
+        surface = source.create_entity("IfcPlane", Position=placement)
+        for key in ("wall_a", "wall_b"):
+            relationships[key].ConnectionGeometry = source.create_entity("IfcConnectionSurfaceGeometry", SurfaceOnRelatingElement=surface)
+        source.write(str(path))
+        self.engine = IfcQueryEngine.open(path)
+
+        class Geometry:
+            def compare_boundaries(_, first, second, tolerance, *, timeout_seconds=None):
+                return {"status": "no_match", "method": "boundary_patch_overlap.v1", "unit": "m",
+                        "frame": "ifc_world", "tolerance_m": tolerance, "source_step_ids": [first, second]}
+
+        self.engine.geometry = Geometry()
+        result = self.execute(self.plan(["1B07"], "boundary_neighbors"), "conflicting_evidence")
+        self.assertFalse(result.claims)
+
+    def test_explicit_geometry_never_guesses_doors_from_proximity(self):
+        result = self.execute(self.plan(["1B07"], "door_connections", method="geometry"), "unsupported_operation")
+        self.assertFalse(result.claims)
+
+
+    def test_geometry_containment_resolves_missing_native_room_with_inspectable_inputs(self):
+        target = self.objects["b"].id()
+        calls = []
+
+        class Geometry:
+            def locate_in_spaces(_, object_step, space_steps, tolerance, *, timeout_seconds=None):
+                calls.append((object_step, space_steps, timeout_seconds))
+                return {"status": "match", "method": "convex_room_containment.v1", "unit": "m",
+                        "frame": "ifc_world", "tolerance_m": tolerance,
+                        "source_step_ids": [object_step, *space_steps], "matched_step_ids": [target],
+                        "unresolved_step_ids": []}
+
+        self.engine.geometry = Geometry()
+        result = self.execute(self.plan(["Tür-019"], "containers", container_kind="space"))
+        self.assertEqual(result.claims[0].value.rows[0]["related"].entity_ids, [self.entity("1B08")])
+        self.assertEqual(result.claims[0].value.rows[0]["basis"].value.text, "Geometry-verified space containment")
+        self.assertEqual(calls[0][0], self.objects["direct_door"].id())
+        self.assertTrue(0 < calls[0][2] <= 20)
+        evaluation = next(item for node in result.calculations for item in node.spatial_evidence)
+        self.assertEqual(evaluation.method, "convex_room_containment.v1")
+        self.assertEqual(evaluation.metadata["source_step_ids"], [calls[0][0], *calls[0][1]])
+        self.assertTrue(set(calls[0][1]) <= self.anchor_steps(evaluation.anchor_ids))
+
+    def test_explicit_geometry_containment_cannot_override_conflicting_native_room(self):
+        target = self.objects["b"].id()
+
+        class Geometry:
+            def locate_in_spaces(_, object_step, space_steps, tolerance, *, timeout_seconds=None):
+                return {"status": "match", "method": "convex_room_containment.v1", "unit": "m",
+                        "frame": "ifc_world", "tolerance_m": tolerance,
+                        "source_step_ids": [object_step, *space_steps], "matched_step_ids": [target],
+                        "unresolved_step_ids": []}
+
+        self.engine.geometry = Geometry()
+        result = self.execute(self.plan(["Panel-01"], "containers", container_kind="space", method="geometry"), "conflicting_evidence")
+        self.assertFalse(result.claims)
+
+    def test_geometry_containment_does_not_use_hidden_spaces_as_inputs(self):
+        class Geometry:
+            def locate_in_spaces(*args, **kwargs):
+                raise AssertionError("Geometry must not inspect hidden source rooms")
+
+        self.engine.geometry = Geometry()
+        result = self.execute(self.plan(["Tür-019"], "containers", container_kind="space",
+            exact_names=["Tür-019", "Ground", "Building A", "Site"]), "incomplete_coverage")
+        self.assertFalse(result.claims)
+
+
+    def test_undefined_boundary_flags_do_not_establish_complete_door_inventory(self):
+        path = Path(self.directory.name) / "undefined-boundary.ifc"
+        source, objects, _ = spatial_source(path)
+        unknown = source.create_entity("IfcRelSpaceBoundary", GlobalId=ifcopenshell.guid.new(),
+            RelatingSpace=objects["a"], RelatedBuildingElement=objects["virtual_door"],
+            PhysicalOrVirtualBoundary="NOTDEFINED", InternalOrExternalBoundary="NOTDEFINED")
+        source.write(str(path))
+        self.engine = IfcQueryEngine.open(path)
+        result = self.execute(self.plan(["1B07"], "door_connections"), "partial")
+        self.assertEqual(len(result.claims[0].value.rows), 1)
+        coverage = next(item for item in self.engine.bundle.coverage if item.id in result.claims[0].coverage_ids)
+        self.assertEqual(coverage.completeness, "partial")
+        self.assertEqual(coverage.unresolved_entity_ids, [self.entity("1B07")])
+        self.assertIn(unknown.id(), self.anchor_steps(result.claims[0].evidence[0].anchor_ids))
+
+
+    def test_undefined_external_classification_is_unknown_outdoor_access(self):
+        path = Path(self.directory.name) / "undefined-outside.ifc"
+        source, objects, _ = spatial_source(path)
+        source.create_entity("IfcRelSpaceBoundary", GlobalId=ifcopenshell.guid.new(),
+            RelatingSpace=objects["c"], RelatedBuildingElement=objects["virtual_door"],
+            PhysicalOrVirtualBoundary="PHYSICAL", InternalOrExternalBoundary="NOTDEFINED")
+        source.write(str(path))
+        self.engine = IfcQueryEngine.open(path)
+        result = self.execute(self.plan(["121.A"], "outdoor_access"), "partial")
+        self.assertEqual(result.claims[0].value.entity_ids, [])
+        count = self.execute(self.plan(["121.A"], "outdoor_access", count=True), "incomplete_coverage")
+        self.assertFalse(count.claims)
 
 
 if __name__ == "__main__":

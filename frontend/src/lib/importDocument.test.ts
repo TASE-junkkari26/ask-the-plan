@@ -23,6 +23,10 @@ test('desktop uploads resolve uppercase extensions and blank or generic MIME typ
     kind: 'pdf',
     mime: 'application/pdf',
   });
+  assert.deepEqual(documentType(file('kerros.121.A.DXF')), {
+    kind: 'dxf', mime: 'application/dxf',
+  });
+  assert.equal(documentType(file('drawing', 'image/vnd.dxf')).kind, 'dxf');
   assert.deepEqual(documentType(file('drawing', 'image/jpeg')), {
     kind: 'image',
     mime: 'image/jpeg',
@@ -51,7 +55,6 @@ test('empty, oversized, CAD, IFC, and unknown files have useful import errors', 
     /IFC preview is not available/,
   );
   assert.throws(() => documentType(file('plan.dwg')), /PDF or SVG/);
-  assert.throws(() => documentType(file('plan.dxf')), /PDF or SVG/);
   assert.throws(
     () => documentType(file('notes.txt', 'text/plain')),
     /supported drawing/,

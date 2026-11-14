@@ -1,4 +1,4 @@
-"""One stateless native Gemini image interaction, without implicit retries."""
+"""Stateless native Gemini image and text interactions without implicit retries."""
 from __future__ import annotations
 
 import base64
@@ -222,11 +222,40 @@ class AsyncGeminiClient:
             "response_format": {"type": "text", "mime_type": "application/json", "schema": schema},
             "store": False,
         }
+        return await self._send(body)
+
+    async def generate_plan(self, question: str, *, system: str, schema: dict,
+                            thinking_level: str = "high",
+                            max_output_tokens: int = 65536) -> GeminiReply:
+        """Generate structured text only; IFC source parsing stays on the backend.
+
+        IFC reasoning/output budgets are explicit per call and do not change the
+        separate image client's configured reasoning profile.
+        """
+        if not question.strip() or not system.strip() or not isinstance(schema, dict) or not schema:
+            raise GeminiError("Gemini planning requests require text, instructions, and a response schema.")
+        if (thinking_level not in {"low", "medium", "high", "xhigh"}
+                or type(max_output_tokens) is not int or not 0 < max_output_tokens <= 65536):
+            raise GeminiError("Unsupported Gemini planning reasoning or output budget.")
+        return await self._send({
+            "model": self.settings.model,
+            "system_instruction": system,
+            "input": [{"type": "text", "text": question}],
+            "generation_config": {
+                "thinking_level": thinking_level,
+                "thinking_summaries": "none",
+                "max_output_tokens": max_output_tokens,
+            },
+            "response_format": {"type": "text", "mime_type": "application/json", "schema": schema},
+            "store": False,
+        })
+
+    async def _send(self, body: dict) -> GeminiReply:
         try:
             encoded = json.dumps(body, ensure_ascii=False, allow_nan=False,
                                  separators=(",", ":")).encode("utf-8")
         except (TypeError, ValueError, UnicodeError):
-            raise GeminiError("Could not encode the Gemini candidate request.") from None
+            raise GeminiError("Could not encode the Gemini request.") from None
         if len(encoded) > MAX_REQUEST_BYTES:
             raise GeminiRequestTooLarge()
         try:

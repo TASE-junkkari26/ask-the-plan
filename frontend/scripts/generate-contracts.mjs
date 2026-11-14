@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const output = new URL('../src/contracts/', import.meta.url);
 await mkdir(output, { recursive: true });
-for (const name of ['QueryResult', 'QuestionRequest', 'ImageCandidateResponse', 'ImageCandidateError', 'ImageCandidateStreamEvent', 'PreparedDrawing', 'IfcModelResponse', 'IfcQuestionRequest', 'IfcQuestionResponse']) {
+for (const name of ['QueryResult', 'QuestionRequest', 'ImageCandidateResponse', 'ImageCandidateError', 'ImageCandidateStreamEvent', 'DxfPreviewResponse', 'PreparedDrawing', 'IfcModelResponse', 'IfcQuestionRequest', 'IfcQuestionResponse']) {
   const source = new URL(
     `../../contracts/jsonschema/${name}.schema.json`,
     import.meta.url,

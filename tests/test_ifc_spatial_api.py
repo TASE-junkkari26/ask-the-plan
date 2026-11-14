@@ -109,6 +109,22 @@ class IfcSpatialApiTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn("not verified geometric neighbors", answer.result.issues[0].message.text)
             self.assertIn(self.relationships["wall_c"].id(), self.step_anchors(answer))
 
+    async def test_connected_room_count_uses_related_objects_and_preserves_door_evidence(self):
+        self.reply = self.topology_proposal("door_connections", ["a"])
+        self.reply["steps"].extend([
+            {"id": "rooms", "operation": {"kind": "related_entities", "input_step_id": "relationships", "column": "related"}},
+            {"id": "count", "operation": {"kind": "aggregate", "input_step_id": "rooms", "method": "count"}},
+        ])
+        self.reply["output_step_id"] = "count"
+        async with self.api() as (client, _):
+            model = await self.upload(client)
+            answer = await self.ask(client, model, "How many rooms are directly connected to 1B07?")
+            self.assertEqual(answer.result.status, "answered", answer.model_dump_json())
+            self.assertEqual(answer.result.claims[0].value.value, 1)
+            self.assertEqual({element.step_id for element in answer.included_elements}, {self.objects["b"].id()})
+            self.assertIn(self.relationships["direct_a"].id(), self.step_anchors(answer))
+            self.assertIn("related_entities", self.provider_requests[0]["messages"][0]["content"])
+
     async def test_outdoor_access_counts_rooms_once_and_keeps_included_excluded_and_door_inputs(self):
         self.reply = self.topology_proposal("outdoor_access", ["a", "b", "c"])
         self.reply["steps"].append({"id": "count", "operation": {
@@ -191,13 +207,19 @@ class IfcSpatialApiTests(unittest.IsolatedAsyncioTestCase):
             await self.ask(client, model, "Where is Panel-01 relative to Büro?")
             message = next(message for message in self.provider_requests[0]["messages"] if message["role"] == "user")
             catalog = json.loads(message["content"])["catalog"]
-            self.assertEqual(set(catalog["spatial_queries"]), {"containers", "boundary_neighbors", "door_connections", "outdoor_access"})
+            self.assertEqual(set(catalog["spatial_queries"]), {"containers", "boundary_neighbors", "door_connections", "outdoor_access", "exterior_doors"})
             self.assertTrue({"bounded_by", "external_boundary", "has_opening", "filled_by"} <= set(catalog["relations"]))
             self.assertIn("concept:project", catalog["concepts"])
             self.assertTrue(any(entity["labels"] == ["1B07", "Büro"] for entity in catalog["entities"]))
             self.assertTrue(any("Spatial regression fixture" in entity["labels"] for entity in catalog["entities"]))
             self.assertTrue(any(fact["property_key"] == attribute_key("FILE_SCHEMA") and
                                 fact["value"]["value"]["text"] == "IFC4" for fact in catalog["source_metadata"]))
+            prerequisites = catalog["spatial_prerequisites"]
+            self.assertGreater(prerequisites["boundary_record_count"], 0)
+            self.assertGreater(prerequisites["spaces_with_physical_boundaries"], 0)
+            self.assertGreater(prerequisites["spaces_without_physical_boundaries"], 0)
+            self.assertEqual(prerequisites["native_boundary_completeness"], "unknown")
+            self.assertFalse(prerequisites["routes_supported"])
 
     async def test_absent_source_description_returns_missing_information_without_narrative(self):
         # Site.Description is explicitly null in the fixture. The system must

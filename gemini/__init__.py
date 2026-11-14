@@ -1,4 +1,4 @@
-"""Backend-only native Gemini image transport."""
+"""Backend-only native Gemini image and structured text transport."""
 from .client import AsyncGeminiClient, GeminiError, GeminiReply, GeminiRequestTooLarge, GeminiUsage
 from .config import ConfigurationError, GeminiSettings
 from .decisions import AsyncDecisionsClient, DecisionsReply

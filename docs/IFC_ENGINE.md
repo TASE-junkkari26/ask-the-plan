@@ -3,8 +3,14 @@
 The initial implementation reads an IFC into the shared `KnowledgeBundle`,
 executes validated `QueryPlan` operations, and returns a `QueryResult` with
 materialized entity sets, source anchors, facts, and calculation nodes. It runs
-locally on a CPU. The [IFC question API](IFC_QUESTIONS.md) now uses Nemotron to
+locally on a CPU. The [IFC question API](IFC_QUESTIONS.md) uses a Nemotron or Hydrogen planner to
 produce validated plans and returns the engine's answer with source evidence.
+
+The `exterior_doors` spatial operation selects door occurrences using recorded
+exterior classifications and/or physical external door/filled-opening boundaries.
+It preserves unknown membership, lower bounds and source proofs, separately from
+the room-valued `outdoor_access` operation. See [the query guide](IFC_QUESTIONS.md#supported-behavior-and-limits)
+for basis selection, scope and physical-completeness limits.
 
 The [project scope](PROJECT_SCOPE.md) is the supplied dataset's known question
 families. Extend this executor for uncovered supplied IFC questions, not for
@@ -143,18 +149,23 @@ rules are rejected; plans contain no SQL, Python, or function-evaluation strings
 
 ### Native spatial queries
 
-The `spatial_query` plan operation answers bounded topology questions using
-extracted IFC relationships. It accepts `input_step_id` and one of these relations:
+The `spatial_query` plan operation answers bounded spatial questions using
+extracted IFC relationships and, where supported, source geometry. It accepts
+`input_step_id`, `method` (`auto`, `native` or `geometry`), a bounded
+`tolerance_m` (default 0.01 metres), and one of these relations:
 
 | Relation | Result and evidence |
 | --- | --- |
-| `containers` | Native containment/aggregation ancestors of the requested `container_kind`: `space`, `storey`, `building` or `site`. |
-| `boundary_neighbors` | Rooms linked by corresponding native space boundaries. When only a shared boundary element is available, the output is explicitly partial candidate neighbors; a shared wall can span separated rooms. |
+| `containers` | Native containment/aggregation ancestors of the requested `container_kind`: `space`, `storey`, `building` or `site`. When native room containment is unavailable, supported space geometry can establish room containment. |
+| `boundary_neighbors` | Rooms linked by corresponding native space boundaries or geometry-checked overlapping boundary patches. When only a shared boundary element is available, the output is explicitly partial candidate neighbors; a shared wall can span separated rooms. |
 | `door_connections` | Rooms sharing physical boundary doors, including boundary openings filled by doors. A shared wall is insufficient. |
 | `outdoor_access` | Selected room occurrences with PHYSICAL, EXTERNAL door-boundary evidence. Counting the result counts rooms, rather than doors or boundaries. |
+| `exterior_doors` | Distinct door occurrences resolved from recorded exterior flags and/or PHYSICAL EXTERNAL door/filled-opening boundary paths. `exterior_basis` selects combined, classification or boundary evidence; unknown membership stays unresolved. |
 
-Native space boundaries, openings/fillings and corresponding-boundary links
-retain anchors to their original records. Native system and zone membership is
+Native space boundaries retain individual structured records, physical/virtual
+and internal/external classifications, corresponding/parent boundary identity,
+connection-geometry locators and original source anchors. Openings/fillings and
+corresponding-boundary links also retain anchors. Native system and zone membership is
 also retained for relationship traversal. These relationships describe the
 authoring model; they do not establish a navigable route, equipment service
 coverage or fire-exit compliance.
@@ -162,13 +173,42 @@ coverage or fire-exit compliance.
 Every input, intermediate and returned object remains inside the executable
 scope, including `Scope.exact_entity_ids` for captured browser views. Required
 objects outside the scope produce `incomplete_coverage`, without broadening the
-view. Missing required topology produces `missing_information`, distinct from a
-supported zero result. Spatial summaries identify native evidence and partial
-inferences explicitly.
+view. Missing required topology and unusable geometry produce `missing_information`,
+distinct from a supported zero result. Mixed known and unresolved inputs can
+return verified rows as `partial`. Calculation nodes expose per-object
+`spatial_evidence`; coverage records distinguish the spatial relation, evaluated
+objects, unresolved inputs and candidates. Source-record enumeration does not
+establish physical absence of a connection.
+
+Most spatial relations return tables. Follow them with `related_entities` to
+extract a chosen reference column (default `related`) as a distinct occurrence
+set before property projection, traversal or counting. This preserves the
+relationship calculation inputs while counting only the requested related
+objects. Exact aggregates reject candidate or unresolved spatial selections.
+
+Exterior-door membership retains a separate bounded-count behavior: a known
+positive subset with unresolved classifications produces a `lower_bound` count
+and partial coverage, never an exact total. Unknown-only and contradictory cases
+produce non-answers. `exterior_basis=boundary` qualifies its result as recorded
+source paths rather than verified physical access. Unresolved doors are separate
+from definite exclusions and retain source evidence.
+
+Geometry is lazy and bounded, with a source-revision/settings cache and isolated
+worker failures. Evidence retains source STEP IDs, method, metre coordinate frame
+and tolerance. Boundary-patch comparison refines shared-element adjacency;
+supported convex, closed room containment requires a closed manifold object
+representation and checks all its vertices. The object itself can be nonconvex.
+Boundary overlap must exceed both the area and length-tolerance checks; thin
+slivers remain unknown. Bounding boxes only prune candidates.
+Unsupported nonconvex/invalid room solids and boundary patches with unsupported
+surface constructions remain unknown; this is not a generic solid-modeling engine.
+Missing or invalid geometry remains unknown. Browser sessions retain their
+original source until deletion, expiry, eviction or shutdown; CLI geometry uses
+the supplied source path. General metric predicates and routes remain unsupported.
 
 The [IFC question-family audit](IFC_QUESTIONS.md#supplied-question-families)
 traces these operations to supplied location, connectivity and outdoor-access
-questions. Geometry-derived distances, routes and orientation remain uncovered
+questions. General geometry-derived distances, routes and orientation remain uncovered
 requirements within the wider IFC-Bench catalog, rather than implied support.
 
 ## Scope, quantities, and evidence
@@ -241,9 +281,10 @@ The question API supplies deterministic natural-language result summaries in
 inference call and does not replace claims, facts, anchors or calculation inputs.
 The engine remains a structured executor rather than a natural-language planner.
 
-Geometry measurements, clash detection, route finding, nearest-distance and
+General geometry measurements, clash detection, route finding, nearest-distance and
 orientation predicates,
-arithmetic plan steps, partial aggregates, arbitrary nested/list/table IFC
+arithmetic plan steps, general partial aggregates beyond exterior-door lower
+bounds, arbitrary nested/list/table IFC
 properties, estimated-value propagation, natural-language planning, and
 SVG/3D rendering remain explicit extension points. Ranked outputs are bounded
 and use deterministic tie order; they do not imply a unique maximum.

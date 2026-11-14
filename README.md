@@ -23,11 +23,12 @@ optional extensions unless a supplied question needs them. See the
 
 | Component | Implemented | Boundary |
 |---|---|---|
-| Frontend | Import opening screen, image/PDF candidate review, IFC 3D inspection and questions with persistent answer highlights and source evidence, searchable import library, exports | Imports last until refresh. Asking uploads the selected image/page or IFC to the local backend. Synthetic sources stay offline fixtures. |
-| IFC engine | CPU extraction, native project/file metadata, bounded spatial topology, structured selection/traversal, scalar properties/quantities, counts, grouping/ranking, exact view scopes, evidence and caching | Independent Python/CLI executor, also used by the IFC question API. Shared-element adjacency remains explicitly partial; no metric geometry, orientation or route engine. |
+| Frontend | Import opening screen, image/PDF/DXF candidate review, IFC 3D inspection and questions with persistent answer highlights and source evidence, searchable import library, exports | Imports last until refresh. DXF preview uses the local backend. Asking uploads the selected image/page/layout or IFC. Synthetic sources stay offline fixtures. |
+| DXF preview | Source-bound SVG rendering, model/paper layout selection, omission warnings, existing visual questions and exports | Uses ezdxf on the local backend; 2D previews and unverified image candidates, without native CAD counts or measurements. See [DXF support](docs/DXF_PREVIEW.md). |
+| IFC engine | CPU extraction, native metadata and boundary records, bounded topology and boundary-patch/convex-room geometry, related-object projection, scalar queries, exact view scopes and evidence | Independent Python/CLI executor, also used by the IFC question API. Unverified shared-element neighbors remain candidates; incomplete spatial results cannot become exact totals. Generic metric predicates, orientation and routes remain unsupported. |
 | Shared contracts | Pydantic models, generated JSON Schemas/TypeScript, reference/unit/scope/evidence validation | Validation cannot prove source completeness or correctness. |
 | Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI, bounded IFC question planning | The IFC engine computes answers from validated plans; image detections remain candidate proposals. Credentials stay on the backend. |
-| IFC question API | Revision-bound temporary uploads, Nemotron query planning, engine execution, source element/fact evidence and deterministic natural-language summaries | Uses the same local server as image analysis. Current-view scope defaults to exact enabled objects; whole-model scope is explicit. Summaries use executed values without another inference call. Unsupported operations remain non-answers. |
+| IFC question API | Revision-bound session uploads, independently selected Nemotron/Gemini planning, bounded source discovery and plan repair, spatial prerequisites, exterior-door queries and deterministic answers | Uses the same local server as image analysis. Exact view scope and explicit model scope remain authoritative. Original sources remain temporary session artifacts for bounded geometry checks. Unknown exterior classifications stay separate; partial counts show lower bounds. Unsupported operations remain non-answers. |
 | Image candidate API | Local HTTP image/question endpoint returning candidate boxes from Nemotron or Gemini Hydrogen-low/Carbon-medium, with uncertainty, image hashes, display coordinates and optional capability routing | Connected to imported 2D drawings; one selected analyzer per request, candidate proposals only, with no final counts/answers or IFC analysis. |
 | Raster preprocessing | Standalone source/crop/overview artifacts, coordinate transforms, optional local Tesseract OCR, inspection-tool adapter, and bounded image-API session preparation | API defaults to unchanged model input with OCR off; optional full-source overview mode preserves page layout. No semantic room segmentation, physical calibration, or agent tool loop. |
 | Perception | Experimental opt-in Gemini capability routing, recorded expandable decision path, research plans and saved image experiments | Routing is off by default pending paired evaluation/calibration. No evaluated general raster inventory/reconstruction. Standalone optional OCR is documented separately. |
@@ -69,7 +70,9 @@ IMAGE_API_PROVIDER=gemini
 
 Gemini image analysis uses `gemini-4-hydrogen` with low thinking. The default
 provider is `nemotron`, which uses the existing `VERDA_*` settings. IFC questions
-continue to use Nemotron regardless of this image-only selector. Preserve both
+use the separate `IFC_API_PROVIDER` selector, defaulting to Nemotron. To use
+Hydrogen for IFC planning, set `IFC_API_PROVIDER=gemini`; its independent
+`IFC_GEMINI_THINKING_LEVEL` defaults to `high`. Preserve both
 keys and existing settings; see [provider setup](image_api/README.md#choose-the-image-provider).
 
 Experimental [capability routing](image_api/README.md#experimental-capability-routing)
@@ -90,15 +93,16 @@ On Windows, use `.\.venv\Scripts\python.exe` for both commands. Open
 <http://127.0.0.1:8000/docs> to submit one image and one question. The API returns
 image-bound candidate boxes, not a final answer/count. Leave this backend running
 and start `npm run dev` in a second terminal. In the UI, import a drawing, select
-its image/PDF page, and submit a question to see candidate boxes and a review list.
-Files are previewed locally until a question is submitted; image/PDF questions send the
+its image/PDF page or DXF layout, and submit a question to see candidate boxes and a review list.
+Images/PDFs preview in the browser; DXF import uploads the original to the local backend
+for layout rendering, without inference. Image/PDF/DXF questions send the
 displayed raster to the selected image provider through the backend. The backend prepares a canonical
 upright PNG before optional raster preprocessing. Its default `original` mode
 caches preparation without changing model input; opt-in `overview` mode sends
 only the uncropped full-source overview and maps boxes back to the original
 display coordinates. OCR stays off in this path. IFC questions use separate
 `/api/ifc` endpoints on this same server: the local backend extracts the original
-model, Nemotron proposes a query, and the IFC engine returns the answer and
+model, the selected IFC planner proposes a query, and the IFC engine returns the answer and
 highlightable source elements. See [IFC questions](docs/IFC_QUESTIONS.md) and
 [image API usage and UI handoff](image_api/README.md) for multipart
 examples, generated types, coordinates, limits, and errors.
@@ -276,9 +280,10 @@ Python source models rather than editing the generated output.
 frontend/       Browser prototype and generated TypeScript wire types
 ifc_engine/     Local IFC extraction and structured query execution
 nemotron/       Backend Verda text/vision client and connection-check CLI
-gemini/         Backend Gemini Hydrogen-low image candidate client
+gemini/         Backend Gemini Hydrogen image and structured-text transport
 image_api/      Local image/question HTTP service returning candidate boxes
-ifc_api/        Local IFC upload, Nemotron planner and engine/evidence HTTP adapter
+ifc_api/        Local IFC upload, bounded source discovery and selectable planner
+dxf_api/        Local DXF layout rendering for preview and visual questions
 drawing_preprocessor/  CPU raster preparation and source-inspection tool adapter
 experiments/    Reproducible model experiments, prompts, and findings
 contracts/      Shared models, validation, JSON Schemas, synthetic examples
@@ -306,9 +311,11 @@ adjust commands to the actual root rather than assuming that layout.
 | [Dataset research](docs/DATASET_RESEARCH.md) | Template concentration and proposed answering pipeline |
 | [Schema](docs/SCHEMA.md) | Contract structure, invariants, query/result types, and validation boundaries |
 | [IFC viewer](docs/IFC_VIEWER.md) | Browser 3D viewing, local conversion, inspector, controls, assets, and limits |
-| [IFC questions](docs/IFC_QUESTIONS.md) | Nemotron planning, exact view scopes, engine answers, highlights and source evidence |
+| [IFC questions](docs/IFC_QUESTIONS.md) | Independent planner settings, source discovery, exterior doors, exact scopes and engine evidence |
+| [IFC planner comparison](experiments/ifc_planners/README.md) | Credential-free 24-case replay and explicit live provider comparison |
 | [IFC engine](docs/IFC_ENGINE.md) | Current backend/CLI behavior and supported operations |
 | [Frontend](frontend/README.md) | Current local-preview UI, startup, testing, and integration boundary |
+| [DXF preview](docs/DXF_PREVIEW.md) | DXF import, selected layouts, rendering limits, visual questions and source hashes |
 | [Computational capabilities](docs/COMPUTATIONAL_CAPABILITIES.md) | Capability backlog with implemented versus planned status |
 | [Frontend visualization](docs/FRONTEND_VISUALIZATION.md) | Viewer architecture and future answer/evidence integration |
 | [Evidence and platform requirements](docs/FRONTEND_EVIDENCE_REQUIREMENTS.md) | Q01-Q20 evidence requirements and Linux/Windows boundaries |

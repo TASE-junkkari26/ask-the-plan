@@ -1,5 +1,37 @@
 # Sprint-one verification record
 
+## Decisions routing and current main integration, 14 November 2026
+
+Integrated the routing/loading work with main through `361c639`, preserving its
+independent IFC planners, geometry/spatial execution and DXF preview/import flow.
+The merged app retains streamed image handoff, private provider diagnostics,
+source-bound contracts and format-specific upload limits. Carbon image profiles
+cannot change the separate Hydrogen IFC planner. Shutdown attempts every owned
+source/client cleanup even if another cleanup raises.
+
+Validation on Linux, Python 3.12.3 and Node 24.22.3:
+
+- **487 Python tests passed**, no skips, in 51.368 seconds. New integration
+  regressions combine manual/auto Carbon image streaming with Hydrogen IFC
+  execution and verify client cleanup after a close failure. Provider requests
+  were mocked; the suite includes the newer IFC and DXF checks from main.
+- All **18 frontend test files**, TypeScript/production build and SSR checks
+  passed. Existing optional Three/IFC export and bundle-size warnings remain.
+- **11 Firefox 142.0 loading checks passed** against synthetic responses after
+  the UI merge, including both model handoffs, narrow/Finnish layouts,
+  source/page/cancel clearing and final overlays/export. Five synthetic requests,
+  no JavaScript errors and no live inference calls. Owned test servers stopped.
+- All **14 generated contracts** are current; Markdown links and whitespace
+  checks passed. The project's API extras installed the new DXF dependency in
+  the local virtual environment; local credentials were unchanged.
+- Exactly **one Astra-6 Max** reviewer inspected both-parent integration and
+  the five new screenshots with their source-bound packets. Final verdict:
+  **pass (`agent_reviewed`)**, with no unresolved findings.
+
+Ignored evidence: `experiments/runs/decision-routing-main-merge/20261114T210320Z/`.
+These are integration and synthetic UI checks, not routing calibration or
+live-model accuracy measurements. Automatic preprocessing remains planned.
+
 ## Immediate model handoff during loading, 14 November 2026
 
 The image/PDF loading states now show **Preparing image…**, **Choosing analysis
@@ -202,6 +234,40 @@ the saved Decisions recommendation rather than making another router call:
 - Corrective artifacts: `experiments/runs/decision-routing-smoke/20261114T195038Z-medium/`.
   Estimated additional standard-rate cost: $0.042756; all three live calls total
   $0.0883028 before invoice adjustments. No further live calls ran.
+## Spatial implementation and upstream integration, 14 November 2026
+
+Integrated the uncommitted spatial composition/geometry implementation based on
+`9db07ec` with upstream `b4cc92d`, including `89dbae1`. The combined service keeps
+independent IFC providers, source discovery and one preflight repair within shared
+request, inspection, context and planning-deadline budgets. Exterior-door lower
+bounds remain distinct from unresolved spatial topology; Gemini's native plan
+schema now accepts `related_entities`. Generated contracts were rebuilt from the
+merged Python models. No implementation commit or push was made.
+
+Checked on Linux with Python 3.12.3, IfcOpenShell 0.9.0.post1, Pydantic 2.14.3,
+FastAPI 0.162.7 and Node 24.22.3:
+
+- Full Python suite: **421 tests, 420 passed and one skipped**, in 19.444 seconds,
+  using `.venv/bin/python -m unittest discover -s tests -v`. The optional
+  Esplanades test skipped because its required preview path is absent. Provider
+  credentials were disabled and inference transports mocked. Normal local
+  socket/thread access was enabled; no asyncio heartbeat workaround was needed.
+  The suite includes the 24-case offline planner replay, geometry regressions,
+  exterior lower-bound propagation and candidate-topology aggregate rejection.
+- Final planning/API/provider check: **47 tests passed** in 2.502 seconds after
+  adding four integration regressions. These verify shared discovery/repair
+  budgets, unchanged captured scope/catalog, cumulative token accounting,
+  unreported usage and sanitized diagnostics. This focused check followed minor
+  cleanup of the proposal exception and exhausted-budget wording.
+- All **17 frontend test files** passed with `npm run test:frontend`.
+  `npm run build` passed TypeScript checks and Vite bundling; existing optional
+  Three/WebGPU exports and large-chunk warnings remain.
+- All 12 generated schemas are current, frontend types were regenerated, and
+  local Markdown links and whitespace checks passed.
+
+These are offline integration checks. Browser interaction, Windows behavior and
+live provider compatibility were not rerun for this merge. Original drawing
+assets and reference answers were unchanged.
 
 ## Gemini Hydrogen 100-image count evaluation, 14 November 2026
 
@@ -230,6 +296,111 @@ The [detailed report](../experiments/image_questions/GEMINI_100_RESULTS.md)
 records sampling, source/family results, failure examples, pricing, limitations
 and the ignored local artifact directory. Original drawings/reference answers
 were not modified, and the workbench servers were left running.
+
+## IFC exterior doors and independent planners, 14 November 2026
+
+Implemented native exterior-door membership, an independent Nemotron/Hydrogen
+planner selector, bounded source discovery/inspection and a paired evaluation
+harness. Source parsing and final computations remain in the native executor.
+
+Checked on Linux with Python 3.14.10, IfcOpenShell 0.9.0.post1, Pydantic 2.14.3,
+Node 26.13.1 and Firefox 160.0:
+
+- Full Python suite: **367 tests passed**, no skips, in 31.958 seconds. Credentials
+  were disabled; providers were mocked. Checks cover inherited/overridden flags,
+  door/opening boundary paths, duplicate boundaries, unknown/conflicting membership,
+  exact scope, lower-bound propagation, native proof anchors, independent provider
+  lifetimes/configuration, inspection budgets/cancellation and safe diagnostics.
+  Normal local socket/thread access was needed for asynchronous/server checks.
+- All **17 frontend test files** and the TypeScript/Vite production build passed.
+  Existing optional Three/WebGPU export and chunk-size warnings remain. Generated
+  JSON Schemas and TypeScript were refreshed; all 12 contracts are current.
+- The six-model, **24-case offline replay** passed every declared fixture check
+  with zero external inference. It checks authored plans, source memberships,
+  boundary anchors, exact scope and non-answer/partial outcomes. This is not a
+  natural-language accuracy score. The runner records code fingerprints and saves
+  predictions before importing evaluator-only reference values.
+- Executed all three exterior bases on supplied models without inference:
+  FZK-Haus combined gives **at least 2**, with three unresolved doors; Esplanades
+  combined gives **at least 5**, with 36 unresolved doors and no native boundaries;
+  Dental architecture gives **18** by combined/classification and **12 recorded**
+  by boundary-only evidence. The unequal Dental sets are not a demonstrated
+  contradiction. Source hashes and proof counts are saved locally under
+  `build/ifc-exterior-implementation.json`.
+- Firefox imported and rendered the actual FZK model, uploaded it only to the
+  local backend and used an injected synthetic planner. It displayed **At least 2**,
+  two included doors, zero exclusions and three separately unresolved doors;
+  eight native boundary-record links and the original source hash were present.
+  JSON export preserved the bound and membership. A boundary-only follow-up
+  returned **2 recorded doors** with the source limitation. No uncaught page errors
+  occurred. Artifacts are under `build/ifc-exterior-browser/`; owned servers and
+  browser profiles were cleaned up. The main count was subsequently moved ahead
+  of the long explanatory narrative, then rebuilt.
+
+Live structured-planning smoke checks used **only generated IFC metadata**, not
+supplied building files or their catalogs. Across development there were five
+explicit requests: one Nemotron and four Hydrogen-low requests, without SDK
+retries. Nemotron returned the correct two exterior doors on the generated case.
+Two initial Hydrogen requests produced provider-configuration errors; their
+upstream status/code was not retained, so the exact rejection cause is unproven.
+A kind-only native envelope reached the model but its output failed strict local
+plan validation. The final shallow typed-operation schema succeeded: requested
+and returned `gemini-4-hydrogen`, correct two source doors and native proofs,
+17,502 input tokens, 933 combined output/thinking tokens including 616 thought
+tokens, and 4,823 ms total for that selected request. These iterations are API
+compatibility checks, not a controlled quality or latency ranking.
+
+Hydrogen now constrains the envelope and six operation branches natively while
+the full recursive plan schema remains supplied in instructions and strictly
+validated before execution. Safe private diagnostics retain recognized upstream
+categories/static validation locations; public errors omit them and all raw
+provider bodies. No broad live provider benchmark, geometry inference or visual
+IFC-reasoning model experiment is claimed. Existing backend `.env` values were
+preserved. See [IFC usage](IFC_QUESTIONS.md) and
+[comparison commands](../experiments/ifc_planners/README.md).
+
+## IFC spatial composition and bounded geometry, 14 November 2026
+
+Checked on Linux with Python 3.12.3, IfcOpenShell 0.9.0.post1, Pydantic 2.14.3,
+FastAPI 0.162.7, httpx 0.28.1 and Node 24.22.3. Executor identity is
+`ifc-engine/0.3.0`; extraction and geometry cache identities were also updated.
+
+- Selected Python suite: **159 tests, 158 passed and one skipped**, in 6.343
+  seconds. Modules were `test_contracts`, `test_ifc_engine`,
+  `test_ifc_spatial_extraction`, `test_ifc_spatial_queries`,
+  `test_ifc_spatial_composition`, `test_ifc_geometry`, `test_ifc_api` and
+  `test_ifc_spatial_api`. The optional real-model unittest skipped because its
+  exact preview path is absent. A separate CLI check of the installed full
+  Esplanades source returned **211 modeled doors** with status `answered`.
+- API tests used mocked inference. This sandbox failed to wake asyncio loops
+  after thread completion, so the combined suite used a temporary guarded
+  runner scheduling a 10 ms loop heartbeat. Application code and test assertions
+  were unchanged by that workaround. An earlier unguarded temporary runner
+  re-entered tests in spawned geometry workers; it was corrected before the
+  passing result above.
+- All **17 frontend test files** and the TypeScript/Vite production build
+  passed. Existing optional Three/WebGPU export and large-chunk warnings remain.
+  All 12 generated JSON Schemas are current; frontend types were regenerated.
+- Regression coverage includes connected-room counting/deduplication, candidate
+  cell bindings, per-relation coverage, mixed known/unknown inputs, undefined
+  boundary flags, captured-scope reference projection, plan repair, upload
+  ownership/cancellation, source hashes, rotated/millimetre geometry, long shared
+  walls, wall-thickness checks, thin overlap rejection, and closed-object/convex-room
+  containment prerequisites.
+- An offline source probe on `dental_clinic_arc.ifc` compared native and `auto`
+  neighbors of literal room `1B07`. Native mode returned eight rows, seven of
+  them candidates. Auto returned four supported rows: `1BC2` via native door
+  evidence and `1B05`, `1B09`, `1B04` via finite boundary patches. Four disjoint
+  shared-wall candidates were excluded. All 49 source anchors resolved and
+  result validation passed. Cold extraction took 12.82 seconds and the query
+  8.03 seconds. The ignored local artifact
+  `build/ifc-spatial-geometry-verification.json` retains the source evidence and
+  calculation inputs; supplied QA answers were not used.
+
+These are selected executor/integration checks, not dataset-wide accuracy or a
+live natural-language planner evaluation. Browser and Windows behavior were not
+rerun. Unsupported shapes remain unknown; generic metric predicates, measured
+routes, orientation and compliance remain explicit non-answers.
 
 ## Frontend response metrics, 14 November 2026
 
@@ -897,3 +1068,30 @@ model geometry. It preserves an inspectable partial preview; a corrected export
 is needed for a complete model. No dataset originals, QA answers, backend engines
 or wire contracts were changed. Tests used Linux Node 26.13.1 and Firefox 160
 headless/software WebGL; physical mobile/Windows behavior was not retested here.
+
+## DXF import, preview and visual questions — 14 November 2026
+
+Checked on Linux with Python 3.12.3, ezdxf 1.4.5, Node 24.22.3, npm 11.19.1,
+Vite 7.3.8 and Firefox 160 headless. The requested scope is DXF import, selected
+layout preview and the existing visual question flow. Native CAD query execution
+and measurements are not part of this change; see [DXF support](DXF_PREVIEW.md).
+
+| Check | Observed result |
+|---|---|
+| Frontend tests | All 18 test files passed, including DXF import/routing, source hash and layout validation, warnings, backend errors, cancellation and URL release. |
+| Production build | TypeScript and Vite build passed. Existing optional WebGPU export and large SDK chunk warnings remain. |
+| DXF, body-limit, contract and image API regressions | Synthetic DXF rendering/HTTP tests and existing shared image API, lifecycle and preprocessing tests passed. Rendering checks cover binary and legacy text encoding, literal layout names, blocks, hidden layers, source retention, unsupported content and explicit errors/budgets. |
+| Generated contracts/docs | JSON Schema export check and local Markdown link/anchor check passed; frontend types regenerated from the Python source model. |
+| Production browser flow | Imported a synthetic DXF through the actual local HTTP renderer; checked nonblank source pixels, named layout switching, URL release, source warnings, PNG question submission, candidate overlays and source/layout metadata in JSON export. Inference used a mocked transport, without contacting a model provider. |
+| Partial preview and layout scope | Missing external reference produced a persistent partial-preview notice. Switching to the clean paper layout removed that warning. Switching back cleared the candidate response and restored the source warning. |
+| Browser layout | Desktop and 500-pixel-wide views inspected; no horizontal overflow or uncaught JavaScript errors. Original visible text retained `121.A Keittiö`; paper layout retained `Piirustus 7.16`. |
+| Lifecycle | Timeout, disconnect and cancellation tests verify request-owned worker termination and temporary source cleanup. Busy-slot and independent upload/body limits are covered. All temporary browser/API/preview servers owned by this verification were stopped. |
+
+The initial restricted-sandbox asynchronous test run stalled during cleanup and
+was interrupted. API tests completed with normal local process permissions;
+no application workaround was introduced. The DXF package was installed in the
+project's existing Linux virtual environment and added to the declared `api` extra.
+No supplied DXF assets are installed in this checkout, so these checks use
+synthetic drawings. They establish integration behavior, not real-dataset rendering
+fidelity, candidate accuracy or inference cost. Windows and physical mobile-device
+behavior were not tested in this pass.

@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from math import isclose
-from typing import Annotated, Literal, Union
+from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -427,6 +427,25 @@ class Coverage(Model):
     completeness: Literal["complete", "partial", "not_modeled", "not_extracted", "unknown"]
     explanation: str
     provenance: Provenance
+    operation_keys: list[str] = Field(default_factory=list)
+    examined_entity_ids: list[Id] = Field(default_factory=list)
+    unresolved_entity_ids: list[Id] = Field(default_factory=list)
+    candidate_entity_ids: list[Id] = Field(default_factory=list)
+
+
+class IfcSpaceBoundary(Model):
+    """A source boundary record, including unusable and virtual boundaries."""
+
+    id: Id
+    native_step_id: PositiveInt
+    space_id: Id
+    element_id: Id | None = None
+    corresponding_boundary_id: Id | None = None
+    parent_boundary_id: Id | None = None
+    physical_or_virtual: str | None
+    internal_or_external: str | None
+    connection_geometry_step_id: PositiveInt | None = None
+    provenance: Provenance
 
 
 class KnowledgeBundle(Contract):
@@ -449,6 +468,7 @@ class KnowledgeBundle(Contract):
     representations: list[Representation] = Field(default_factory=list)
     facts: list[Fact] = Field(default_factory=list)
     relations: list[Relation] = Field(default_factory=list)
+    space_boundaries: list[IfcSpaceBoundary] = Field(default_factory=list)
     coverage: list[Coverage] = Field(default_factory=list)
 
 
@@ -553,12 +573,29 @@ class AggregateOperation(Model):
 
 
 class SpatialQueryOperation(Model):
-    """Bounded native IFC topology, separate from mesh/metric spatial predicates."""
+    """Bounded IFC topology and supported source-geometry checks."""
 
     kind: Literal["spatial_query"]
     input_step_id: Id
-    relation: Literal["containers", "boundary_neighbors", "door_connections", "outdoor_access"]
+    relation: Literal["containers", "boundary_neighbors", "door_connections", "outdoor_access", "exterior_doors"]
     container_kind: Literal["space", "storey", "building", "site"] = "storey"
+    exterior_basis: Literal["combined", "classification", "boundary"] = "combined"
+    method: Literal["native", "geometry", "auto"] = "auto"
+    tolerance_m: float = Field(default=0.01, ge=0.000001, le=0.1)
+
+    @model_validator(mode="after")
+    def check_exterior_basis(self):
+        if self.relation != "exterior_doors" and self.exterior_basis != "combined":
+            raise ValueError("exterior_basis applies only to exterior_doors")
+        return self
+
+
+class RelatedEntitiesOperation(Model):
+    """Deduplicate references from one table column at occurrence grain."""
+
+    kind: Literal["related_entities"]
+    input_step_id: Id
+    column: Id = "related"
 
 
 class ProjectOperation(Model):
@@ -592,7 +629,7 @@ class ArithmeticOperation(Model):
     output_unit_id: Id | None = None
 
 
-Operation = Annotated[Union[SelectOperation, TraverseOperation, AggregateOperation, SpatialQueryOperation, ProjectOperation, RankOperation, MeasureOperation, ArithmeticOperation], Field(discriminator="kind")]
+Operation = Annotated[Union[SelectOperation, TraverseOperation, AggregateOperation, SpatialQueryOperation, RelatedEntitiesOperation, ProjectOperation, RankOperation, MeasureOperation, ArithmeticOperation], Field(discriminator="kind")]
 
 
 class PlanStep(Model):
@@ -647,10 +684,23 @@ class EntitySet(Model):
         return self
 
 
+class SpatialEvaluation(Model):
+    """Machine-readable support and unresolved inputs for one spatial subject."""
+
+    relation: Literal["containers", "boundary_neighbors", "door_connections", "outdoor_access", "exterior_doors"]
+    subject_id: Id
+    status: Literal["verified", "candidate", "unavailable", "recorded_empty"]
+    method: str
+    related_ids: list[Id] = Field(default_factory=list)
+    anchor_ids: list[Id] = Field(default_factory=list)
+    tolerance_m: float | None = Field(default=None, ge=0.000001, le=0.1)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class CalculationNode(Model):
     id: Id
     plan_step_id: Id | None = None  # Internal calculation nodes may have no plan step.
-    operation: Literal["select", "traverse", "spatial_query", "project", "rank", "count", "sum", "mean", "min", "max", "lookup", "convert_unit", "add", "subtract", "multiply", "divide", "measure", "group_by", "filter", "deduplicate"]
+    operation: Literal["select", "traverse", "spatial_query", "related_entities", "project", "rank", "count", "sum", "mean", "min", "max", "lookup", "convert_unit", "add", "subtract", "multiply", "divide", "measure", "group_by", "filter", "deduplicate"]
     input_node_ids: list[Id] = Field(default_factory=list)
     fact_ids: list[Id] = Field(default_factory=list)
     included_set_id: Id | None = None
@@ -660,6 +710,7 @@ class CalculationNode(Model):
     output: Value
     quality: Literal["exact", "estimated", "lower_bound", "upper_bound"]
     rule_key: str | None = None
+    spatial_evidence: list[SpatialEvaluation] = Field(default_factory=list)
 
 
 class EvidenceBinding(Model):
@@ -669,6 +720,7 @@ class EvidenceBinding(Model):
     fact_ids: list[Id] = Field(default_factory=list)
     entity_set_ids: list[Id] = Field(default_factory=list)
     calculation_id: Id
+    evidence_kind: Literal["verified", "candidate", "unavailable"] = "verified"
 
 
 class Claim(Model):
@@ -707,8 +759,8 @@ class Issue(Model):
 
 class ExecutionMetrics(Model):
     latency_ms: float = Field(ge=0)
-    model_input_tokens: NonnegativeInt = 0
-    model_output_tokens: NonnegativeInt = 0
+    model_input_tokens: NonnegativeInt | None = 0
+    model_output_tokens: NonnegativeInt | None = 0
     cache_hit: bool = False
     cost_amount: DecimalString | None = None
     cost_currency: str | None = None
@@ -795,6 +847,20 @@ class IfcQuestionRequest(Contract):
         return self
 
 
+class IfcPlanningProvenance(Model):
+    provider: str
+    requested_model: str
+    returned_model: str
+    thinking_level: str | None = None
+    prompt_version: str
+    discovery_version: str
+    model_requests: NonnegativeInt
+    inspection_count: NonnegativeInt
+    prompt_tokens: NonnegativeInt | None = None
+    completion_tokens: NonnegativeInt | None = None
+    thought_tokens: NonnegativeInt | None = None
+
+
 class IfcQuestionResponse(Contract):
     request_id: Id
     model_id: Id
@@ -807,6 +873,8 @@ class IfcQuestionResponse(Contract):
     plan: QueryPlan | None = None
     included_elements: list[IfcElement] = Field(default_factory=list)
     excluded_elements: list[IfcElement] = Field(default_factory=list)
+    unresolved_elements: list[IfcElement] = Field(default_factory=list)
+    planning: IfcPlanningProvenance | None = None
     facts: list[Fact] = Field(default_factory=list)
     anchors: list[EvidenceAnchor] = Field(default_factory=list)
     units: list[Unit] = Field(default_factory=list)
@@ -1048,6 +1116,30 @@ class ImageCandidateStreamEvent(Contract):
         if any((getattr(self, field) is not None) != (field == selected)
                for field in ("progress", "result", "error")):
             raise ValueError("stream event requires exactly its matching payload")
+        return self
+
+
+class DxfPreviewResponse(Contract):
+    """One rendered layout, not a CAD inventory or a calibrated measurement."""
+
+    source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    svg: Annotated[str, Field(min_length=1, max_length=8 * 1024 * 1024)]
+    width: Annotated[int, Field(gt=0, le=4096, strict=True)]
+    height: Annotated[int, Field(gt=0, le=4096, strict=True)]
+    page: PositiveInt
+    layouts: list[Annotated[str, Field(min_length=1, max_length=255)]] = Field(min_length=1, max_length=128)
+    insunits: NonnegativeInt | None = None  # Literal $INSUNITS; not raster calibration.
+    status: Literal["rendered", "partial"]
+    warnings: list[Annotated[str, Field(min_length=1, max_length=1000)]] = Field(max_length=40)
+
+    @model_validator(mode="after")
+    def check_preview(self):
+        if self.page > len(self.layouts) or len(set(self.layouts)) != len(self.layouts):
+            raise ValueError("DXF preview must identify one unique source layout")
+        if self.width * self.height > 8_000_000:
+            raise ValueError("DXF preview exceeds its pixel budget")
+        if self.status == "partial" and not self.warnings:
+            raise ValueError("partial DXF previews require an explanation")
         return self
 
 
