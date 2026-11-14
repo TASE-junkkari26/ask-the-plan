@@ -23,10 +23,11 @@ optional extensions unless a supplied question needs them. See the
 
 | Component | Implemented | Boundary |
 |---|---|---|
-| Frontend | Import opening screen, image/PDF workbench with Nemotron candidate overlays and review panel, local IFC 3D inspection, searchable import library, SVG/JSON export | Imports last until refresh; images/PDF pages use the candidate API when a question is submitted. IFC remains local inspection. Synthetic sources stay offline fixtures; no final-answer planner. |
-| IFC engine | CPU extraction, structured selection/traversal, scalar properties/quantities, counts, grouping/ranking, evidence and caching | Standalone Python/CLI; no natural-language planner, HTTP API, or geometry-measurement engine. |
+| Frontend | Import opening screen, image/PDF candidate review, IFC 3D inspection and questions with persistent answer highlights and source evidence, searchable import library, exports | Imports last until refresh. Asking uploads the selected image/page or IFC to the local backend. Synthetic sources stay offline fixtures. |
+| IFC engine | CPU extraction, native project/file metadata, bounded spatial topology, structured selection/traversal, scalar properties/quantities, counts, grouping/ranking, exact view scopes, evidence and caching | Independent Python/CLI executor, also used by the IFC question API. Shared-element adjacency remains explicitly partial; no metric geometry, orientation or route engine. |
 | Shared contracts | Pydantic models, generated JSON Schemas/TypeScript, reference/unit/scope/evidence validation | Validation cannot prove source completeness or correctness. |
-| Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI | Frontend image detection uses the candidate API; natural-language IFC planning remains pending. Credentials stay on the backend. |
+| Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI, bounded IFC question planning | The IFC engine computes answers from validated plans; image detections remain candidate proposals. Credentials stay on the backend. |
+| IFC question API | Revision-bound temporary uploads, Nemotron query planning, engine execution, source element/fact evidence and deterministic natural-language summaries | Uses the same local server as image analysis. Current-view scope defaults to exact enabled objects; whole-model scope is explicit. Summaries use executed values without another inference call. Unsupported operations remain non-answers. |
 | Image candidate API | Local HTTP image/question endpoint returning Nemotron candidate boxes, uncertainty, image hashes and display coordinates | Connected to imported 2D drawings; candidate proposals only, with no final counts/answers or IFC analysis. |
 | Raster preprocessing | Standalone source/crop/overview artifacts, coordinate transforms, optional local Tesseract OCR, inspection-tool adapter, and bounded image-API session preparation | API defaults to unchanged model input with OCR off; optional full-source overview mode preserves page layout. No semantic room segmentation, physical calibration, or agent tool loop. |
 | Perception | Research plans and a saved one-image door-labeling experiment | No evaluated general raster inventory/reconstruction or model routing. Standalone optional OCR is documented separately. |
@@ -71,13 +72,16 @@ On Windows, use `.\.venv\Scripts\python.exe` for both commands. Open
 image-bound candidate boxes, not a final answer/count. Leave this backend running
 and start `npm run dev` in a second terminal. In the UI, import a drawing, select
 its image/PDF page, and submit a question to see candidate boxes and a review list.
-Files are previewed locally until a question is submitted; asking sends the
+Files are previewed locally until a question is submitted; image/PDF questions send the
 displayed raster to Nemotron through the backend. The backend prepares a canonical
 upright PNG before optional raster preprocessing. Its default `original` mode
 caches preparation without changing model input; opt-in `overview` mode sends
 only the uncropped full-source overview and maps boxes back to the original
-display coordinates. OCR stays off in this path. Imported IFC models remain
-local 3D inspection and do not use this endpoint. See [API usage and UI handoff](image_api/README.md) for multipart
+display coordinates. OCR stays off in this path. IFC questions use separate
+`/api/ifc` endpoints on this same server: the local backend extracts the original
+model, Nemotron proposes a query, and the IFC engine returns the answer and
+highlightable source elements. See [IFC questions](docs/IFC_QUESTIONS.md) and
+[image API usage and UI handoff](image_api/README.md) for multipart
 examples, generated types, coordinates, limits, and errors.
 
 ## Start the frontend
@@ -205,7 +209,8 @@ The dataset is optional for the synthetic IFC regression fixtures. The real-mode
 test uses `dataset/junction-dataset-preview/data/ifc_models/` and skips if its
 Esplanades file is absent. A full-only or nested extraction does not satisfy that
 particular test path. See the [IFC engine guide](docs/IFC_ENGINE.md) for real-file commands, supported operations,
-scope/unit semantics, and limitations. This CLI is independent of the mock UI.
+scope/unit semantics, and limitations. The CLI remains independent; the IFC
+question API reuses the same executor.
 
 The [verification record](docs/VERIFICATION.md) gives the latest commands,
 platform versions, results, and limits. Windows Python, frontend logic, schema,
@@ -253,6 +258,7 @@ frontend/       Browser prototype and generated TypeScript wire types
 ifc_engine/     Local IFC extraction and structured query execution
 nemotron/       Backend Verda text/vision client and connection-check CLI
 image_api/      Local image/question HTTP service returning candidate boxes
+ifc_api/        Local IFC upload, Nemotron planner and engine/evidence HTTP adapter
 drawing_preprocessor/  CPU raster preparation and source-inspection tool adapter
 experiments/    Reproducible model experiments, prompts, and findings
 contracts/      Shared models, validation, JSON Schemas, synthetic examples
@@ -280,6 +286,7 @@ adjust commands to the actual root rather than assuming that layout.
 | [Dataset research](docs/DATASET_RESEARCH.md) | Template concentration and proposed answering pipeline |
 | [Schema](docs/SCHEMA.md) | Contract structure, invariants, query/result types, and validation boundaries |
 | [IFC viewer](docs/IFC_VIEWER.md) | Browser 3D viewing, local conversion, inspector, controls, assets, and limits |
+| [IFC questions](docs/IFC_QUESTIONS.md) | Nemotron planning, exact view scopes, engine answers, highlights and source evidence |
 | [IFC engine](docs/IFC_ENGINE.md) | Current backend/CLI behavior and supported operations |
 | [Frontend](frontend/README.md) | Current local-preview UI, startup, testing, and integration boundary |
 | [Computational capabilities](docs/COMPUTATIONAL_CAPABILITIES.md) | Capability backlog with implemented versus planned status |

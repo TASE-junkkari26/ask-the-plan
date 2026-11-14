@@ -11,6 +11,8 @@ import * as THREE from 'three';
 import { readSourceProperties } from './properties';
 import { clippingRange, renderPixelRatio, styleIfcSurface } from './rendering';
 import { FrameTask, TaskQueue } from './tasks';
+import { resolveEvidenceElements } from './evidence';
+import type { EvidenceElement } from './evidence';
 
 export interface ModelNode {
   id: number | null;
@@ -50,6 +52,7 @@ export function createIfcAdapter(
   let selectionVersion = 0;
   let model: FragmentsModel | undefined;
   let geometryIds = new Set<number>();
+  let visibleIds = new Set<number>();
   let bounds: THREE.Box3 | undefined;
   let disposePromise: Promise<void> | null = null;
   const worlds = components.get(OBC.Worlds);
@@ -102,6 +105,16 @@ export function createIfcAdapter(
     });
     highlighter.multiple = 'none';
     highlighter.zoomToSelection = false;
+    highlighter.styles.set('answer', {
+      color: new THREE.Color('#2680c2'),
+      opacity: 0.9,
+      transparent: true,
+      renderedFaces: RenderedFaces.TWO,
+      depthWrite: false,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1,
+      priority: 1,
+    });
     const hider = components.get(OBC.Hider);
     const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
     const visibility = new TaskQueue();
@@ -225,10 +238,10 @@ export function createIfcAdapter(
 
     const map = (ids: number[]): OBC.ModelIdMap =>
       model ? { [model.modelId]: new Set(ids) } : {};
-    async function fit(id?: number) {
+    async function fit(id?: number | number[]) {
       if (!model || disposed) return;
       const box =
-        id === undefined ? model.box.clone() : await model.getMergedBox([id]);
+        id === undefined ? model.box.clone() : await model.getMergedBox(Array.isArray(id) ? id : [id]);
       if (disposed || box.isEmpty()) return;
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
@@ -299,6 +312,7 @@ export function createIfcAdapter(
           ]);
           signal.throwIfAborted();
           geometryIds = new Set(ids);
+          visibleIds = new Set(ids);
           const spatialIds: number[] = [];
           // SDK trees alternate category groups (no ID) and items (no category).
           const collect = (node: SpatialTreeItem, parentCategory = '') => {
@@ -367,6 +381,47 @@ export function createIfcAdapter(
         }
       },
       fit,
+      /** Visibility membership, independent of camera/frustum/occlusion. */
+      async getViewStepIds() {
+        const ids = await visibility.run(async () => [...visibleIds].sort((a, b) => a - b));
+        if (!ids || disposed) throw new DOMException('Viewer closed.', 'AbortError');
+        return ids;
+      },
+      highlightEvidence(elements: EvidenceElement[]) {
+        return selectionTasks.run(async () => {
+          if (disposed || !model) throw new DOMException('Viewer closed.', 'AbortError');
+          const ids = [...new Set(elements.flatMap((element) =>
+            element.step_id != null && geometryIds.has(element.step_id) ? [element.step_id] : [],
+          ))];
+          const guids = ids.length ? await model.getGuidsByLocalIds(ids) : [];
+          if (disposed) throw new DOMException('Viewer closed.', 'AbortError');
+          const report = resolveEvidenceElements(elements, geometryIds,
+            new Map(ids.map((id, index) => [id, guids[index] ?? null])));
+          await highlighter.clear('answer');
+          if (report.stepIds.length)
+            await highlighter.highlightByID('answer', map(report.stepIds), true, false);
+          requestRender();
+          return { ...report, hiddenStepIds: report.stepIds.filter((id) => !visibleIds.has(id)) };
+        });
+      },
+      clearEvidence() {
+        return selectionTasks.run(async () => {
+          if (!disposed) {
+            await highlighter.clear('answer');
+            requestRender();
+          }
+        });
+      },
+      isolateMany(ids: number[]) {
+        return visibility.run(async () => {
+          if (!disposed) {
+            const drawable = ids.filter((id) => geometryIds.has(id));
+            await hider.isolate(map(drawable));
+            visibleIds = new Set(drawable);
+            requestRender();
+          }
+        });
+      },
       select(id: number | null) {
         return selectionTasks.run(async () => {
           if (disposed || !model) return;
@@ -385,6 +440,7 @@ export function createIfcAdapter(
           return visibility.run(async () => {
             if (!disposed) {
               await hider.set(true);
+              visibleIds = new Set(geometryIds);
               requestRender();
             }
           });
@@ -397,6 +453,7 @@ export function createIfcAdapter(
         return visibility.run(async () => {
           if (!disposed) {
             await hider.isolate(map(ids));
+            visibleIds = new Set(ids.filter((id) => geometryIds.has(id)));
             requestRender();
           }
         });
@@ -405,6 +462,7 @@ export function createIfcAdapter(
         return visibility.run(async () => {
           if (!disposed) {
             await hider.set(false, map([id]));
+            visibleIds.delete(id);
             requestRender();
           }
         });
@@ -413,6 +471,7 @@ export function createIfcAdapter(
         return visibility.run(async () => {
           if (!disposed) {
             await hider.isolate(map([id]));
+            visibleIds = new Set(geometryIds.has(id) ? [id] : []);
             requestRender();
           }
         });
@@ -421,6 +480,7 @@ export function createIfcAdapter(
         return visibility.run(async () => {
           if (!disposed) {
             await hider.set(true);
+            visibleIds = new Set(geometryIds);
             requestRender();
           }
         });
@@ -482,6 +542,7 @@ export function createIfcAdapter(
           model = undefined;
           bounds = undefined;
           geometryIds.clear();
+          visibleIds.clear();
         })();
         return disposePromise;
       },

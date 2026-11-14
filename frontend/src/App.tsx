@@ -161,15 +161,17 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
       <h2>Your drawing, in focus.</h2>
       <p>
         Select or drop an image, PDF, or IFC file to open it. Explore drawings
-        with the chat panel, or inspect a model in 3D. Use Drawings to switch
+        with the chat panel, or ask questions and inspect a model in 3D. Use Drawings to switch
         files or remove an import.
       </p>
       <div className="help-note">
         <FileImage size={17} />
         <span>
           Imports are previewed locally and cleared on refresh. Submitting a
-          question sends the selected image or PDF page to Nemotron; highlights
-          are candidates for review. IFC models support local inspection only.
+          drawing question sends the selected image or PDF page to Nemotron;
+          highlights are candidates for review. Asking about an IFC uploads it
+          to the local backend. Nemotron plans the query, the IFC engine computes
+          the answer, and matching source elements are highlighted for inspection.
         </span>
       </div>
       <div className="shortcut-grid">
@@ -1323,7 +1325,7 @@ export default function App() {
                 <Check size={13} />
               </span>
               {ifcSource
-                ? 'Local 3D inspection · source properties only'
+                ? 'IFC answers · inspect the highlighted source elements'
                 : t.only}
               {!ifcSource && (
                 <span className="footnote-shortcut">
@@ -1332,14 +1334,15 @@ export default function App() {
               )}
             </div>
           </main>
-          {inspectorOpen &&
+          {(inspectorOpen || ifcSource) &&
             (ifcSource ? (
               <div
                 className="answer-panel"
                 id="model-inspector"
                 role="complementary"
-                aria-label="Model inspector"
+                aria-label="Model questions and source inspector"
                 ref={setIfcInspectorHost}
+                style={{ display: inspectorOpen ? undefined : 'none' }}
               />
             ) : imported ? (
               <aside

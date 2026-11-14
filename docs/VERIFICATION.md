@@ -1,5 +1,84 @@
 # Sprint-one verification record
 
+## IFC spatial and descriptive questions, 14 November 2026
+
+Extended the existing uncommitted IFC integration with native topology queries,
+file/project/site metadata, compound query outputs and deterministic prose from
+executed results. The [question-family audit](IFC_QUESTIONS.md#supplied-question-families)
+records the supplied examples and remaining capability gaps.
+
+Checks used Linux, Python 3.12.3, IfcOpenShell 0.9.0.post1, Pydantic 2.14.3,
+FastAPI 0.162.7, httpx 0.28.1 and Node 24.22.3:
+
+- Full Python suite: **274 tests passed**, no skips, in 16.990 seconds. The
+  27 added regressions cover extraction across IFC2X3/IFC4/IFC4X3, spatial paths,
+  door/opening identity, corresponding boundaries, duplicate boundaries, partial
+  shared-wall candidates, missing topology, exact view membership, source
+  coordinates/units, metadata narratives and compound API outputs. Provider
+  responses were mocked; each new API answer used one planning request.
+- All **16 frontend test files** passed, and TypeScript/production build passed.
+  The existing optional Three/WebGPU export and chunk-size warnings remain.
+  References now show literal names/STEP locators, and calculation details expose
+  native relationship anchors even when no scalar facts are involved.
+- All 12 JSON Schemas are current, and frontend contracts were regenerated.
+  Markdown links and whitespace checks passed. Async/thread and HTTP-server
+  tests required local socket access outside this environment's restricted
+  sandbox; a sandbox-stuck owned test process was stopped afterward.
+- Selected offline queries on supplied preview IFCs: `duplex_arc.ifc` returned
+  four distinct rooms with recorded exterior-door boundaries and a native direct
+  doorway connection from `A101`. `digital_hub_arc.ifc`, which lacks usable space
+  boundaries, returned `missing_information` for outdoor access. No supplied QA
+  answer lookup or provider call was used. The local source hashes/outcomes are
+  recorded in `build/ifc-spatial-verification.json`.
+
+This pass did not run a browser or live natural-language planner evaluation.
+It does not establish complete IFC-Bench accuracy. Metric geometry, orientation,
+nearest-distance and navigable routes remain unsupported; shared-element
+adjacency remains an explicitly partial candidate answer. Existing browser/live
+observations below belong to the earlier integration pass.
+
+## IFC questions and answer verification, 14 November 2026
+
+Connected the IFC viewer to a bounded Nemotron planner and the existing CPU IFC
+executor. Checks used Linux, Python 3.12.3, IfcOpenShell 0.9.0.post1,
+Pydantic 2.14.3, FastAPI 0.162.7, httpx 0.28.1 and Node 24.22.3.
+
+- Full Python suite: 247 tests passed with no skips. This includes 23 new IFC
+  API/exact-scope cases, three request-limit regressions, the existing real
+  Esplanades engine check, image API/lifecycle tests and contract checks. API
+  inference in this suite was mocked. Local socket access was required for the
+  server tests and asynchronous thread completion in this execution environment.
+- All 15 frontend test files passed, including 11 new identity and IFC API test
+  cases. TypeScript and the production build passed. The existing SDK optional
+  Three/WebGPU export and large-chunk warnings remain.
+- All 12 JSON Schemas are current; the new IFC response/request types were
+  generated from them. Local Markdown links, whitespace checks, and the initial
+  import-screen server-rendering smoke check passed.
+- Headless Firefox on Linux exercised a generated IFC with actual geometry,
+  local upload/extraction/execution and a mocked Nemotron HTTP transport. The
+  answer changed from three windows to two after storey filtering, to one after
+  hiding an element, and back to three with explicit model scope. STEP/GUID
+  inspection, persistent blue answer highlights, separate object selection,
+  cached upload reuse, panel collapse/reopen, isolate matches, narrow-screen
+  layout and absence of uncaught page errors were checked. This establishes the
+  tested UI/API behavior, not natural-language accuracy on supplied models.
+- Separate live Nemotron calls on the generated source returned three windows
+  with STEP IDs 33/37/41, the widest window at STEP 37 with stored width 1.5 m,
+  and two windows for a Finnish current-view question with STEP IDs 33/37.
+  Source hashes matched. Selected successful planning/execution times were
+  879, 991 and 1041 ms, with 10,253/199, 10,258/311 and 10,587/202 input/output
+  tokens respectively. These are individual observations, not cost or latency
+  benchmarks. The Finnish question initially exposed an ambiguous internal scope
+  flag; renaming and clarifying that flag produced the final passing check.
+
+Automatic approval review rejected the optional live supplied-model check because
+authorization to send source-derived catalog data to the external provider was
+unverified. That action was not retried, and no supplied-model data was sent in
+these live checks. Five synthetic live calls were made, including the two Finnish
+non-answer attempts before the correction. Supplied-corpus natural-language
+accuracy, Windows graphics, and large-model Q&A memory/latency remain unverified.
+Temporary owned browser/API/frontend servers were stopped after verification.
+
 ## Linux merge verification, 14 November 2026
 
 Merged upstream `ba72858` (raster preprocessing and candidate API diagnostics)

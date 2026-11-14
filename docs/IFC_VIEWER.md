@@ -1,7 +1,7 @@
 # Browser IFC viewer
 
-Implemented 14 November 2026. This is a local viewing and inspection feature,
-independent of the Python IFC engine and question-answering contracts. Image/PDF
+Implemented 14 November 2026. Local viewing and inspection now also connect to
+the Python IFC engine through the [IFC question API](IFC_QUESTIONS.md). Image/PDF
 previews use the existing 2D viewer. The application opens on a file import screen;
 synthetic question demos remain offline fixtures.
 
@@ -25,7 +25,8 @@ opened again to retry or removed.
 Only the active source has a renderer. Switching to a drawing disposes the 3D
 scene and workers; switching to IFC removes the SVG renderer, PDF pagination,
 marked-SVG export, and 2D camera handlers. Imported PDFs retain their current page.
-IFC models are not uploaded. Image/PDF imports can separately submit a displayed
+IFC models are uploaded to the local backend only when a question is asked;
+opening and inspecting remain local. Image/PDF imports can separately submit a displayed
 raster to the [candidate API](../image_api/README.md) when a question is asked.
 Local files and the converted-model cache are cleared by refreshing the tab.
 The library contains only imports; removing the last file returns to the opening
@@ -42,6 +43,11 @@ screen.
 - **Focus**, **Hide**, **Isolate**, and **Show all objects** are deliberate actions.
   Show all resets floor/visibility filtering; the horizontal section has its own
   reset. The cut-height slider is in viewer metres, not a source quantity.
+- Ask a question in the inspector's question panel. The default current-view
+  scope follows storey/visibility controls; whole-model scope is explicit.
+  Answers highlight their matching source elements separately from selection.
+  Inspect the element list and calculation inputs, or isolate matches to reveal
+  occluded objects. Reset section clipping before a current-view question.
 - The inspector preserves original names, IFC classes, GUIDs, STEP IDs, scalar
   properties, quantities, and unit references. Type/style definitions are labelled
   separately inside the source references. Metadata-only items remain inspectable.
@@ -184,9 +190,9 @@ identity and regenerate the artifact. The loader rejects a mismatched demo manif
 
 ## Boundaries
 
-This IFC viewer has no backend connection or real question answering for IFC
-sources, federation, editing, measurement, new IFC export, server conversion,
-generated floor drawings, or persistent upload storage. This viewer does not
-change the Python IFC engine or its query contracts; the separate image API adds
-candidate contracts for 2D analysis. See the [verification record](VERIFICATION.md)
+IFC questions use Nemotron to plan supported engine operations, with revision-bound
+source evidence and exact enabled-object scopes. This does not add federation,
+editing, geometry measurement, new IFC export, server-side geometry conversion,
+generated floor drawings, or persistent upload storage. The separate image API
+retains candidate contracts for 2D analysis. See the [verification record](VERIFICATION.md)
 for checks actually run; selected-model tests are not corpus-wide compatibility.

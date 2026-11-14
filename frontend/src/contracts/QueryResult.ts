@@ -10,6 +10,7 @@ export type InputNodeIds = string[];
 export type Operation =
   | 'select'
   | 'traverse'
+  | 'spatial_query'
   | 'project'
   | 'rank'
   | 'count'
@@ -124,6 +125,7 @@ export type Quality2 = 'exact' | 'estimated' | 'lower_bound' | 'upper_bound';
  */
 export type DocumentIds = [string, ...string[]];
 export type EntityIds1 = string[];
+export type ExactEntityIds = string[] | null;
 export type ProjectId = string;
 export type Universe =
   'source_records' | 'modeled_objects' | 'depicted_objects' | 'schedule_entries' | 'physical_building';
@@ -314,6 +316,7 @@ export interface EvidenceBinding {
 export interface Scope {
   document_ids: DocumentIds;
   entity_ids?: EntityIds1;
+  exact_entity_ids?: ExactEntityIds;
   project_id: ProjectId;
   universe: Universe;
   view_ids?: ViewIds;

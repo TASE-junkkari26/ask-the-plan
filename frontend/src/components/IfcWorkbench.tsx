@@ -28,6 +28,8 @@ import type {
 import { loadIfc } from '../ifc/load';
 import type { LoadState } from '../ifc/load';
 import type { GeometryRecoveryReport } from '../ifc/geometryRecovery';
+import IfcQuestionPanel from './IfcQuestionPanel';
+import type { EvidenceElement } from '../ifc/evidence';
 
 const labels: Record<IfcStatus, string> = {
   idle: 'Ready to open',
@@ -257,6 +259,9 @@ export default function IfcWorkbench({
   const [height, setHeight] = useState(0);
   const [notice, setNotice] = useState('');
   const [lookup, setLookup] = useState('');
+  const [tab, setTab] = useState<'questions' | 'inspect'>('questions');
+  const [viewRevision, setViewRevision] = useState(0);
+  const [visibilityPending, setVisibilityPending] = useState(false);
   const busy = ['reading', 'converting', 'rendering'].includes(state.status);
   const ready = state.status === 'ready';
 
@@ -288,6 +293,9 @@ export default function IfcWorkbench({
     setSection(false);
     setNotice('');
     setLookup('');
+    setTab('questions');
+    setVisibilityPending(false);
+    setViewRevision((value) => value + 1);
     report({ status: 'reading' });
     const dispose = (instance: IfcAdapter | undefined) => {
       // Never allow a late SDK cleanup failure to become an unhandled rejection.
@@ -408,10 +416,13 @@ export default function IfcWorkbench({
     (nextStorey: string, operation: (adapter: IfcAdapter) => Promise<void>) => {
       const request = ++visibilityRequest.current;
       setStorey(nextStorey);
+      setVisibilityPending(true);
+      setViewRevision((value) => value + 1);
       void run(operation).then((success) => {
         if (success) confirmedStorey.current = nextStorey;
         else if (request === visibilityRequest.current)
           setStorey(confirmedStorey.current);
+        if (request === visibilityRequest.current) setVisibilityPending(false);
       });
     },
     [run],
@@ -439,6 +450,23 @@ export default function IfcWorkbench({
     onStatus(source.id, 'cancelled');
   };
   const retry = () => setAttempt((value) => value + 1);
+  const getViewStepIds = useCallback(async () => {
+    const adapter = adapterRef.current;
+    if (!adapter) throw new DOMException('Viewer closed.', 'AbortError');
+    return adapter.getViewStepIds();
+  }, []);
+  const highlight = useCallback(async (elements: EvidenceElement[]) => {
+    const adapter = adapterRef.current;
+    if (!adapter) throw new DOMException('Viewer closed.', 'AbortError');
+    return adapter.highlightEvidence(elements);
+  }, []);
+  const clearHighlights = useCallback(() => {
+    void adapterRef.current?.clearEvidence().catch(() => {});
+  }, []);
+  const inspectEvidence = useCallback((id: number) => {
+    setTab('inspect');
+    select(id);
+  }, [select]);
 
   return (
     <>
@@ -565,6 +593,7 @@ export default function IfcWorkbench({
                 <button
                   className="secondary-button"
                   onClick={() => {
+                    setTab('inspect');
                     setRecoveryDetailsRequested(true);
                     if (!inspectorOpen) toggleInspector();
                   }}
@@ -612,7 +641,7 @@ export default function IfcWorkbench({
           {ready
             ? geometryRecovery && geometryRecovery.omittedFaceCount > 0
               ? 'Partial geometry · source properties retained'
-              : 'Local 3D inspection'
+              : 'IFC source · ask & verify'
             : labels[state.status]}
         </span>
       </div>
@@ -624,8 +653,8 @@ export default function IfcWorkbench({
                 <Box size={20} />
               </span>
               <div>
-                <h2>Model inspector</h2>
-                <p>Select an object to inspect its source data.</p>
+                <h2>Ask & verify</h2>
+                <p>Source answers, linked to model elements.</p>
               </div>
               <button
                 className="icon-button panel-close"
@@ -635,13 +664,34 @@ export default function IfcWorkbench({
                 <PanelRightClose size={17} />
               </button>
             </div>
+            <div className="ifc-panel-tabs" role="tablist" aria-label="IFC model panel">
+              <button role="tab" id="ifc-questions-tab" aria-selected={tab === 'questions'} aria-controls="ifc-questions-content" onClick={() => setTab('questions')}>Questions & evidence</button>
+              <button role="tab" id="ifc-inspect-tab" aria-selected={tab === 'inspect'} aria-controls="ifc-inspect-content" onClick={() => setTab('inspect')}>Inspect source</button>
+            </div>
             <div className="ifc-inspector-content">
+              <div id="ifc-questions-content" role="tabpanel" aria-labelledby="ifc-questions-tab" style={{ display: tab === 'questions' ? undefined : 'none' }}>
+                <IfcQuestionPanel
+                  key={`${source.id}:${attempt}`}
+                  source={source}
+                  sourceHash={hash}
+                  ready={ready}
+                  viewBusy={visibilityPending}
+                  section={section}
+                  viewRevision={viewRevision}
+                  viewLabel={`${info?.storeys.find((node) => String(node.id) === storey)?.label ?? 'All storeys'} · current object visibility`}
+                  getViewStepIds={getViewStepIds}
+                  highlight={highlight}
+                  clearHighlights={clearHighlights}
+                  focus={(ids) => { void run((adapter) => adapter.fit(ids)); }}
+                  isolate={(ids) => changeVisibility('', (adapter) => adapter.isolateMany(ids))}
+                  onSelect={inspectEvidence}
+                />
+              </div>
+              <div id="ifc-inspect-content" role="tabpanel" aria-labelledby="ifc-inspect-tab" style={{ display: tab === 'inspect' ? undefined : 'none' }}>
               <p className="ifc-note">
                 {source.file
-                  ? 'Your IFC stays in this tab.'
+                  ? 'Viewing and property inspection run locally. Asking a question uploads the source to the local backend.'
                   : 'Real model · FZK-Haus by KIT.'}{' '}
-                Viewing and inspection only; question answering is not
-                connected.
               </p>
               {ready &&
                 geometryRecovery &&
@@ -761,6 +811,7 @@ export default function IfcWorkbench({
                     disabled={!ready || !info?.hasGeometry}
                     onChange={(event) => {
                       const checked = event.target.checked;
+                      setViewRevision((value) => value + 1);
                       setSection(checked);
                       run((adapter) =>
                         adapter.section(checked ? height : null),
@@ -784,6 +835,7 @@ export default function IfcWorkbench({
                         value={height}
                         onChange={(event) => {
                           const next = Number(event.target.value);
+                          setViewRevision((value) => value + 1);
                           setHeight(next);
                           run((adapter) => adapter.section(next));
                         }}
@@ -793,6 +845,7 @@ export default function IfcWorkbench({
                       className="text-button"
                       onClick={() => {
                         setSection(false);
+                        setViewRevision((value) => value + 1);
                         setHeight((info.minY + info.maxY) / 2);
                         run((adapter) => adapter.section(null));
                       }}
@@ -863,9 +916,7 @@ export default function IfcWorkbench({
                       <button
                         className="secondary-button"
                         disabled={!selection.hasGeometry}
-                        onClick={() =>
-                          run((adapter) => adapter.hide(selection.id))
-                        }
+                        onClick={() => changeVisibility(storey, (adapter) => adapter.hide(selection.id))}
                       >
                         <EyeOff size={13} />
                         Hide
@@ -967,6 +1018,7 @@ export default function IfcWorkbench({
                   )}
                 </details>
               )}
+              </div>
             </div>
           </>,
           inspectorContainer,

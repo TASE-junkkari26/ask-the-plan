@@ -5,7 +5,8 @@ then shows an image/PDF with a chat panel on the right or an IFC model with its
 3D inspector. No demo drawings or prepared answers are shown. Submitting a
 question about an image/PDF uses the internal Nemotron image API and shows
 candidate boxes, uncertainty, and source close-ups. Inference credentials stay
-on the Python backend; IFC inspection stays local.
+on the Python backend. IFC viewing stays local until a question uploads the model
+to that backend for Nemotron planning and CPU engine execution.
 
 The [project scope](../docs/PROJECT_SCOPE.md) is the supplied dataset's question
 families. Build real integrations and evidence views for that set; unknown
@@ -15,7 +16,8 @@ demo fixtures alone do not establish dataset coverage.
 The frontend follows the [roadmap's UI direction](../docs/ROADMAP.md#ui-direction):
 one dominant source viewport, a searchable drawing picker, and a right-side chat
 panel with a fixed question composer. Imported-file detection returns candidate
-proposals for review; final answers/counts and IFC question planning remain pending.
+proposals for review. IFC questions return engine-computed answers, source
+evidence and matching-element highlights; see [IFC questions](../docs/IFC_QUESTIONS.md).
 
 ## Run
 
@@ -59,7 +61,7 @@ still needs verification on the target demo devices.
 
 - Opening screen with a keyboard-accessible file selector and drag-and-drop area. Loading and invalid-file states stay on this screen until a preview is ready.
 - Local image/SVG/PDF previews with pan, zoom, fit, quarter-turn rotation, and PDF page navigation.
-- IFC imports with a separate 3D renderer, original object properties/IDs, storey filtering, visibility controls, and sectioning. The inspector occupies the right panel for models.
+- IFC imports with a separate 3D renderer, original object properties/IDs, storey filtering, visibility controls, sectioning, and engine-backed questions. Questions and the inspector share the right panel for models.
 - Chat panel opens automatically after an image/PDF loads or is selected. It displays the original filename and preview details, and sends the selected image/page for candidate analysis when a question is submitted.
 - Searchable drawing picker containing only imported files, with thumbnails and removal. The native dialog supports focus containment, Escape, and the `/` or Ctrl/Cmd+K shortcuts.
 - English/Finnish core UI labels; original filenames and source text stay unchanged.
@@ -126,7 +128,16 @@ hidden. Source/page changes abort analysis, clear candidates, and discard stale
 responses. Returned image hashes/dimensions must match the submitted snapshot.
 Preview URLs are released when a file is removed, a PDF page is replaced, or the
 workbench unmounts. Switching sources cancels pending page rendering without
-allowing it to restore an old selection. IFC files are never submitted for analysis.
+allowing it to restore an old selection. Asking about IFC uploads the original
+file to the local backend. Its source hash binds answers and source element
+identities to the displayed revision. Current-view scope follows enabled
+objects, and whole-model scope is an explicit choice. Answer highlights remain
+separate from clicked-object selection; source facts and calculation inputs are
+inspectable, and unavailable geometry is reported separately from matches.
+Descriptive and spatial responses can include a source-backed natural-language
+summary above their structured results. Object references show original names
+and STEP IDs; select a reference to inspect its source object. The full canonical
+identities, facts and calculations remain available in the evidence export.
 Switching away from IFC cancels conversion/loading and disposes its scene and
 workers. Only the most recent converted model buffer is cached in memory.
 
@@ -141,8 +152,10 @@ The application does not call `src/demo/engine.ts`. Its `askDemo` adapter and
 synthetic sources remain for offline fixture and contract checks. Imported
 images/PDF pages use `/api/v1/candidates`, the generated `ImageCandidateResponse`,
 and a separate candidate overlay. Response-local candidate IDs are not canonical
-building entity IDs. Final-answer integration still needs a real planner accepting
-`QuestionRequest` and returning `QueryResult` with resolved source evidence.
+building entity IDs. IFC uses `/api/ifc/models` and `/api/ifc/questions`, generated
+IFC wire contracts and the engine's `QueryResult` with source evidence. Nemotron
+proposes bounded queries; the backend validates and executes them. Final answers
+for image/PDF questions remain pending.
 
 `src/types.ts` defines UI-only `Mark` and `DemoResponse` presentation records. They resolve the canonical entity, source geometry, label, ordinal, and calculation display. They are not additional physical facts or changes to the shared Python contracts. `src/contracts/` is generated from the committed request/result JSON Schemas.
 
