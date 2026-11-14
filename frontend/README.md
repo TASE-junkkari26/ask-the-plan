@@ -43,24 +43,23 @@ still needs verification on the target demo devices.
 - Prepared door/window counts, bedroom net-area subtraction, corridor width, exact door-schedule lookup, and missing-information responses.
 - English/Finnish question examples and core UI labels; original source text/IDs stay unchanged.
 - Current-drawing scope by default, following the organizer clarification reported on 14 November 2026. Whole-building requests do not aggregate unseen drawings.
-- Multiple local image/SVG/PDF imports through a file picker or drag and drop, a searchable library with thumbnails and removal, PDF page navigation, and marked-SVG/result-JSON export. Local uploads are not analysed and are not sent anywhere.
+- Multiple local image/SVG/PDF imports through a file picker or drag and drop, a searchable library with thumbnails and removal, PDF page navigation, and marked-SVG/result-JSON export. IFC imports use a separate 3D renderer with object properties, storeys, visibility controls, and sectioning. Local uploads are not analysed and are not sent anywhere.
 - Loading states, cancellation on source changes, recent questions, keyboard shortcuts, help dialog, and responsive styles. On narrow screens the answer panel sits below the drawing and can be hidden from the viewer toolbar; answers scroll independently of the composer.
 
 The interface uses the existing Lucide icons and a bundled Cantarell variable
-font, with a neutral drawing surface and a green selection accent. No additional
-JavaScript dependency or external font request is required. The font's copyright
+font, with a neutral drawing surface and a green selection accent. No external font request is required; the IFC SDK is loaded only when a 3D source is selected. The font's copyright
 and SIL Open Font License are included in
 [Cantarell-LICENSE.txt](public/fonts/Cantarell-LICENSE.txt).
 
-PDF.js is loaded only for local PDF preview. This version does not embed an IFC/3D viewer; the existing viewer plan remains the integration guide. Source graphics are authored in code; no licensed dataset assets are bundled.
+PDF.js is loaded only for local PDF preview. The lazy IFC viewer uses That Open Components/Fragments and self-hosted workers/WASM. **Drawings → FZK-Haus** opens a prepared real model with [KIT attribution](public/models/README.md). The 2D demo graphics remain synthetic. See the [IFC viewer guide](../docs/IFC_VIEWER.md) for controls, architecture, runtime assets, and limitations.
 
 ## Import and preview local drawings
 
 Click **Import drawings** in the header or drawing picker, or drop files anywhere
 on the workbench. Select multiple files at once. Supported previews are **PDF,
-PNG, JPEG, WebP, SVG, GIF, and BMP**, with a **35 MB limit per file**. The importer
+PNG, JPEG, WebP, SVG, GIF, BMP, and IFC**. Images/PDFs have a **35 MiB limit per file**; IFC has a separate **100 MiB limit**. The importer
 also recognizes supported filename extensions when the browser omits the MIME
-type. DWG/DXF drawings need a PDF or SVG export; IFC rendering is not included.
+type. DWG/DXF drawings need a PDF or SVG export. IFC conversion starts on selection, with progress, cancellation, retry, and removal.
 
 Open **Drawings** to search imported filenames, select a thumbnail, or remove a
 file. Imports appear above the demo drawings. The last successfully imported file
@@ -69,7 +68,7 @@ Valid files remain available when other files in the same batch fail; the picker
 lists each failure and its filename. Removing the selected file opens another
 import, or returns to a demo drawing when no imports remain.
 
-Imported drawings use the same pan, zoom, fit, and rotation controls as the demo.
+Imported images/PDFs use the same pan, zoom, fit, and rotation controls as the demo. IFC uses orbit/pan/zoom, storeys, perspective/orthographic projection, focus, hide/isolate/show all, and horizontal sectioning; its inspector shows original object attributes, property/type/quantity links, units, GUIDs, and STEP IDs. Metadata-only items remain inspectable. IFC does not offer SVG export or PDF pages.
 The footer navigates PDF pages; each PDF remembers its current page while you
 browse other drawings. PDF previews limit their canvas size for large sheets.
 Exported SVGs embed the displayed image or rendered PDF page, so they do not
@@ -79,7 +78,9 @@ Files stay in memory in the current tab and are cleared on refresh. They are not
 uploaded, stored on a server, or analysed; question answering and demo evidence
 are disabled for imported drawings. Preview URLs are released when a file is
 removed, a PDF page is replaced, or the workbench unmounts. Switching sources
-cancels pending page rendering without allowing it to restore an old selection.
+cancels pending page rendering without allowing it to restore an old selection. Switching away from IFC also cancels conversion/loading and disposes the scene and workers. Only the most recent converted model buffer is cached in memory.
+
+The `dev` and `build` commands prepare the pinned WASM asset explicitly, so installing with `--ignore-scripts` works. The checked-in FZK-Haus demo needs no dataset at startup. To regenerate it from the optional dataset, run `npm --prefix frontend run prepare:ifc-demo` from the root.
 
 ## Backend integration boundary
 
@@ -112,7 +113,7 @@ npm.cmd run build
 node scripts/smoke-render.mjs
 ```
 
-Tests cover per-drawing scope, multilingual object consistency, logical identity across source appearances, polygon/column area arithmetic, precise schedule lookup, missing information, cancellation, rotated focus coordinates, bounded zoom, import format/size validation, image decoding failures, and preview URL cleanup. `scripts/export-demo-fixtures.ts` emits sample result envelopes for validation against the Python contracts.
+Tests cover per-drawing scope, multilingual object consistency, logical identity across source appearances, polygon/column area arithmetic, precise schedule lookup, missing information, cancellation, rotated focus coordinates, bounded zoom, import format/size validation, image decoding failures, preview URL cleanup, separate IFC/2D limits, bounded converted-model caching, and cycle-safe property inspection. `scripts/export-demo-fixtures.ts` emits sample result envelopes for validation against the Python contracts.
 
 The latest checks are recorded in the [verification record](../docs/VERIFICATION.md).
 The frontend logic checks, production build, and initial server-rendering smoke
@@ -121,7 +122,7 @@ desktop and narrow-screen drawing selection, query/evidence interactions, and
 responsive screenshots. The import library was separately checked in Firefox on
 Linux with real browser file selection, mixed valid/invalid batches, all supported
 formats, PDF page navigation, source-switch cancellation, drag/drop events, and
-removal. This is UI verification, not a real backend or dataset accuracy test.
+removal. The IFC viewer has also been checked with real IFC2X3, IFC4, and IFC4.3 models, original property/ID comparisons, repeated source switches, cancellation, and production assets under a nested base URL. This is UI verification, not a real backend or dataset accuracy test.
 Actual mobile touch/keyboard behavior and Windows browser checks remain pending.
 
-Keyboard shortcuts: `+`/`-` zoom, `0` fit, `R` rotate, `O` toggle marks, `/` or Ctrl/Cmd+K opens source search, `Escape` closes the picker or clears selection/menus. Enter submits the question; Shift+Enter inserts a line break. Arrow keys and Home/End switch the evidence/calculation tabs when a tab is focused.
+2D keyboard shortcuts: `+`/`-` zoom, `0` fit, `R` rotate, `O` toggle marks, `/` or Ctrl/Cmd+K opens source search, `Escape` closes the picker or clears selection/menus. Enter submits the question; Shift+Enter inserts a line break. Arrow keys and Home/End switch the evidence/calculation tabs when a tab is focused.

@@ -133,3 +133,39 @@ tab-local previews, not persistent storage or an analysis/ingestion service.
   or billing check was performed in these passes. The [Nemotron guide](nvidia_info.md) and saved
   [door-labeling experiment](../experiments/door_labeling/RESULTS.md) retain their
   earlier observations and limits.
+
+## IFC viewer implementation — Linux, 14 November 2026
+
+The [browser IFC viewer](IFC_VIEWER.md) was checked separately from the earlier
+backend and 2D passes. Environment: Node 26.13.1, npm 12.2.2, TypeScript 5.9,
+Vite 7.3.8, Firefox 160 headless with software WebGL on Linux. An isolated
+Python 3.14 / IfcOpenShell 0.9.0.post1 environment supplied source comparisons;
+no backend application code or shared contracts were changed.
+
+| Check | Observed result |
+|---|---|
+| `npm run test:frontend` | Five test files passed, including existing demo/viewport/image tests and nine new source-routing/cache/property-reader cases. New cases also passed when run directly with Node. |
+| `npm run build` | TypeScript and Vite production build passed. The SDK emits optional WebGPU export warnings for the WebGL build, plus a large-chunk warning; the resulting WebGL viewer was tested in production. |
+| `node scripts/smoke-render.mjs` from `frontend/` | Initial 2D workspace still renders eight marks/evidence rows with unique SVG IDs. |
+| `npm --prefix frontend run prepare:ifc-demo` | Generated the checked-in KIT derivative and manifest from the original 2,570,803-byte FZK-Haus IFC. |
+| Initial 2D resource inspection | No IFC viewer, Three.js, or WASM resource requested before selecting 3D. |
+| Real FZK-Haus demo | Visible geometry, picking, original door name/STEP ID/GUID, two storeys, orthographic projection, horizontal clipping/reset, metadata-only project inspection, and panel collapse/reopen checked. |
+| Three repeated 2D/3D switches | One active 3D canvas; worker instrumentation showed no retained IFC workers after returning to 2D. |
+| Mixed SVG / invalid text / local IFC batch | Successful entries retained, invalid file reported separately, local IFC converted in its worker, and source switching preserved the library. A modified whitespace-only copy was used to avoid reusing the demo's cached hash. Original dataset files were not changed. |
+| Real IFC2X3 | Esplanades loaded; STEP `#8911`, class `IFCBEAM`, name `ARTALA - 001`, and native GUID matched IfcOpenShell. |
+| Real IFC4 MEP | DigitalHub heating loaded; STEP `#167979`, class `IFCSENSOR`, original German name, and GUID matched IfcOpenShell. |
+| Real IFC4.3 | City House Munich loaded; STEP `#150564`, class `IFCBUILDINGELEMENTPROXY`, original name, and GUID matched IfcOpenShell. |
+| Source scalar comparisons | FZK-Haus door `#17468` dimensions and storeys `#479` / `#35065` names/elevations matched IfcOpenShell; storey elevation `2.7` remained the source value. |
+| PDF regression | Two-page PDF retained page 2 across model switches. Exported SVG embedded the displayed PNG data URL and contained no temporary blob URL. |
+| Invalid IFC | Corrupt-file error remained in the library; retry and removal worked. |
+| Production nested base | Built and served under `/viewer-check/`; prepared demo, local IFC conversion, selection, conversion cancel/retry, and self-hosted workers/WASM worked. |
+| Missing runtime assets | Temporarily renamed generated production worker/WASM assets. Viewer reported errors, retained source navigation, and recovered after restoration/retry. Tracked source assets were not changed. |
+| Missing WebGL | Simulated unavailable WebGL produced the graphics error; 2D source selection and its eight demo marks remained functional. Restoring graphics allowed reopening and inspecting the demo. |
+| Responsive layout | Desktop and 500-pixel-wide screenshots inspected. The final model stage and inspector do not overlap; no horizontal document overflow. |
+
+Successful interaction runs recorded no uncaught page errors or unhandled
+rejections. These are selected-model viewing and source-identity checks, not
+complete geometry/property coverage, QA accuracy, a 100 MiB memory guarantee,
+or verification on physical mobile/Windows devices. Backend answer integration,
+canonical-ID bridging, persistent storage, and large-model server conversion
+remain outside this implementation.

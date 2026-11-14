@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import type {
   ChangeEvent,
   DragEvent as ReactDragEvent,
@@ -6,6 +13,7 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from 'react';
 import {
+  Box,
   ArrowDownToLine,
   ArrowRight,
   ArrowUp,
@@ -43,6 +51,7 @@ import {
 } from 'lucide-react';
 import { DrawingArtwork } from './components/DrawingArtwork';
 import { MarkLayer } from './components/MarkLayer';
+import { ViewerBoundary } from './components/ViewerBoundary';
 import {
   ImportedDrawingList,
   fileSize,
@@ -50,19 +59,34 @@ import {
 import { DRAWINGS, suggestions } from './demo/data';
 import { askDemo, resolveDemo } from './demo/engine';
 import { areaPath, clampZoom, focusPan } from './lib/viewport';
+import { importDocument, releaseDrawing } from './lib/importDocument';
 import {
-  importDocument,
-  IMPORT_ACCEPT,
-  IMPORT_FORMATS,
-  releaseDrawing,
-} from './lib/importDocument';
+  importSource,
+  releaseSource,
+  SOURCE_ACCEPT,
+  SOURCE_FORMATS,
+} from './lib/importSource';
+import { ifcCache } from './ifc/cache';
 import type {
   DemoResponse,
   Drawing,
   Language,
   LocalDrawing,
+  LocalSource,
+  IfcSource,
+  IfcStatus,
   Mark,
 } from './types';
+
+const IfcWorkbench = lazy(() => import('./components/IfcWorkbench'));
+const IFC_DEMO: IfcSource = {
+  id: 'demo-fzk-haus',
+  kind: 'ifc',
+  name: 'FZK-Haus',
+  status: 'idle',
+  fragmentUrl: `${import.meta.env.BASE_URL}models/fzk-haus.frag`,
+  manifestUrl: `${import.meta.env.BASE_URL}models/fzk-haus.json`,
+};
 
 const initialQuestion = 'How many doors are shown?';
 const copy = {
@@ -330,11 +354,25 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
   const [toast, setToast] = useState('');
-  const [localDrawings, setLocalDrawings] = useState<LocalDrawing[]>([]);
+  const [localDrawings, setLocalDrawings] = useState<LocalSource[]>([]);
   const [activeImportId, setActiveImportId] = useState<string | null>(null);
-  const imported =
+  const [activeIfcDemo, setActiveIfcDemo] = useState(false);
+  const [ifcEpoch, setIfcEpoch] = useState(0);
+  const [ifcInspectorHost, setIfcInspectorHost] =
+    useState<HTMLDivElement | null>(null);
+  const activeLocalSource =
     localDrawings.find((source) => source.id === activeImportId) ?? null;
-  const localActive = imported !== null;
+  const imported =
+    activeLocalSource && activeLocalSource.kind !== 'ifc'
+      ? activeLocalSource
+      : null;
+  const ifcSource = activeIfcDemo
+    ? IFC_DEMO
+    : activeLocalSource?.kind === 'ifc'
+      ? activeLocalSource
+      : null;
+  const ifcActive = ifcSource !== null;
+  const localActive = activeLocalSource !== null || activeIfcDemo;
   const [importProgress, setImportProgress] = useState<{
     name: string;
     current: number;
@@ -358,7 +396,7 @@ export default function App() {
   const queryRef = useRef<HTMLTextAreaElement>(null);
   const requestRef = useRef<AbortController | null>(null);
   const viewVersion = useRef(0);
-  const localDrawingsRef = useRef<LocalDrawing[]>([]);
+  const localDrawingsRef = useRef<LocalSource[]>([]);
   const batchRef = useRef<AbortController | null>(null);
   const pageRef = useRef<AbortController | null>(null);
   const fileDragDepth = useRef(0);
@@ -368,8 +406,9 @@ export default function App() {
     y: number;
     pan: { x: number; y: number };
   } | null>(null);
-  const title =
-    localActive && imported
+  const title = ifcSource
+    ? ifcSource.name
+    : localActive && imported
       ? imported.file.name
       : language === 'fi'
         ? drawing.titleFi
@@ -380,7 +419,7 @@ export default function App() {
 
   useEffect(() => {
     const stage = stageRef.current;
-    if (!stage) return;
+    if (ifcActive || !stage) return;
     const observer = new ResizeObserver(([entry]) => {
       const compact = entry.contentRect.width < 600;
       setPaperWidth(
@@ -404,7 +443,7 @@ export default function App() {
       observer.disconnect();
       stage.removeEventListener('wheel', wheel);
     };
-  }, [inspectorOpen]);
+  }, [inspectorOpen, ifcActive]);
   useEffect(() => {
     if (sidebarOpen) {
       drawingDialogRef.current?.showModal();
@@ -437,7 +476,8 @@ export default function App() {
       batchRef.current = null;
       pageRef.current?.abort();
       pageRef.current = null;
-      localDrawingsRef.current.forEach(releaseDrawing);
+      localDrawingsRef.current.forEach(releaseSource);
+      ifcCache.clear();
       localDrawingsRef.current = [];
     },
     [],
@@ -459,6 +499,7 @@ export default function App() {
         event.preventDefault();
         setSidebarOpen(true);
       }
+      if (ifcActive) return;
       if (event.key === '+' || event.key === '=')
         setZoom((z) => clampZoom(z + 0.15));
       if (event.key === '-') setZoom((z) => clampZoom(z - 0.15));
@@ -468,7 +509,7 @@ export default function App() {
     };
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
-  }, []);
+  }, [ifcActive]);
 
   function resetViewport() {
     setZoom(1);
@@ -483,6 +524,8 @@ export default function App() {
     cancelPagePreview();
     setDrawingId(next.id);
     setActiveImportId(null);
+    setActiveIfcDemo(false);
+    setExportOpen(false);
     setAsking(false);
     setSelected(null);
     setQuery('');
@@ -559,7 +602,7 @@ export default function App() {
     setDragging(false);
   }
 
-  function updateLocalDrawings(next: LocalDrawing[]) {
+  function updateLocalDrawings(next: LocalSource[]) {
     localDrawingsRef.current = next;
     setLocalDrawings(next);
   }
@@ -570,19 +613,61 @@ export default function App() {
     setPageLoading(false);
   }
 
-  function chooseImported(source: LocalDrawing, closePicker = true) {
+  function chooseImported(source: LocalSource, closePicker = true) {
     viewVersion.current += 1;
     cancelPagePreview();
     requestRef.current?.abort();
     requestRef.current = null;
     setAsking(false);
     setActiveImportId(source.id);
+    setActiveIfcDemo(false);
+    if (source.kind === 'ifc') setIfcEpoch((epoch) => epoch + 1);
     setResponse(null);
     setSelected(null);
     setQuery('');
     setLayersOpen(false);
     setExportOpen(false);
     if (closePicker) setSidebarOpen(false);
+    resetViewport();
+  }
+
+  const updateIfcStatus = useCallback(
+    (id: string, status: IfcStatus, error?: string) => {
+      if (
+        !localDrawingsRef.current.some(
+          (source) =>
+            source.id === id &&
+            source.kind === 'ifc' &&
+            (source.status !== status || source.error !== error),
+        )
+      )
+        return;
+      updateLocalDrawings(
+        localDrawingsRef.current.map((source) =>
+          source.id === id && source.kind === 'ifc'
+            ? { ...source, status, error }
+            : source,
+        ),
+      );
+    },
+    [],
+  );
+
+  function chooseIfcDemo() {
+    viewVersion.current += 1;
+    cancelPagePreview();
+    requestRef.current?.abort();
+    requestRef.current = null;
+    setActiveImportId(null);
+    setActiveIfcDemo(true);
+    setIfcEpoch((epoch) => epoch + 1);
+    setAsking(false);
+    setResponse(null);
+    setSelected(null);
+    setQuery('');
+    setLayersOpen(false);
+    setExportOpen(false);
+    setSidebarOpen(false);
     resetViewport();
   }
 
@@ -596,7 +681,7 @@ export default function App() {
     batchRef.current = controller;
     const version = viewVersion.current;
     const errors: { name: string; message: string }[] = [];
-    let lastSource: LocalDrawing | null = null;
+    let lastSource: LocalSource | null = null;
     let count = 0;
     setSearch('');
     setImportErrors([]);
@@ -609,12 +694,16 @@ export default function App() {
           total: files.length,
         });
         try {
-          const preview = await importDocument(file, 1, controller.signal);
+          const preview = await importSource(
+            file,
+            `local-${++localId.current}`,
+            controller.signal,
+          );
           if (controller.signal.aborted) {
-            releaseDrawing(preview);
+            releaseSource(preview);
             return;
           }
-          lastSource = { ...preview, id: `local-${++localId.current}` };
+          lastSource = preview;
           updateLocalDrawings([...localDrawingsRef.current, lastSource]);
           count += 1;
         } catch (error) {
@@ -688,7 +777,7 @@ export default function App() {
     }
   }
 
-  function removeImported(source: LocalDrawing) {
+  function removeImported(source: LocalSource) {
     const index = localDrawingsRef.current.findIndex(
       (item) => item.id === source.id,
     );
@@ -701,7 +790,7 @@ export default function App() {
       else chooseDrawing(drawing);
     }
     updateLocalDrawings(next);
-    releaseDrawing(source);
+    releaseSource(source);
   }
 
   function handleFile(event: ChangeEvent<HTMLInputElement>) {
@@ -732,6 +821,7 @@ export default function App() {
   }
 
   async function exportDrawing() {
+    if (ifcActive) return;
     const svg = svgRef.current?.cloneNode(true) as SVGSVGElement | undefined;
     if (!svg) return;
     svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
@@ -792,7 +882,7 @@ export default function App() {
       ref={inputRef}
       className="visually-hidden"
       type="file"
-      accept={IMPORT_ACCEPT}
+      accept={SOURCE_ACCEPT}
       multiple
       tabIndex={-1}
       aria-label="Open local drawing"
@@ -823,7 +913,7 @@ export default function App() {
           <FolderOpen size={16} />
           <span>{t.drawings}</span>
           <span className="file-count">
-            {DRAWINGS.length + localDrawings.length}
+            {DRAWINGS.length + 1 + localDrawings.length}
           </span>
           <ChevronDown size={13} />
         </button>
@@ -912,10 +1002,7 @@ export default function App() {
               <Upload size={21} />
               <strong>{fileDragging ? t.dropTitle : t.import}</strong>
               <span>{t.drop}</span>
-              <small>
-                {IMPORT_FORMATS} · 35 MB /{' '}
-                {language === 'fi' ? 'tiedosto' : 'file'}
-              </small>
+              <small>{SOURCE_FORMATS} · 2D ≤ 35 MiB · IFC ≤ 100 MiB</small>
             </button>
             <p className="import-local-note">{t.localNote}</p>
             {importProgress && (
@@ -990,7 +1077,7 @@ export default function App() {
             >
               <FolderOpen size={13} />
               {language === 'fi' ? 'Demopiirustukset' : 'Demo drawings'}
-              <span>{DRAWINGS.length}</span>
+              <span>{DRAWINGS.length + 1}</span>
             </div>
             <div className="drawing-list">
               {visibleDrawings.map((doc) => (
@@ -1020,9 +1107,28 @@ export default function App() {
                   )}
                 </button>
               ))}
-              {!visibleDrawings.length && !visibleImports.length && (
-                <p className="search-empty">No drawings match “{search}”.</p>
+              {'fzk-haus ifc 3d kit'.includes(search.toLowerCase()) && (
+                <button
+                  className={`drawing-card ${activeIfcDemo ? 'active-drawing' : ''}`}
+                  onClick={chooseIfcDemo}
+                  aria-pressed={activeIfcDemo}
+                >
+                  <span className="drawing-thumbnail ifc-thumbnail">
+                    <Box size={31} />
+                    <span>IFC · 3D</span>
+                  </span>
+                  <span className="drawing-card-description">
+                    <strong>FZK-Haus</strong>
+                    <span>Real IFC model · KIT · 3D inspection</span>
+                  </span>
+                  {activeIfcDemo && <span className="active-dot" />}
+                </button>
               )}
+              {!visibleDrawings.length &&
+                !visibleImports.length &&
+                !'fzk-haus ifc 3d kit'.includes(search.toLowerCase()) && (
+                  <p className="search-empty">No drawings match “{search}”.</p>
+                )}
             </div>
             <div className="sidebar-footer">
               <FileText size={14} />
@@ -1053,7 +1159,9 @@ export default function App() {
                   {localActive
                     ? language === 'fi'
                       ? 'TUOTU PIIRUSTUS'
-                      : 'IMPORTED DRAWING'
+                      : ifcActive
+                        ? 'IFC MODEL'
+                        : 'IMPORTED DRAWING'
                     : language === 'fi'
                       ? 'ARKKITEHTUURI'
                       : 'ARCHITECTURE'}
@@ -1066,797 +1174,856 @@ export default function App() {
             </div>
             <div className="workspace-heading-actions">
               <span className="revision-tag">
-                {localActive
-                  ? imported?.kind === 'pdf'
-                    ? 'PDF'
-                    : imported?.file.name.split('.').pop()?.toUpperCase()
-                  : `Rev. ${drawing.revision}`}
+                {ifcActive
+                  ? 'IFC · 3D'
+                  : localActive
+                    ? imported?.kind === 'pdf'
+                      ? 'PDF'
+                      : imported?.file.name.split('.').pop()?.toUpperCase()
+                    : `Rev. ${drawing.revision}`}
               </span>
-              <div className="export-wrap">
-                <button
-                  className="secondary-button export-button"
-                  onClick={() => setExportOpen(!exportOpen)}
-                >
-                  <ArrowDownToLine size={14} />
-                  {t.export}
-                  <ChevronDown size={12} />
-                </button>
-                {exportOpen && (
-                  <div className="popover export-popover">
-                    <button
-                      onClick={() =>
-                        void exportDrawing().catch(() =>
-                          setToast(
-                            'This drawing could not be exported. Please try again.',
-                          ),
-                        )
-                      }
-                    >
-                      <FileImage size={15} />
-                      Marked drawing <span>.svg</span>
-                    </button>
-                    <button
-                      disabled={!response}
-                      onClick={() => {
-                        if (response)
-                          downloadBlob(
-                            new Blob(
-                              [JSON.stringify(response.result, null, 2)],
-                              { type: 'application/json' },
+              {!ifcActive && (
+                <div className="export-wrap">
+                  <button
+                    className="secondary-button export-button"
+                    onClick={() => setExportOpen(!exportOpen)}
+                  >
+                    <ArrowDownToLine size={14} />
+                    {t.export}
+                    <ChevronDown size={12} />
+                  </button>
+                  {exportOpen && (
+                    <div className="popover export-popover">
+                      <button
+                        onClick={() =>
+                          void exportDrawing().catch(() =>
+                            setToast(
+                              'This drawing could not be exported. Please try again.',
                             ),
-                            `${drawing.code}-answer.json`,
-                          );
-                        setExportOpen(false);
-                      }}
-                    >
-                      <FileText size={15} />
-                      Answer & evidence <span>.json</span>
-                    </button>
-                  </div>
-                )}
-              </div>
+                          )
+                        }
+                      >
+                        <FileImage size={15} />
+                        Marked drawing <span>.svg</span>
+                      </button>
+                      <button
+                        disabled={!response}
+                        onClick={() => {
+                          if (response)
+                            downloadBlob(
+                              new Blob(
+                                [JSON.stringify(response.result, null, 2)],
+                                { type: 'application/json' },
+                              ),
+                              `${drawing.code}-answer.json`,
+                            );
+                          setExportOpen(false);
+                        }}
+                      >
+                        <FileText size={15} />
+                        Answer & evidence <span>.json</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           <div className="viewer-shell">
-            <div className="viewer-toolbar">
-              <div className="view-mode">
-                <span className="view-mode-icon">
-                  <LayoutGrid size={13} />
-                </span>
-                {language === 'fi' ? '2D-piirustus' : '2D drawing'}
-              </div>
-              <span className="viewer-separator" />
-              <span className="scope-indicator">
-                <FileText size={12} />
-                {t.current}
-              </span>
-              <div className="viewer-tools">
-                <button
-                  className={`icon-button ${showLabels ? 'tool-active' : ''}`}
-                  aria-label="Toggle object labels"
-                  title="Object labels"
-                  onClick={() => setShowLabels(!showLabels)}
+            {ifcSource ? (
+              <ViewerBoundary
+                key={`${ifcSource.id}:${ifcEpoch}`}
+                onBrowse={() => setSidebarOpen(true)}
+              >
+                <Suspense
+                  fallback={
+                    <div className="ifc-module-loading" role="status">
+                      <span className="spinner" />
+                      Loading 3D viewer…
+                    </div>
+                  }
                 >
-                  <Tag size={16} />
-                </button>
-                <div className="layer-wrap">
-                  <button
-                    className={`icon-button ${layersOpen ? 'tool-active' : ''}`}
-                    aria-label="Drawing layers"
-                    title="Drawing layers"
-                    onClick={() => setLayersOpen(!layersOpen)}
+                  <IfcWorkbench
+                    key={`${ifcSource.id}:${ifcEpoch}`}
+                    source={ifcSource}
+                    inspectorContainer={ifcInspectorHost}
+                    inspectorOpen={inspectorOpen}
+                    toggleInspector={() => setInspectorOpen((open) => !open)}
+                    onStatus={updateIfcStatus}
+                    onRemove={
+                      activeLocalSource
+                        ? () => removeImported(activeLocalSource)
+                        : undefined
+                    }
+                  />
+                </Suspense>
+              </ViewerBoundary>
+            ) : (
+              <>
+                <div className="viewer-toolbar">
+                  <div className="view-mode">
+                    <span className="view-mode-icon">
+                      <LayoutGrid size={13} />
+                    </span>
+                    {language === 'fi' ? '2D-piirustus' : '2D drawing'}
+                  </div>
+                  <span className="viewer-separator" />
+                  <span className="scope-indicator">
+                    <FileText size={12} />
+                    {t.current}
+                  </span>
+                  <div className="viewer-tools">
+                    <button
+                      className={`icon-button ${showLabels ? 'tool-active' : ''}`}
+                      aria-label="Toggle object labels"
+                      title="Object labels"
+                      onClick={() => setShowLabels(!showLabels)}
+                    >
+                      <Tag size={16} />
+                    </button>
+                    <div className="layer-wrap">
+                      <button
+                        className={`icon-button ${layersOpen ? 'tool-active' : ''}`}
+                        aria-label="Drawing layers"
+                        title="Drawing layers"
+                        onClick={() => setLayersOpen(!layersOpen)}
+                      >
+                        <Layers2 size={17} />
+                      </button>
+                      {layersOpen && (
+                        <div className="popover layer-popover">
+                          <strong>Drawing layers</strong>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked
+                              disabled
+                              title="The original source remains visible"
+                            />
+                            Original source
+                          </label>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={showMarks}
+                              onChange={(e) => setShowMarks(e.target.checked)}
+                            />
+                            Answer markings <span>{marks.length}</span>
+                          </label>
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={showLabels}
+                              onChange={(e) => setShowLabels(e.target.checked)}
+                            />
+                            Object labels
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      className="icon-button"
+                      aria-label={showMarks ? 'Hide markings' : 'Show markings'}
+                      title={
+                        showMarks ? 'Hide markings · O' : 'Show markings · O'
+                      }
+                      onClick={() => setShowMarks(!showMarks)}
+                    >
+                      {showMarks ? <Eye size={17} /> : <EyeOff size={17} />}
+                    </button>
+                    <span className="viewer-separator" />
+                    <button
+                      className="icon-button"
+                      aria-label="Toggle answer panel"
+                      title="Answer panel"
+                      aria-expanded={inspectorOpen}
+                      aria-controls="answer-panel"
+                      onClick={() => setInspectorOpen(!inspectorOpen)}
+                    >
+                      <PanelRightClose size={17} />
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  ref={stageRef}
+                  className={`drawing-stage ${dragging ? 'is-dragging' : ''}`}
+                  onPointerDown={pointerDown}
+                  onPointerMove={pointerMove}
+                  onPointerUp={pointerUp}
+                  onPointerCancel={pointerUp}
+                  onDoubleClick={resetViewport}
+                >
+                  <div
+                    className="source-sheet"
+                    style={{
+                      width: paperWidth,
+                      height: (paperWidth * 780) / 1100,
+                      transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom}) rotate(${rotation}deg)`,
+                    }}
                   >
-                    <Layers2 size={17} />
-                  </button>
-                  {layersOpen && (
-                    <div className="popover layer-popover">
-                      <strong>Drawing layers</strong>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked
-                          disabled
-                          title="The original source remains visible"
+                    <svg
+                      ref={svgRef}
+                      viewBox="0 0 1100 780"
+                      xmlns="http://www.w3.org/2000/svg"
+                      style={{
+                        fontFamily: 'Inter, Segoe UI, Arial, sans-serif',
+                      }}
+                      aria-label={`${title} source drawing with ${showMarks ? marks.length : 0} evidence marks`}
+                    >
+                      <DrawingArtwork
+                        drawing={drawing}
+                        imported={localActive ? imported : null}
+                      />
+                      {!asking && showMarks && (
+                        <MarkLayer
+                          marks={marks}
+                          selected={selected}
+                          labels={showLabels}
+                          onSelect={(id) =>
+                            setSelected((s) => (s === id ? null : id))
+                          }
                         />
-                        Original source
-                      </label>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={showMarks}
-                          onChange={(e) => setShowMarks(e.target.checked)}
-                        />
-                        Answer markings <span>{marks.length}</span>
-                      </label>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={showLabels}
-                          onChange={(e) => setShowLabels(e.target.checked)}
-                        />
-                        Object labels
-                      </label>
+                      )}
+                    </svg>
+                  </div>
+                  <div className="stage-corner">
+                    <MousePointer2 size={12} />
+                    {dragging
+                      ? 'Panning drawing'
+                      : 'Drag to pan · Scroll to zoom · Drop files to import'}
+                  </div>
+                  {showMarks && !!marks.length && !asking && (
+                    <button
+                      className="overlay-legend"
+                      title="Fit all answer markings"
+                      onClick={() => {
+                        setSelected(null);
+                        resetViewport();
+                      }}
+                    >
+                      <ScanLine size={14} />
+                      <strong>{marks.length}</strong>{' '}
+                      {response?.intent === 'area'
+                        ? 'room boundary'
+                        : response?.intent === 'width'
+                          ? 'dimension'
+                          : t.shown}
+                    </button>
+                  )}
+                  {selectedMark && (
+                    <div className="selection-callout">
+                      <span className="selection-number">
+                        {selectedMark.ordinal}
+                      </span>
+                      <div>
+                        <strong>
+                          {selectedMark.label}
+                          <span>{selectedMark.detail}</span>
+                        </strong>
+                        <small>
+                          <Check size={11} />
+                          {drawing.code} · Source located
+                        </small>
+                      </div>
+                      <button
+                        className="icon-button"
+                        aria-label="Focus selected object"
+                        title="Focus object"
+                        onClick={() => focusMark(selectedMark)}
+                      >
+                        <Maximize size={15} />
+                      </button>
+                      <button
+                        className="icon-button"
+                        aria-label="Clear selection"
+                        onClick={() => setSelected(null)}
+                      >
+                        <X size={14} />
+                      </button>
                     </div>
                   )}
-                </div>
-                <button
-                  className="icon-button"
-                  aria-label={showMarks ? 'Hide markings' : 'Show markings'}
-                  title={showMarks ? 'Hide markings · O' : 'Show markings · O'}
-                  onClick={() => setShowMarks(!showMarks)}
-                >
-                  {showMarks ? <Eye size={17} /> : <EyeOff size={17} />}
-                </button>
-                <span className="viewer-separator" />
-                <button
-                  className="icon-button"
-                  aria-label="Toggle answer panel"
-                  title="Answer panel"
-                  aria-expanded={inspectorOpen}
-                  aria-controls="answer-panel"
-                  onClick={() => setInspectorOpen(!inspectorOpen)}
-                >
-                  <PanelRightClose size={17} />
-                </button>
-              </div>
-            </div>
-
-            <div
-              ref={stageRef}
-              className={`drawing-stage ${dragging ? 'is-dragging' : ''}`}
-              onPointerDown={pointerDown}
-              onPointerMove={pointerMove}
-              onPointerUp={pointerUp}
-              onPointerCancel={pointerUp}
-              onDoubleClick={resetViewport}
-            >
-              <div
-                className="source-sheet"
-                style={{
-                  width: paperWidth,
-                  height: (paperWidth * 780) / 1100,
-                  transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom}) rotate(${rotation}deg)`,
-                }}
-              >
-                <svg
-                  ref={svgRef}
-                  viewBox="0 0 1100 780"
-                  xmlns="http://www.w3.org/2000/svg"
-                  style={{ fontFamily: 'Inter, Segoe UI, Arial, sans-serif' }}
-                  aria-label={`${title} source drawing with ${showMarks ? marks.length : 0} evidence marks`}
-                >
-                  <DrawingArtwork
-                    drawing={drawing}
-                    imported={localActive ? imported : null}
-                  />
-                  {!asking && showMarks && (
-                    <MarkLayer
-                      marks={marks}
-                      selected={selected}
-                      labels={showLabels}
-                      onSelect={(id) =>
-                        setSelected((s) => (s === id ? null : id))
-                      }
-                    />
+                  {(asking || importing) && (
+                    <div className="viewer-loading">
+                      <span className="spinner" />
+                      {importing
+                        ? importProgress
+                          ? `${language === 'fi' ? 'Tuodaan' : 'Importing'} ${importProgress.current} / ${importProgress.total} · ${importProgress.name}`
+                          : language === 'fi'
+                            ? 'Avataan PDF-sivua…'
+                            : 'Opening PDF page…'
+                        : language === 'fi'
+                          ? 'Haetaan demovastausta…'
+                          : 'Locating demo evidence…'}
+                    </div>
                   )}
-                </svg>
-              </div>
-              <div className="stage-corner">
-                <MousePointer2 size={12} />
-                {dragging
-                  ? 'Panning drawing'
-                  : 'Drag to pan · Scroll to zoom · Drop files to import'}
-              </div>
-              {showMarks && !!marks.length && !asking && (
-                <button
-                  className="overlay-legend"
-                  title="Fit all answer markings"
-                  onClick={() => {
-                    setSelected(null);
-                    resetViewport();
-                  }}
-                >
-                  <ScanLine size={14} />
-                  <strong>{marks.length}</strong>{' '}
-                  {response?.intent === 'area'
-                    ? 'room boundary'
-                    : response?.intent === 'width'
-                      ? 'dimension'
-                      : t.shown}
-                </button>
-              )}
-              {selectedMark && (
-                <div className="selection-callout">
-                  <span className="selection-number">
-                    {selectedMark.ordinal}
-                  </span>
-                  <div>
-                    <strong>
-                      {selectedMark.label}
-                      <span>{selectedMark.detail}</span>
-                    </strong>
-                    <small>
-                      <Check size={11} />
-                      {drawing.code} · Source located
-                    </small>
+                  <div className="zoom-controls">
+                    <button
+                      className="icon-button"
+                      aria-label="Zoom out"
+                      onClick={() => setZoom((z) => clampZoom(z - 0.15))}
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <button
+                      className="zoom-value"
+                      aria-label="Reset zoom"
+                      onClick={resetViewport}
+                    >
+                      {Math.round(zoom * 100)}%
+                    </button>
+                    <button
+                      className="icon-button"
+                      aria-label="Zoom in"
+                      onClick={() => setZoom((z) => clampZoom(z + 0.15))}
+                    >
+                      <Plus size={16} />
+                    </button>
+                    <span />
+                    <button
+                      className="icon-button"
+                      aria-label="Rotate drawing"
+                      title="Rotate · R"
+                      onClick={() => setRotation((r) => (r + 90) % 360)}
+                    >
+                      <RotateCw size={16} />
+                    </button>
+                    <button
+                      className="icon-button"
+                      aria-label="Fit drawing"
+                      title="Fit drawing · 0"
+                      onClick={resetViewport}
+                    >
+                      <Expand size={16} />
+                    </button>
                   </div>
-                  <button
-                    className="icon-button"
-                    aria-label="Focus selected object"
-                    title="Focus object"
-                    onClick={() => focusMark(selectedMark)}
-                  >
-                    <Maximize size={15} />
-                  </button>
-                  <button
-                    className="icon-button"
-                    aria-label="Clear selection"
-                    onClick={() => setSelected(null)}
-                  >
-                    <X size={14} />
-                  </button>
                 </div>
-              )}
-              {(asking || importing) && (
-                <div className="viewer-loading">
-                  <span className="spinner" />
-                  {importing
-                    ? importProgress
-                      ? `${language === 'fi' ? 'Tuodaan' : 'Importing'} ${importProgress.current} / ${importProgress.total} · ${importProgress.name}`
-                      : language === 'fi'
-                        ? 'Avataan PDF-sivua…'
-                        : 'Opening PDF page…'
-                    : language === 'fi'
-                      ? 'Haetaan demovastausta…'
-                      : 'Locating demo evidence…'}
+                <div className="viewer-footer">
+                  <span>
+                    <FileText size={12} />
+                    {localActive
+                      ? imported?.file.name
+                      : `${drawing.code}_${drawing.title.toLowerCase().replaceAll(' ', '_')}.svg`}
+                  </span>
+                  <div className="page-navigation">
+                    <button
+                      className="icon-button"
+                      aria-label="Previous drawing or PDF page"
+                      disabled={
+                        importing ||
+                        (localActive
+                          ? !imported || imported.page === 1
+                          : DRAWINGS.indexOf(drawing) === 0)
+                      }
+                      onClick={() => {
+                        if (localActive && imported)
+                          void openPage(imported, imported.page - 1);
+                        else
+                          chooseDrawing(
+                            DRAWINGS[DRAWINGS.indexOf(drawing) - 1],
+                          );
+                      }}
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    <span>
+                      {localActive && imported
+                        ? `${imported.page} / ${imported.pages}`
+                        : `${DRAWINGS.indexOf(drawing) + 1} / ${DRAWINGS.length}`}
+                    </span>
+                    <button
+                      className="icon-button"
+                      aria-label="Next drawing or PDF page"
+                      disabled={
+                        importing ||
+                        (localActive
+                          ? !imported || imported.page >= imported.pages
+                          : DRAWINGS.indexOf(drawing) === DRAWINGS.length - 1)
+                      }
+                      onClick={() => {
+                        if (localActive && imported)
+                          void openPage(imported, imported.page + 1);
+                        else
+                          chooseDrawing(
+                            DRAWINGS[DRAWINGS.indexOf(drawing) + 1],
+                          );
+                      }}
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
                 </div>
-              )}
-              <div className="zoom-controls">
-                <button
-                  className="icon-button"
-                  aria-label="Zoom out"
-                  onClick={() => setZoom((z) => clampZoom(z - 0.15))}
-                >
-                  <Minus size={16} />
-                </button>
-                <button
-                  className="zoom-value"
-                  aria-label="Reset zoom"
-                  onClick={resetViewport}
-                >
-                  {Math.round(zoom * 100)}%
-                </button>
-                <button
-                  className="icon-button"
-                  aria-label="Zoom in"
-                  onClick={() => setZoom((z) => clampZoom(z + 0.15))}
-                >
-                  <Plus size={16} />
-                </button>
-                <span />
-                <button
-                  className="icon-button"
-                  aria-label="Rotate drawing"
-                  title="Rotate · R"
-                  onClick={() => setRotation((r) => (r + 90) % 360)}
-                >
-                  <RotateCw size={16} />
-                </button>
-                <button
-                  className="icon-button"
-                  aria-label="Fit drawing"
-                  title="Fit drawing · 0"
-                  onClick={resetViewport}
-                >
-                  <Expand size={16} />
-                </button>
-              </div>
-            </div>
-            <div className="viewer-footer">
-              <span>
-                <FileText size={12} />
-                {localActive
-                  ? imported?.file.name
-                  : `${drawing.code}_${drawing.title.toLowerCase().replaceAll(' ', '_')}.svg`}
-              </span>
-              <div className="page-navigation">
-                <button
-                  className="icon-button"
-                  aria-label="Previous drawing or PDF page"
-                  disabled={
-                    importing ||
-                    (localActive
-                      ? !imported || imported.page === 1
-                      : DRAWINGS.indexOf(drawing) === 0)
-                  }
-                  onClick={() => {
-                    if (localActive && imported)
-                      void openPage(imported, imported.page - 1);
-                    else chooseDrawing(DRAWINGS[DRAWINGS.indexOf(drawing) - 1]);
-                  }}
-                >
-                  <ChevronLeft size={14} />
-                </button>
-                <span>
-                  {localActive && imported
-                    ? `${imported.page} / ${imported.pages}`
-                    : `${DRAWINGS.indexOf(drawing) + 1} / ${DRAWINGS.length}`}
-                </span>
-                <button
-                  className="icon-button"
-                  aria-label="Next drawing or PDF page"
-                  disabled={
-                    importing ||
-                    (localActive
-                      ? !imported || imported.page >= imported.pages
-                      : DRAWINGS.indexOf(drawing) === DRAWINGS.length - 1)
-                  }
-                  onClick={() => {
-                    if (localActive && imported)
-                      void openPage(imported, imported.page + 1);
-                    else chooseDrawing(DRAWINGS[DRAWINGS.indexOf(drawing) + 1]);
-                  }}
-                >
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
+              </>
+            )}
           </div>
           <div className="workspace-footnote">
             <span className="footnote-icon">
               <CheckCheck size={13} />
             </span>
-            {t.only}
-            <span className="footnote-shortcut">
-              <kbd>0</kbd> Fit <span>·</span> <kbd>R</kbd> Rotate <span>·</span>{' '}
-              <kbd>O</kbd> Marks
-            </span>
+            {ifcActive
+              ? 'Model viewing & inspection · No connected question answering'
+              : t.only}
+            {!ifcActive && (
+              <span className="footnote-shortcut">
+                <kbd>0</kbd> Fit <span>·</span> <kbd>R</kbd> Rotate{' '}
+                <span>·</span> <kbd>O</kbd> Marks
+              </span>
+            )}
           </div>
         </main>
 
-        {inspectorOpen && (
-          <aside
-            className="answer-panel"
-            id="answer-panel"
-            aria-label="Drawing answer and evidence"
-          >
-            <div className="answer-panel-header">
-              <span className="ask-icon">
-                <Sparkles size={19} strokeWidth={1.7} />
-              </span>
-              <div>
-                <h2>{t.ask}</h2>
-                <p>{t.intro}</p>
-              </div>
-              <button
-                className="icon-button panel-close"
-                aria-label="Close answer panel"
-                onClick={() => setInspectorOpen(false)}
-              >
-                <PanelRightClose size={17} />
-              </button>
-            </div>
-
-            {localActive ? (
-              <div className="local-preview-state">
-                <span className="empty-state-icon">
-                  <FileImage size={28} />
+        {inspectorOpen &&
+          (ifcActive ? (
+            <div
+              className="answer-panel"
+              id="model-inspector"
+              role="complementary"
+              aria-label="Model inspector"
+              ref={setIfcInspectorHost}
+            />
+          ) : (
+            <aside
+              className="answer-panel"
+              id="answer-panel"
+              aria-label="Drawing answer and evidence"
+            >
+              <div className="answer-panel-header">
+                <span className="ask-icon">
+                  <Sparkles size={19} strokeWidth={1.7} />
                 </span>
-                <h3>
-                  {language === 'fi'
-                    ? 'Piirustuksesi on valmis katseltavaksi.'
-                    : 'Your drawing is ready to view.'}
-                </h3>
-                <p>
-                  {language === 'fi'
-                    ? 'Siirrä, suurenna, kierrä tai selaa PDF-sivuja. Tuotuja tiedostoja ei analysoida eikä lähetetä palvelimelle.'
-                    : 'Pan, zoom, rotate, or browse PDF pages. Imported files are previewed locally; they are not analysed or sent to a server.'}
-                </p>
-                {imported && (
-                  <p className="local-file-details">
-                    {fileSize(imported.file.size)} ·{' '}
-                    {imported.kind === 'pdf'
-                      ? `${imported.pages} ${language === 'fi' ? 'sivua' : imported.pages === 1 ? 'page' : 'pages'}`
-                      : `${imported.width} × ${imported.height} px`}
-                  </p>
-                )}
+                <div>
+                  <h2>{t.ask}</h2>
+                  <p>{t.intro}</p>
+                </div>
                 <button
-                  className="secondary-button"
-                  onClick={() => setSidebarOpen(true)}
+                  className="icon-button panel-close"
+                  aria-label="Close answer panel"
+                  onClick={() => setInspectorOpen(false)}
                 >
-                  <FolderOpen size={14} />
-                  {t.drawings} ({localDrawings.length})
-                </button>
-                <p className="import-local-note">{t.localNote}</p>
-                <button
-                  className="secondary-button"
-                  onClick={() => chooseDrawing(DRAWINGS[0])}
-                >
-                  Explore demo answers <ArrowRight size={14} />
+                  <PanelRightClose size={17} />
                 </button>
               </div>
-            ) : (
-              response && (
-                <div
-                  className={`answer-content ${asking ? 'answer-pending' : ''}`}
-                >
-                  <div className="latest-question">
-                    <span className="question-avatar">
-                      <MousePointer2 size={13} />
-                    </span>
-                    <p>{response.question}</p>
-                  </div>
-                  <section
-                    className={`result-card ${missing ? 'missing-result' : ''}`}
-                    aria-live="polite"
+
+              {localActive ? (
+                <div className="local-preview-state">
+                  <span className="empty-state-icon">
+                    <FileImage size={28} />
+                  </span>
+                  <h3>
+                    {language === 'fi'
+                      ? 'Piirustuksesi on valmis katseltavaksi.'
+                      : 'Your drawing is ready to view.'}
+                  </h3>
+                  <p>
+                    {language === 'fi'
+                      ? 'Siirrä, suurenna, kierrä tai selaa PDF-sivuja. Tuotuja tiedostoja ei analysoida eikä lähetetä palvelimelle.'
+                      : 'Pan, zoom, rotate, or browse PDF pages. Imported files are previewed locally; they are not analysed or sent to a server.'}
+                  </p>
+                  {imported && (
+                    <p className="local-file-details">
+                      {fileSize(imported.file.size)} ·{' '}
+                      {imported.kind === 'pdf'
+                        ? `${imported.pages} ${language === 'fi' ? 'sivua' : imported.pages === 1 ? 'page' : 'pages'}`
+                        : `${imported.width} × ${imported.height} px`}
+                    </p>
+                  )}
+                  <button
+                    className="secondary-button"
+                    onClick={() => setSidebarOpen(true)}
                   >
-                    <div className="result-eyebrow">
-                      <span className="result-symbol">
-                        {missing ? (
-                          <CircleHelp size={13} />
-                        ) : (
-                          <Check size={13} />
-                        )}
+                    <FolderOpen size={14} />
+                    {t.drawings} ({localDrawings.length})
+                  </button>
+                  <p className="import-local-note">{t.localNote}</p>
+                  <button
+                    className="secondary-button"
+                    onClick={() => chooseDrawing(DRAWINGS[0])}
+                  >
+                    Explore demo answers <ArrowRight size={14} />
+                  </button>
+                </div>
+              ) : (
+                response && (
+                  <div
+                    className={`answer-content ${asking ? 'answer-pending' : ''}`}
+                  >
+                    <div className="latest-question">
+                      <span className="question-avatar">
+                        <MousePointer2 size={13} />
                       </span>
-                      {missing
-                        ? language === 'fi'
-                          ? 'TIETO PUUTTUU'
-                          : 'INFORMATION UNAVAILABLE'
-                        : t.answer}
-                      <span>{localActive ? '' : drawing.code}</span>
+                      <p>{response.question}</p>
                     </div>
-                    {missing ? (
-                      <h3>{response.summary}</h3>
-                    ) : (
-                      <div className="answer-main">
-                        <div className="answer-value">
-                          {response.value}
-                          <span>{response.unit}</span>
-                        </div>
-                        <strong className="answer-summary">
-                          {response.summary}
-                        </strong>
-                      </div>
-                    )}
-                    <p>{response.description}</p>
-                    {!missing && (
-                      <button
-                        className="source-citation"
-                        onClick={() => {
-                          setSelected(null);
-                          setShowMarks(true);
-                          resetViewport();
-                        }}
-                        title="Show all source evidence"
-                      >
-                        <FileText size={12} />
-                        <span>
-                          {drawing.code} · {title}
+                    <section
+                      className={`result-card ${missing ? 'missing-result' : ''}`}
+                      aria-live="polite"
+                    >
+                      <div className="result-eyebrow">
+                        <span className="result-symbol">
+                          {missing ? (
+                            <CircleHelp size={13} />
+                          ) : (
+                            <Check size={13} />
+                          )}
                         </span>
-                        <ArrowRight size={12} />
-                      </button>
-                    )}
-                  </section>
-                  {!missing ? (
-                    <>
-                      <div
-                        className="evidence-tabs"
-                        role="tablist"
-                        aria-label="Answer details"
-                        onKeyDown={(event) => {
-                          if (
-                            ![
-                              'ArrowLeft',
-                              'ArrowRight',
-                              'Home',
-                              'End',
-                            ].includes(event.key)
-                          )
-                            return;
-                          event.preventDefault();
-                          const next =
-                            event.key === 'Home'
-                              ? 'evidence'
-                              : event.key === 'End'
-                                ? 'calculation'
-                                : activeTab === 'evidence'
-                                  ? 'calculation'
-                                  : 'evidence';
-                          setActiveTab(next);
-                          event.currentTarget
-                            .querySelector<HTMLButtonElement>(`#${next}-tab`)
-                            ?.focus();
-                        }}
-                      >
-                        <button
-                          role="tab"
-                          id="evidence-tab"
-                          aria-controls="evidence-content"
-                          aria-selected={activeTab === 'evidence'}
-                          tabIndex={activeTab === 'evidence' ? 0 : -1}
-                          className={
-                            activeTab === 'evidence' ? 'active-tab' : ''
-                          }
-                          onClick={() => setActiveTab('evidence')}
-                        >
-                          <SquareDashedMousePointer size={14} />
-                          {t.objects}
-                          <span>{marks.length}</span>
-                        </button>
-                        <button
-                          role="tab"
-                          id="calculation-tab"
-                          aria-controls="calculation-content"
-                          aria-selected={activeTab === 'calculation'}
-                          tabIndex={activeTab === 'calculation' ? 0 : -1}
-                          className={
-                            activeTab === 'calculation' ? 'active-tab' : ''
-                          }
-                          onClick={() => setActiveTab('calculation')}
-                        >
-                          <BookOpen size={14} />
-                          {t.calculation}
-                        </button>
+                        {missing
+                          ? language === 'fi'
+                            ? 'TIETO PUUTTUU'
+                            : 'INFORMATION UNAVAILABLE'
+                          : t.answer}
+                        <span>{localActive ? '' : drawing.code}</span>
                       </div>
-                      {selectedMark && (
-                        <SourceContext
-                          drawing={drawing}
-                          mark={selectedMark}
-                          language={language}
-                          onFocus={() => focusMark(selectedMark)}
-                        />
-                      )}
-                      {activeTab === 'evidence' ? (
-                        <div
-                          className="evidence-list"
-                          role="tabpanel"
-                          id="evidence-content"
-                          aria-labelledby="evidence-tab"
-                          aria-label="Source evidence"
-                        >
-                          <div className="evidence-list-caption">
-                            {language === 'fi'
-                              ? 'Valitse kohde paikantaaksesi sen.'
-                              : 'Select an item to locate it on the drawing.'}
-                          </div>
-                          {marks.map((mark) => (
-                            <button
-                              key={mark.id}
-                              className={`evidence-row ${selected === mark.id ? 'selected-row' : ''}`}
-                              onClick={() => focusMark(mark)}
-                              aria-pressed={selected === mark.id}
-                            >
-                              <span className="evidence-number">
-                                {mark.ordinal}
-                              </span>
-                              <span className="evidence-row-copy">
-                                <strong>
-                                  {mark.label}
-                                  <span>
-                                    {mark.kind === 'area'
-                                      ? 'Room'
-                                      : mark.kind === 'dimension'
-                                        ? 'Dimension'
-                                        : response.intent === 'windows'
-                                          ? 'Window'
-                                          : 'Door'}
-                                  </span>
-                                </strong>
-                                <small>{mark.detail}</small>
-                              </span>
-                              <span className="evidence-located">
-                                <Check size={12} />
-                                <ChevronRight size={13} />
-                              </span>
-                            </button>
-                          ))}
-                        </div>
+                      {missing ? (
+                        <h3>{response.summary}</h3>
                       ) : (
-                        <div
-                          className="calculation-list"
-                          role="tabpanel"
-                          id="calculation-content"
-                          aria-labelledby="calculation-tab"
-                          aria-label="Calculation steps"
-                        >
-                          {response.steps.map((step, i) => (
-                            <button
-                              key={i}
-                              className="calculation-step"
-                              onClick={() => {
-                                if (step.markIds.length === 1) {
-                                  const mark = marks.find(
-                                    (m) => m.id === step.markIds[0],
-                                  );
-                                  if (mark) focusMark(mark);
-                                } else {
-                                  setSelected(null);
-                                  setShowMarks(true);
-                                  resetViewport();
-                                }
-                              }}
-                            >
-                              <span className="step-number">{i + 1}</span>
-                              <span>
-                                <strong>{step.title}</strong>
-                                <small>{step.detail}</small>
-                                {step.expression && (
-                                  <code>{step.expression}</code>
-                                )}
-                              </span>
-                            </button>
-                          ))}
+                        <div className="answer-main">
+                          <div className="answer-value">
+                            {response.value}
+                            <span>{response.unit}</span>
+                          </div>
+                          <strong className="answer-summary">
+                            {response.summary}
+                          </strong>
                         </div>
                       )}
-                      <div className="coverage-note">
-                        <CheckCheck size={14} />
-                        <span>
-                          {t.complete}
-                          <small>
-                            {marks.length} / {marks.length} {t.shown}
-                          </small>
-                        </span>
+                      <p>{response.description}</p>
+                      {!missing && (
                         <button
-                          className="icon-button"
-                          aria-label="Show all matches"
-                          title="Show all matches"
+                          className="source-citation"
                           onClick={() => {
                             setSelected(null);
                             setShowMarks(true);
                             resetViewport();
                           }}
+                          title="Show all source evidence"
                         >
-                          <Maximize size={14} />
+                          <FileText size={12} />
+                          <span>
+                            {drawing.code} · {title}
+                          </span>
+                          <ArrowRight size={12} />
+                        </button>
+                      )}
+                    </section>
+                    {!missing ? (
+                      <>
+                        <div
+                          className="evidence-tabs"
+                          role="tablist"
+                          aria-label="Answer details"
+                          onKeyDown={(event) => {
+                            if (
+                              ![
+                                'ArrowLeft',
+                                'ArrowRight',
+                                'Home',
+                                'End',
+                              ].includes(event.key)
+                            )
+                              return;
+                            event.preventDefault();
+                            const next =
+                              event.key === 'Home'
+                                ? 'evidence'
+                                : event.key === 'End'
+                                  ? 'calculation'
+                                  : activeTab === 'evidence'
+                                    ? 'calculation'
+                                    : 'evidence';
+                            setActiveTab(next);
+                            event.currentTarget
+                              .querySelector<HTMLButtonElement>(`#${next}-tab`)
+                              ?.focus();
+                          }}
+                        >
+                          <button
+                            role="tab"
+                            id="evidence-tab"
+                            aria-controls="evidence-content"
+                            aria-selected={activeTab === 'evidence'}
+                            tabIndex={activeTab === 'evidence' ? 0 : -1}
+                            className={
+                              activeTab === 'evidence' ? 'active-tab' : ''
+                            }
+                            onClick={() => setActiveTab('evidence')}
+                          >
+                            <SquareDashedMousePointer size={14} />
+                            {t.objects}
+                            <span>{marks.length}</span>
+                          </button>
+                          <button
+                            role="tab"
+                            id="calculation-tab"
+                            aria-controls="calculation-content"
+                            aria-selected={activeTab === 'calculation'}
+                            tabIndex={activeTab === 'calculation' ? 0 : -1}
+                            className={
+                              activeTab === 'calculation' ? 'active-tab' : ''
+                            }
+                            onClick={() => setActiveTab('calculation')}
+                          >
+                            <BookOpen size={14} />
+                            {t.calculation}
+                          </button>
+                        </div>
+                        {selectedMark && (
+                          <SourceContext
+                            drawing={drawing}
+                            mark={selectedMark}
+                            language={language}
+                            onFocus={() => focusMark(selectedMark)}
+                          />
+                        )}
+                        {activeTab === 'evidence' ? (
+                          <div
+                            className="evidence-list"
+                            role="tabpanel"
+                            id="evidence-content"
+                            aria-labelledby="evidence-tab"
+                            aria-label="Source evidence"
+                          >
+                            <div className="evidence-list-caption">
+                              {language === 'fi'
+                                ? 'Valitse kohde paikantaaksesi sen.'
+                                : 'Select an item to locate it on the drawing.'}
+                            </div>
+                            {marks.map((mark) => (
+                              <button
+                                key={mark.id}
+                                className={`evidence-row ${selected === mark.id ? 'selected-row' : ''}`}
+                                onClick={() => focusMark(mark)}
+                                aria-pressed={selected === mark.id}
+                              >
+                                <span className="evidence-number">
+                                  {mark.ordinal}
+                                </span>
+                                <span className="evidence-row-copy">
+                                  <strong>
+                                    {mark.label}
+                                    <span>
+                                      {mark.kind === 'area'
+                                        ? 'Room'
+                                        : mark.kind === 'dimension'
+                                          ? 'Dimension'
+                                          : response.intent === 'windows'
+                                            ? 'Window'
+                                            : 'Door'}
+                                    </span>
+                                  </strong>
+                                  <small>{mark.detail}</small>
+                                </span>
+                                <span className="evidence-located">
+                                  <Check size={12} />
+                                  <ChevronRight size={13} />
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div
+                            className="calculation-list"
+                            role="tabpanel"
+                            id="calculation-content"
+                            aria-labelledby="calculation-tab"
+                            aria-label="Calculation steps"
+                          >
+                            {response.steps.map((step, i) => (
+                              <button
+                                key={i}
+                                className="calculation-step"
+                                onClick={() => {
+                                  if (step.markIds.length === 1) {
+                                    const mark = marks.find(
+                                      (m) => m.id === step.markIds[0],
+                                    );
+                                    if (mark) focusMark(mark);
+                                  } else {
+                                    setSelected(null);
+                                    setShowMarks(true);
+                                    resetViewport();
+                                  }
+                                }}
+                              >
+                                <span className="step-number">{i + 1}</span>
+                                <span>
+                                  <strong>{step.title}</strong>
+                                  <small>{step.detail}</small>
+                                  {step.expression && (
+                                    <code>{step.expression}</code>
+                                  )}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <div className="coverage-note">
+                          <CheckCheck size={14} />
+                          <span>
+                            {t.complete}
+                            <small>
+                              {marks.length} / {marks.length} {t.shown}
+                            </small>
+                          </span>
+                          <button
+                            className="icon-button"
+                            aria-label="Show all matches"
+                            title="Show all matches"
+                            onClick={() => {
+                              setSelected(null);
+                              setShowMarks(true);
+                              resetViewport();
+                            }}
+                          >
+                            <Maximize size={14} />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="missing-explanation">
+                        <EyeOff size={19} />
+                        <p>
+                          {t.noEvidence}.{' '}
+                          {language === 'fi'
+                            ? 'Puuttuvaa tietoa ei tulkita nollaksi.'
+                            : 'Missing information is not treated as zero.'}
+                        </p>
+                        <button
+                          className="text-button"
+                          onClick={() => queryRef.current?.focus()}
+                        >
+                          Ask another question <ArrowRight size={13} />
                         </button>
                       </div>
-                    </>
-                  ) : (
-                    <div className="missing-explanation">
-                      <EyeOff size={19} />
-                      <p>
-                        {t.noEvidence}.{' '}
-                        {language === 'fi'
-                          ? 'Puuttuvaa tietoa ei tulkita nollaksi.'
-                          : 'Missing information is not treated as zero.'}
-                      </p>
-                      <button
-                        className="text-button"
-                        onClick={() => queryRef.current?.focus()}
-                      >
-                        Ask another question <ArrowRight size={13} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )
-            )}
-            <div className="question-section">
-              <div className="question-scope">
-                <FileText size={12} />
-                <span>
-                  {localActive
-                    ? imported?.file.name
-                    : `${drawing.code} · ${title}`}
-                </span>
-                <span className="scope-lock">
-                  <Check size={11} />
-                  {language === 'fi' ? 'Vain tämä näkymä' : 'This view only'}
-                </span>
-              </div>
-              <form className="question-form" onSubmit={submit}>
-                <textarea
-                  ref={queryRef}
-                  aria-label="Question about the drawing"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={
-                    localActive
-                      ? 'Local file preview · demo answers unavailable'
-                      : t.placeholder
-                  }
-                  disabled={localActive}
-                  rows={2}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      void ask(query);
-                    }
-                  }}
-                />
-                <div className="question-form-footer">
-                  <span>
-                    {localActive ? (
-                      'Preview only'
-                    ) : (
-                      <>
-                        <kbd>↵</kbd>{' '}
-                        {language === 'fi'
-                          ? 'Kysy painamalla Enter'
-                          : 'Enter to ask'}
-                      </>
                     )}
-                  </span>
-                  <button
-                    type="submit"
-                    className="ask-submit"
-                    aria-label={t.askButton}
-                    disabled={!query.trim() || asking || localActive}
-                  >
-                    {asking ? (
-                      <span className="spinner" />
-                    ) : (
-                      <ArrowUp size={17} />
-                    )}
-                  </button>
-                </div>
-              </form>
-              {!localActive && (
-                <>
-                  <div className="suggestion-label">{t.try}</div>
-                  <div className="suggestion-chips">
-                    {chips.map((q, i) => (
-                      <button
-                        key={q}
-                        onClick={() => void ask(q)}
-                        disabled={asking}
-                      >
-                        {chipNames[i]}
-                        <ArrowUp size={11} className="suggestion-arrow" />
-                      </button>
-                    ))}
                   </div>
-                </>
+                )
               )}
-            </div>
-
-            <div className="answer-panel-footer">
-              <button
-                onClick={() => setHistoryOpen(!historyOpen)}
-                className="history-button"
-              >
-                <Clock3 size={14} />
-                {language === 'fi'
-                  ? 'Viimeisimmät kysymykset'
-                  : 'Recent questions'}
-                <span>{history.length}</span>
-                <ChevronDown size={12} />
-              </button>
-              {historyOpen && (
-                <div className="history-list">
-                  {history.length ? (
-                    history.map((q) => (
-                      <button
-                        key={q}
-                        onClick={() => {
-                          setQuery(q);
-                          queryRef.current?.focus();
-                        }}
-                      >
-                        {q}
-                      </button>
-                    ))
-                  ) : (
-                    <p>Your questions will appear here.</p>
-                  )}
+              <div className="question-section">
+                <div className="question-scope">
+                  <FileText size={12} />
+                  <span>
+                    {localActive
+                      ? imported?.file.name
+                      : `${drawing.code} · ${title}`}
+                  </span>
+                  <span className="scope-lock">
+                    <Check size={11} />
+                    {language === 'fi' ? 'Vain tämä näkymä' : 'This view only'}
+                  </span>
                 </div>
-              )}
-              <p>
-                <span className="tiny-demo-dot" />
-                {language === 'fi'
-                  ? 'Havainnollistavat piirustukset ja vastaukset'
-                  : 'Illustrative drawings and prepared answers'}
-              </p>
-            </div>
-          </aside>
-        )}
+                <form className="question-form" onSubmit={submit}>
+                  <textarea
+                    ref={queryRef}
+                    aria-label="Question about the drawing"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={
+                      localActive
+                        ? 'Local file preview · demo answers unavailable'
+                        : t.placeholder
+                    }
+                    disabled={localActive}
+                    rows={2}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        void ask(query);
+                      }
+                    }}
+                  />
+                  <div className="question-form-footer">
+                    <span>
+                      {localActive ? (
+                        'Preview only'
+                      ) : (
+                        <>
+                          <kbd>↵</kbd>{' '}
+                          {language === 'fi'
+                            ? 'Kysy painamalla Enter'
+                            : 'Enter to ask'}
+                        </>
+                      )}
+                    </span>
+                    <button
+                      type="submit"
+                      className="ask-submit"
+                      aria-label={t.askButton}
+                      disabled={!query.trim() || asking || localActive}
+                    >
+                      {asking ? (
+                        <span className="spinner" />
+                      ) : (
+                        <ArrowUp size={17} />
+                      )}
+                    </button>
+                  </div>
+                </form>
+                {!localActive && (
+                  <>
+                    <div className="suggestion-label">{t.try}</div>
+                    <div className="suggestion-chips">
+                      {chips.map((q, i) => (
+                        <button
+                          key={q}
+                          onClick={() => void ask(q)}
+                          disabled={asking}
+                        >
+                          {chipNames[i]}
+                          <ArrowUp size={11} className="suggestion-arrow" />
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="answer-panel-footer">
+                <button
+                  onClick={() => setHistoryOpen(!historyOpen)}
+                  className="history-button"
+                >
+                  <Clock3 size={14} />
+                  {language === 'fi'
+                    ? 'Viimeisimmät kysymykset'
+                    : 'Recent questions'}
+                  <span>{history.length}</span>
+                  <ChevronDown size={12} />
+                </button>
+                {historyOpen && (
+                  <div className="history-list">
+                    {history.length ? (
+                      history.map((q) => (
+                        <button
+                          key={q}
+                          onClick={() => {
+                            setQuery(q);
+                            queryRef.current?.focus();
+                          }}
+                        >
+                          {q}
+                        </button>
+                      ))
+                    ) : (
+                      <p>Your questions will appear here.</p>
+                    )}
+                  </div>
+                )}
+                <p>
+                  <span className="tiny-demo-dot" />
+                  {language === 'fi'
+                    ? 'Havainnollistavat piirustukset ja vastaukset'
+                    : 'Illustrative drawings and prepared answers'}
+                </p>
+              </div>
+            </aside>
+          ))}
       </div>
       {!sidebarOpen && localFileInput}
       {fileDragging && !sidebarOpen && (
         <div className="file-drop-overlay" role="status">
           <Upload size={38} />
           <strong>{t.dropTitle}</strong>
-          <span>{IMPORT_FORMATS}</span>
+          <span>{SOURCE_FORMATS}</span>
         </div>
       )}
       {toast && (

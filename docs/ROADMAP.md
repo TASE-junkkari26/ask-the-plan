@@ -28,7 +28,7 @@ Source extraction caches can still be useful without becoming a training dataset
 
 | Available now | Work still needed |
 |---|---|
-| [React frontend](../frontend/README.md): dominant source viewer, searchable picker, contextual evidence crops, fixed composer, prepared answers | Real source ingestion, backend connection, real evidence resolution, and the human verification gate |
+| [React frontend](../frontend/README.md): dominant source viewer, searchable picker, contextual evidence crops, fixed composer, prepared answers, local IFC 3D inspection | Real source ingestion, backend connection, real evidence resolution, and the human verification gate |
 | [IFC engine](IFC_ENGINE.md): native extraction and structured scalar queries | Natural-language planning, HTTP integration, operations required by uncovered question families |
 | [Nemotron client](nvidia_info.md): text/image/JSON calls to the supplied endpoint | Evaluated question workflows, bounded orchestration, caching and service integration |
 | [Shared contracts](SCHEMA.md): source, scope, entities, evidence and results | Real adapters populating them; schema validity alone cannot establish source truth |

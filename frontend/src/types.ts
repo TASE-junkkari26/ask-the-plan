@@ -53,3 +53,26 @@ export interface ImportedDrawing {
 export interface LocalDrawing extends ImportedDrawing {
   id: string;
 }
+
+export type IfcStatus =
+  | 'idle'
+  | 'reading'
+  | 'converting'
+  | 'rendering'
+  | 'ready'
+  | 'cancelled'
+  | 'error';
+export interface IfcSource {
+  id: string;
+  kind: 'ifc';
+  name: string;
+  file?: File;
+  fragmentUrl?: string;
+  manifestUrl?: string;
+  status: IfcStatus;
+  error?: string;
+}
+export interface LocalIfcModel extends IfcSource {
+  file: File;
+}
+export type LocalSource = LocalDrawing | LocalIfcModel;

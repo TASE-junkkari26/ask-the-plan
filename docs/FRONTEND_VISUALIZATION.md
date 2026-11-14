@@ -1,6 +1,6 @@
 # Frontend visualization and evidence plan
 
-Prepared 13 November 2026; implementation status updated 14 November. This is a design guide using the [shared schema](SCHEMA.md). The [frontend README](../frontend/README.md) describes the implemented mock 2D workbench: synthetic sources, prepared answers, selectable overlays, local file preview, and exports. Backend integration, real-source annotation resolution, and IFC 3D viewing remain planned. The recommendations below are the target architecture, not a list of shipped features.
+Prepared 13 November 2026; implementation status updated 14 November. This is a design guide using the [shared schema](SCHEMA.md). The [frontend README](../frontend/README.md) describes the implemented 2D workbench and local IFC viewer: synthetic sources, prepared answers, selectable overlays, local file preview, and exports. The [IFC viewer](IFC_VIEWER.md) now provides local 3D viewing and inspection. Backend integration and real answer/evidence resolution remain planned. The recommendations below are the target architecture, not a list of shipped features.
 
 The [hackathon roadmap](ROADMAP.md#ui-direction) sets the current minimal layout
 and implementation order. Use this document for evidence/rendering mechanics;

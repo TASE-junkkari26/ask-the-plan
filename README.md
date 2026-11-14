@@ -23,7 +23,7 @@ optional extensions unless a supplied question needs them. See the
 
 | Component | Implemented | Boundary |
 |---|---|---|
-| Frontend | React workbench, synthetic drawings/answers, selectable overlays, calculations, multiple local image/PDF imports, searchable preview library, export | Mock adapter; imports last until refresh, with no backend/model calls or IFC 3D viewer. Uploaded files are not analysed. |
+| Frontend | React workbench, synthetic drawings/answers, selectable overlays, calculations, multiple local image/PDF/IFC imports, searchable preview library, 3D inspection, 2D export | Mock QA adapter; imports last until refresh, with no backend/model calls. Uploaded files are not analysed. |
 | IFC engine | CPU extraction, structured selection/traversal, scalar properties/quantities, counts, grouping/ranking, evidence and caching | Standalone Python/CLI; no natural-language planner, HTTP API, or geometry-measurement engine. |
 | Shared contracts | Pydantic models, generated JSON Schemas/TypeScript, reference/unit/scope/evidence validation | Validation cannot prove source completeness or correctness. |
 | Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI | Dated live checks are recorded in the guide; no connected question planner or frontend integration. |
@@ -195,10 +195,11 @@ adjust commands to the actual root rather than assuming that layout.
 | [Question classification](docs/QUESTION_CLASSIFICATION.md) | Generated, exhaustive analysis taxonomy; no runtime answers |
 | [Dataset research](docs/DATASET_RESEARCH.md) | Template concentration and proposed answering pipeline |
 | [Schema](docs/SCHEMA.md) | Contract structure, invariants, query/result types, and validation boundaries |
+| [IFC viewer](docs/IFC_VIEWER.md) | Browser 3D viewing, local conversion, inspector, controls, assets, and limits |
 | [IFC engine](docs/IFC_ENGINE.md) | Current backend/CLI behavior and supported operations |
 | [Frontend](frontend/README.md) | Current mock UI, startup, testing, and integration boundary |
 | [Computational capabilities](docs/COMPUTATIONAL_CAPABILITIES.md) | Capability backlog with implemented versus planned status |
-| [Frontend visualization](docs/FRONTEND_VISUALIZATION.md) | Viewer architecture and future IFC integration |
+| [Frontend visualization](docs/FRONTEND_VISUALIZATION.md) | Viewer architecture and future answer/evidence integration |
 | [Evidence and platform requirements](docs/FRONTEND_EVIDENCE_REQUIREMENTS.md) | Q01-Q20 evidence requirements and Linux/Windows boundaries |
 | [Tech stack recommendation](docs/TECH_STACK_RECOMMENDATION.md) | Dated architecture rationale and candidate components |
 | [OCR recommendations](docs/ocr_recs.md) | Perception candidates and evaluation gates; not an installed pipeline |
