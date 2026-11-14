@@ -5,9 +5,7 @@
 .ifc-question-intro strong { font-size:15px; color:#344b29; }
 .ifc-question-intro p { color:#7a8771; margin:6px 0 18px; font-size:11px; }
 .ifc-question-form { border:1px solid #dde5d6; border-radius:9px; padding:12px; background:#fbfcf9; }
-.ifc-question-scope { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:11px; font-weight:600; }
-.ifc-question-scope select { max-width:170px; color:#405a33; border:1px solid #dce5d4; border-radius:5px; background:#fff; padding:5px 6px; font:inherit; }
-.ifc-scope-description { color:#7a8771; font-size:10px; margin:8px 0 12px; line-height:1.6; }
+.ifc-scope-description { color:#7a8771; font-size:10px; margin:0 0 12px; line-height:1.6; }
 .ifc-question-form textarea { width:100%; box-sizing:border-box; resize:vertical; min-height:78px; border:1px solid #dce5d4; border-radius:6px; padding:10px; background:#fff; font:inherit; color:#344b29; }
 .ifc-question-form textarea:focus { outline:2px solid #8da87a; outline-offset:1px; }
 .ifc-question-submit { display:flex; gap:12px; align-items:center; justify-content:space-between; margin-top:9px; }

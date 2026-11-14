@@ -1,15 +1,53 @@
 # Sprint-one verification record
 
-## Hydrogen-first routing, 14 November 2026
+## Hydrogen-first routing and detailed-scan integration, 14 November 2026
 
-At the user's request, policy `capability-routing-v3` now uses Carbon only when
+Integrated the routing correction with main through `f03eb50`, preserving its
+native detailed-scan tools and whole-model IFC question preference. Policy
+`capability-routing-v4` uses Carbon only for an explicit `needs_strong` assessment
+at or above `IMAGE_API_ROUTING_STRONG_THRESHOLD` (default 0.8). Uncertain decisions,
+router outages and timeouts select Hydrogen for both full-image and detailed
+analysis. Detailed scans retain Hydrogen panel selection, the selected detector
+and membership verifier, actual crop bounds/hashes and the bounded provider ledger.
+
+The new version distinguishes this policy from main's earlier v3 normal-fit gate.
+The UI preserves v1/v2/v3 meanings and labels v4's advanced-interpretation
+probability correctly. Cache identities retain preparation mode and include the
+new policy, capabilities and strong threshold. Default timeout is ten seconds;
+transport phase diagnostics do not imply a completed classification.
+
+Validation on Linux, Python 3.12.3 and Node 24.22.3:
+
+- **626 Python tests passed**, no skips, in 76.861 seconds, with mocked providers.
+  Integration regressions cover the 79.9%/80% Carbon boundary, uncertain decisions,
+  routing failures/timeouts, actual streamed model handoff, crop hashes/boxes
+  and preparation-specific cache reuse.
+- All **18 frontend test files**, TypeScript/production build and SSR checks
+  passed. SSR includes both the historical main v3 gate and current v4 gate.
+  Existing optional Three/IFC export and bundle-size warnings remain.
+- All **15 generated contracts** are current; documentation and whitespace
+  checks passed. No live provider calls or new browser checks were run for this
+  merge, and local credentials and supplied dataset assets were unchanged.
+- Exactly **one Astra-6 Max** reviewer inspected integration against both parents
+  and confirmed no blocking code findings. Its documentation observations were
+  resolved by distinguishing the current policy from historical planning notes.
+
+Ignored check logs: `experiments/runs/hydrogen-main-integration/20261114T215533Z/`.
+These checks establish integration behavior, not a paired model-quality gain.
+
+## Pre-merge Hydrogen-first routing, 14 November 2026
+
+Before integrating the newer main branch, the local policy
+`capability-routing-v3` used Carbon only when
 Decisions explicitly selects `needs_strong` with probability at least 0.8.
 `IMAGE_API_ROUTING_STRONG_THRESHOLD` configures that gate. Uncertain or lower
 confidence assessments, unavailable routing, failures and timeouts use Hydrogen.
-The previous normal-fit threshold remains accepted for configuration compatibility
-and no longer controls v3. Cache keys include the new policy and strong threshold.
+The previous normal-fit threshold remained accepted for configuration compatibility
+and did not control this local v3. Cache keys include the new policy and strong threshold.
 The UI shows the advanced-interpretation probability and Carbon gate, while
-retaining historical v1/v2 explanations. This cost preference can under-escalate
+retaining historical v1/v2 explanations.
+The newer main branch independently used v3 for its older normal-fit gate;
+the integrated Hydrogen-first policy is v4 to keep those meanings distinct. This cost preference can under-escalate
 hard cases when Decisions is uncertain or unavailable.
 
 The bounded live development exercise covered 12 unique images/questions: five
@@ -39,6 +77,117 @@ The preceding timeout-only full suite passed 490 tests; that full-suite result
 predates v3 and is not a claim of final-policy coverage. Live evidence is ignored
 under `experiments/runs/routing-tuning/20261114T213230Z/`. Original images,
 reference answers and local credential files were unchanged.
+## Integrated routing, detail, IFC and DXF, 14 November 2026
+
+Main was fast-forwarded from `89dbae1` to fetched `2bc9476`, then the preserved
+unstaged detail work was reapplied and conflicts resolved. No new commit or push
+was made. The original stash remains as a recovery copy; the user's untracked
+implementation plan content was preserved.
+
+- Full Windows Python suite: **618 tests, OK, two platform symlink skips**.
+  The new integration checks cover one routing decision, Hydrogen panel selection,
+  selected Hydrogen/Carbon native detection and membership checks, source-bound
+  per-call accounting, parallel crops, streaming, disconnect cleanup and failures.
+- Final parallel benchmark harness checks: **7/7 passed**, including the explicit
+  diagnostic model/threshold options. Five live runs retained 214 attempts and
+  210 completed replies: known cost `$1.7242` plus four attempts with unknown
+  charges. All owned isolated benchmark servers were stopped.
+- Frontend: **126 tests**, TypeScript, production bundle and server-render smoke
+  checks passed. Existing Three/WebGPU export and large-chunk build warnings
+  remain. No live browser interaction is claimed for this integration pass.
+- **15 generated schemas** current; local documentation checker passed.
+- The actual frontend response consumer accepted all **30 saved live post-run
+  responses**, including mixed models, crop ledgers and membership checks. Its
+  cost calculation reproduced `$0.4062611` plus one unknown routing charge.
+- Real supplied Esplanades IFC regression passed: **211 whole-model doors** and
+  **42 fourth-storey doors**, computed by the deterministic engine. This selected
+  count check does not establish all new IFC spatial/planning accuracy.
+- Real supplied Swiss DXF `site10308_bldg14924_floor39248.dxf` rendered through the
+  running HTTP service: **200**, source hash matched, selected `Model` layout,
+  2520 x 3173 preview, `rendered`, no warnings. No native CAD measurement or final
+  question-answer accuracy is claimed by a successful preview.
+- Preview backend restarted with `IMAGE_API_ROUTING_MODE=auto` and
+  `IMAGE_API_MAX_CONCURRENT=12`; frontend and backend health returned HTTP 200.
+  These are local preview process overrides; repository routing remains opt-in.
+
+The [parallel 30-question report](../experiments/image_questions/PARALLEL_30_RESULTS.md)
+records the frozen before/after measurement: **25/30 to 26/30** candidate-count
+matches, one repair and no regressions. This is a small development sample, not
+localization or final-answer accuracy. Known cost was `$0.4013` before and
+`$0.4063` after plus one unknown timed-out Decisions charge; median response time
+was 5.96 s and 7.01 s. The extra match came from Hydrogen and can be ordinary run
+variation; the sole Carbon route in that run followed a routing timeout.
+
+A separate post-hoc **0.7 threshold trial** on the same 30 questions also
+matched **26/30**: a shower repair was offset by a sauna regression. Known cost
+rose to `$0.4795` and median latency to 8.88 s. The **0.6 default was retained**.
+Six targeted Carbon-medium diagnostics repaired one of four failures while both
+correct controls remained correct. Two dense-drawing Carbon probes failed at
+provider/request deadlines. Those trials are recorded separately in the report;
+their results do not replace the paired random-sample score.
+
+Local ignored logs and the real-DXF envelope are under
+`build/integration-backup-20261115/`. The benchmark report identifies immutable
+source/code snapshots, source licenses, requests and actual usage separately.
+
+
+## Targeted raster identity revision, 14 November 2026
+
+Final relevant checks: 219 Python tests, 101 frontend tests, schema export,
+TypeScript and production build passed on Windows. The actual large-house
+HTTP regression check retained 13/13 approximate reviewed door localizations.
+
+The [targeted raster results](../experiments/image_questions/RASTER_IDENTITY_RESULTS.md)
+exclude IFC. All 21 previously failed non-IFC cases plus six controls were tested
+serially with identical raster/question inputs: original single call 13/27,
+previous Detailed scan 6/27, revised tools 15/27. Nine failures were repaired;
+all six controls stayed correct. Calls fell 98->58, estimated standard cost
+USD 1.047318->0.718476, median HTTP time 18.604->10.594 seconds. This is targeted
+development evidence, not a full-100 or held-out localization score.
+
+Native preprocessing, typed object/row identity, optional source-label OCR,
+bounded membership checks and their UI evidence were checked. A separate finer
+grid test did not improve count matches on the two selected failures and remains
+optional. Source/reference files and both original benchmark runs were preserved.
+
+## Same-100 Detailed scan evaluation, 14 November 2026
+
+The [exact-input paired rerun](../experiments/image_questions/GEMINI_DETAIL_100_RESULTS.md)
+scored 72/100 candidate-count matches versus 79/100, correcting three cases and
+regressing on ten. All 100 HTTP requests and 292 Hydrogen-low calls completed;
+standard estimated cost USD 2.719451. Cases and provider calls were serial. The
+audit verifies identical raster bytes/questions, crop hashes, complete usage,
+nonoverlapping timelines and unchanged baseline files. Scoring followed completion
+of all responses; errors/partials retained the original scoring rules. No
+production tuning or new model calls were made after scoring. Twelve offline
+benchmark harness/scoring tests passed. This remains a count proxy on inspected
+development material, not localization/final-answer or held-out accuracy.
+
+## Callable native drawing-detail tools, 14 November 2026
+
+Implemented automatic panel proposals, original-pixel crops/tiles, source-frame
+reconciliation, preserved deferred seam fragments and bounded recentered checks.
+The frontend's Detailed scan calls the tool endpoint; the external decision tree
+can use the same HTTP/Python operations. See [integration](../image_api/DETAIL_TOOLS.md)
+and [live result](../experiments/image_questions/DETAIL_TOOLS_RESULTS.md).
+
+The final running HTTP scan of the authorized 4755 x 3364 development drawing
+returned 13 candidates with 13/13 approximate assistant-reviewed door boxes
+localized at IoU >= 0.5, using seven Hydrogen-low calls, 34.525 s total HTTP time
+and estimated USD 0.066795. Four seam fragments remain separately recorded,
+making the result partial. Automatic single-region detection reached 11/13;
+earlier manually selected crops are recorded separately. No held-out localization
+accuracy or improvement to the original 100-image score is claimed.
+
+Windows checks cover shared contracts, crop fidelity, invalid bounds, proposal
+fallback, overlap/label handling, source identity, total usage, failed regions,
+unsupported/unreadable outcomes, reinspection, cancellation and temp cleanup.
+The relevant Python suite passed 162 tests; frontend logic passed 100 tests.
+Frontend logic tests and TypeScript pass; production build passes with existing
+Three/WebGPU and large-chunk warnings. Final inference ran through the Vite proxy
+and backend; no live browser interaction was performed in this pass. Private
+drawing/call artifacts remain ignored under `experiments/runs/`. Preview servers
+remain running on ports 5173 and 8000. No commit was requested for this work.
 
 ## Decisions routing and current main integration, 14 November 2026
 

@@ -1,5 +1,10 @@
 # Image candidate API
 
+The [callable detail tools](DETAIL_TOOLS.md) add automatic panel proposals,
+native region/tile detection, overlap reconciliation and bounded reinspection.
+The frontend's Detailed scan uses them; the original candidate endpoint remains
+available for a single full-image call.
+
 An internal Python HTTP service for locating question-relevant objects in one
 image using Nemotron or an allowlisted Gemini profile. It returns unreviewed
 candidate boxes, literal labels, visual cues, and uncertainty. It does not return a final answer
@@ -20,11 +25,12 @@ see [IFC planner configuration](../docs/IFC_QUESTIONS.md#choose-the-ifc-planner)
 
 The [Gemini Decisions plan](DECISIONS_PLAN.md) records the experimental router:
 Hydrogen-low is preferred; only a high-confidence explicit need for advanced
-interpretation selects Carbon-medium. Selective preprocessing follows in a later stage. It incorporates the new
+interpretation selects Carbon-medium. Detailed scans then use the selected
+analyzer on native crops, with Hydrogen panel selection. It incorporates the
 [tooling/routing research](../docs/TOOLING_AND_ROUTING_PLAN.md) and
 [100-image report](../experiments/image_questions/GEMINI_100_RESULTS.md), keeping
-that capability-first order. Review tasks use one Astra-6 Max subagent each;
-the UI explains recorded decisions and evidence limits, including failures,
+that capability-first order. The UI explains recorded decisions and evidence
+limits, including failures,
 in an expandable panel. Routing is off by default pending dataset evaluation.
 
 ## Experimental capability routing
@@ -38,7 +44,7 @@ Keep `GEMINI_API_KEY` on the backend. Set `IMAGE_API_PROVIDER=gemini` and choose
 | `IMAGE_API_ROUTING_MODE=auto` | Prefers Hydrogen-low; selects Carbon-medium only for an explicit `needs_strong` assessment at or above the strong threshold. No automatic retry. |
 
 `GEMINI_MODEL=gemini-4-hydrogen` with `GEMINI_THINKING_LEVEL=low` remains the
-manual default; `gemini-4-carbon` accepts `low` or `medium`. Auto mode defaults
+manual default; `gemini-4-carbon` accepts `low` or `medium`. The strong profile defaults
 to Carbon medium; set `IMAGE_API_ROUTING_STRONG_THINKING_LEVEL=low` for lower
 thinking. High thinking is outside the image-profile allowlist. Profile selection
 preserves the configured output-token and timeout limits.
@@ -46,19 +52,24 @@ Carbon model access is required for the strong route. If it is unavailable,
 return a traced error rather than silently using Hydrogen.
 
 Routing requires `IMAGE_API_PREPROCESS_MODE=original` or `off`, preserving the
-canonical whole raster. It rejects `overview` and more than two concurrent
-requests. No crops, OCR or source-tool loop is selected by this initial version.
-One decision attempt and one analyzer attempt are allowed, without retries.
-Router errors/timeouts select Hydrogen; shadow mode retains the configured baseline. The total deadline includes preparation/routing;
+canonical whole raster for routing. It rejects `overview`; configured admission
+and detail-provider parallelism use `IMAGE_API_MAX_CONCURRENT` (default 2, up to
+32). Routing selects the analyzer once per question, never once per tile.
+The full-image endpoint permits one analysis attempt. Detailed scan instead uses
+its bounded region/tiling/reconciliation/verification tools, with at most 12
+provider attempts plus one Decisions call and no transport retries. OCR stays
+optional/off; native IFC execution remains separate.
+Router errors/timeouts select Hydrogen; shadow mode retains the configured
+baseline. The total deadline includes preparation/routing;
 five seconds are reserved for finalization before another call can run.
 
-Policy `capability-routing-v3` prefers Hydrogen. Carbon requires
+Policy `capability-routing-v4` prefers Hydrogen. Carbon requires
 `normal_fit=needs_strong` with probability at least
 `IMAGE_API_ROUTING_STRONG_THRESHOLD=0.8`. Uncertain assessments, lower confidence,
 router failures/timeouts and unavailable routing all use Hydrogen directly.
-There is one analyzer attempt; a failed Hydrogen call does not retry on Carbon.
+One analyzer profile handles the request; a failed Hydrogen call does not switch to Carbon.
 The old `IMAGE_API_ROUTING_THRESHOLD` is accepted for configuration compatibility
-but does not control v3. Changing the policy invalidates cached decisions.
+but does not control v4. Changing the policy invalidates cached decisions.
 
 Ordinary readable plans, room/object discovery, labels, schedules and printed
 quantity regions stay on Hydrogen. Either analyzer retains the same candidate-only
@@ -74,15 +85,17 @@ the phase; an overall deadline has a generic timeout reason. A timeout means
 no classification was received, not that the source was judged difficult.
 A bounded session-only
 cache (`IMAGE_API_ROUTING_CACHE_ENTRIES=32`, zero disables it) keys on exact
-question/scope, image hashes, profiles and policy/criteria versions. Cache hits
+question/scope, preparation strategy, image hashes, profiles and policy/criteria
+versions. Cache hits
 reuse routing assessments without billing them as a new call. No source bytes or
 reference answers are cached there. Both modes still send the image and question
 to the configured Gemini services when an uncached decision is needed.
 
 The expandable **How this was analyzed** panel shows recorded assessments,
-probabilities, thresholds, actual route/calls, skipped preparation and failures.
-For v3 it shows the advanced-interpretation probability and Carbon threshold;
-historical v1/v2 traces retain their original explanation. Policy and criteria changes invalidate cached routes.
+probabilities, thresholds, actual route/calls, selected preparation and failures.
+For v4 it shows the advanced-interpretation probability and Carbon threshold;
+historical v1/v2/v3 traces retain their original explanation. Policy and criteria
+changes invalidate cached routes.
 Scores are routing estimates, not answer accuracy. Exported candidate JSON retains
 the trace; failures retain it in the error state. Total cost estimates sum each
 call's timestamp/model/usage and mark missing information as unknown. IFC continues
@@ -99,7 +112,8 @@ configured baseline in shadow/manual mode; it does not wait for candidate output
 Cancellation, source/page changes and a new request clear the previous model.
 
 The frontend opts into streaming on the same multipart
-`POST /api/v1/candidates` with `Accept: application/x-ndjson`. The ordinary JSON
+`POST /api/v1/candidates` or `/api/v1/tools/detect-detail` with
+`Accept: application/x-ndjson`. The ordinary JSON
 response remains the default for existing callers. A stream contains one
 `ImageCandidateStreamEvent` of type `handoff`, followed by a terminal `result`
 or `error`, newline-delimited UTF-8. An error before dispatch has no handoff.
@@ -161,8 +175,8 @@ GEMINI_API_KEY=
 
 Restart the Python server after changing settings. Images use the native Google
 Interactions API with `gemini-4-hydrogen`/low by default, structured JSON output,
-and `store=false`. With routing off, one image request makes one provider call;
-experimental routing adds at most one Decisions call before one selected analyzer.
+and `store=false`. The full-image endpoint makes one analysis call; detailed
+scans use their explicit call budget. Routing adds at most one Decisions attempt.
 No retries or repair requests are enabled. The same current UI displays
 the returned candidates and actual model provenance.
 
@@ -436,8 +450,10 @@ under the image limit may therefore still exceed the Gemini limit and receive
 a separate Files API request. Its private normalized `[ymin, xmin, ymax, xmax]`
 boxes are converted to the same public X/Y display pixels described above.
 
-One analyzer attempt is made per accepted request; routing optionally adds one
-decision attempt. SDK retries are disabled for this endpoint, with no change to
+One analyzer is selected per accepted request. Detailed scans can call that
+analyzer on several native regions within their explicit budget; routing
+optionally adds one decision attempt. SDK retries are disabled for these
+endpoints, with no change to
 CLI defaults. The deadline covers body receipt, preparation, routing and analysis.
 Preparation runs in a worker thread; a timed-out
 worker finishes its bounded local work and then removes its files. Inference is

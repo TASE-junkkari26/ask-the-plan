@@ -22,9 +22,83 @@ export type VisualCue = string;
  */
 export type Candidates = ImageCandidate[];
 /**
- * @maxItems 2
+ * @maxItems 13
  */
-export type Calls = [] | [AnalysisCall] | [AnalysisCall, AnalysisCall];
+export type Calls =
+  | []
+  | [AnalysisCall]
+  | [AnalysisCall, AnalysisCall]
+  | [AnalysisCall, AnalysisCall, AnalysisCall]
+  | [AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall]
+  | [AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall]
+  | [AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall]
+  | [AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall]
+  | [AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall]
+  | [
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall
+    ]
+  | [
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall
+    ]
+  | [
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall
+    ]
+  | [
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall
+    ]
+  | [
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall
+    ];
 export type CompletedAt = string;
 export type CompletionTokens = number | null;
 export type ElapsedMs = number;
@@ -34,9 +108,10 @@ export type InputSha256 = string;
 export type InputWidth = number;
 export type Outcome = 'completed' | 'failed' | 'cancelled';
 export type PromptTokens = number | null;
-export type Purpose = 'routing' | 'analysis';
+export type Purpose = 'routing' | 'analysis' | 'region_proposal' | 'candidate_verification' | 'reinspection';
 export type RequestedModel = string;
 export type ReturnedModel = string | null;
+export type SourceBox = [number, number, number, number] | null;
 export type CapabilityVersion = string;
 export type CoordinateSystem = 'display_pixels_top_left';
 export type Height = number;
@@ -293,6 +368,469 @@ export type QuestionSha256 = string;
 export type RecommendedProfile = ('normal' | 'strong') | null;
 export type RequestId = string;
 export type SelectedProfile = 'normal' | 'strong' | 'manual' | 'pending';
+export type Category1 = string;
+export type ObservationId = string;
+export type Reason = string;
+export type RegionId = string;
+/**
+ * @minItems 4
+ * @maxItems 4
+ */
+export type SourceBox1 = [number, number, number, number];
+/**
+ * @maxItems 1200
+ */
+export type DeferredObservations = DeferredDetailObservation[];
+/**
+ * @maxItems 12
+ */
+export type MembershipChecks =
+  | []
+  | [DetailMembershipCheck]
+  | [DetailMembershipCheck, DetailMembershipCheck]
+  | [DetailMembershipCheck, DetailMembershipCheck, DetailMembershipCheck]
+  | [DetailMembershipCheck, DetailMembershipCheck, DetailMembershipCheck, DetailMembershipCheck]
+  | [DetailMembershipCheck, DetailMembershipCheck, DetailMembershipCheck, DetailMembershipCheck, DetailMembershipCheck]
+  | [
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck
+    ]
+  | [
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck
+    ]
+  | [
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck
+    ]
+  | [
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck
+    ]
+  | [
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck
+    ]
+  | [
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck
+    ]
+  | [
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck,
+      DetailMembershipCheck
+    ];
+export type Category2 = string;
+/**
+ * @minItems 1
+ * @maxItems 64
+ */
+export type ObservationIds = [string, ...string[]];
+export type Reason1 = string;
+export type RegionId1 = string;
+/**
+ * @minItems 4
+ * @maxItems 4
+ */
+export type SourceBox2 = [number, number, number, number];
+export type Verdict = 'supported' | 'rejected' | 'ambiguous' | 'failed';
+export type Mode1 = 'auto' | 'regions' | 'tiles';
+export type CandidateId = string;
+export type Clipped = boolean;
+/**
+ * @minItems 1
+ * @maxItems 64
+ */
+export type ObservationIds1 = [string, ...string[]];
+/**
+ * @minItems 1
+ * @maxItems 64
+ */
+export type RegionIds = [string, ...string[]];
+/**
+ * @maxItems 64
+ */
+export type SourceLabels = (string | null)[];
+/**
+ * @maxItems 100
+ */
+export type Observations = DetailObservation[];
+export type ProviderCalls = number;
+/**
+ * @maxItems 12
+ */
+export type Regions =
+  | []
+  | [DetailRegion]
+  | [DetailRegion, DetailRegion]
+  | [DetailRegion, DetailRegion, DetailRegion]
+  | [DetailRegion, DetailRegion, DetailRegion, DetailRegion]
+  | [DetailRegion, DetailRegion, DetailRegion, DetailRegion, DetailRegion]
+  | [DetailRegion, DetailRegion, DetailRegion, DetailRegion, DetailRegion, DetailRegion]
+  | [DetailRegion, DetailRegion, DetailRegion, DetailRegion, DetailRegion, DetailRegion, DetailRegion]
+  | [DetailRegion, DetailRegion, DetailRegion, DetailRegion, DetailRegion, DetailRegion, DetailRegion, DetailRegion]
+  | [
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion
+    ]
+  | [
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion
+    ]
+  | [
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion
+    ]
+  | [
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion,
+      DetailRegion
+    ];
+export type CandidateCount = number;
+export type Id3 = string;
+export type InferenceSha2561 = string;
+/**
+ * @minItems 4
+ * @maxItems 4
+ */
+export type SourceBox3 = [number, number, number, number];
+export type Status = 'ok' | 'partial' | 'unreadable' | 'unsupported' | 'failed';
+/**
+ * @maxItems 12
+ */
+export type ReinspectionRegions =
+  | []
+  | [[number, number, number, number]]
+  | [[number, number, number, number], [number, number, number, number]]
+  | [[number, number, number, number], [number, number, number, number], [number, number, number, number]]
+  | [
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number]
+    ]
+  | [
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number]
+    ]
+  | [
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number]
+    ]
+  | [
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number]
+    ]
+  | [
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number]
+    ]
+  | [
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number]
+    ]
+  | [
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number]
+    ]
+  | [
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number]
+    ]
+  | [
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number]
+    ];
+export type ReusedCrops = number;
+/**
+ * @minItems 1
+ * @maxItems 4
+ */
+export type SelectedRegions =
+  | [[number, number, number, number]]
+  | [[number, number, number, number], [number, number, number, number]]
+  | [[number, number, number, number], [number, number, number, number], [number, number, number, number]]
+  | [
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number],
+      [number, number, number, number]
+    ];
+export type Selection = 'automatic' | 'explicit';
+/**
+ * @maxItems 20
+ */
+export type SelectionLimitations =
+  | []
+  | [string]
+  | [string, string]
+  | [string, string, string]
+  | [string, string, string, string]
+  | [string, string, string, string, string]
+  | [string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ];
+/**
+ * @maxItems 1200
+ */
+export type SupersededObservationIds = string[];
+export type TargetKind = string;
 export type InventoryCompleteness = 'unverified';
 /**
  * @maxItems 100
@@ -305,7 +843,7 @@ export type PreparationMs = number | null;
 export type PromptTokens1 = number | null;
 export type InputHeight1 = number;
 export type InputWidth1 = number;
-export type Mode1 = 'off' | 'original' | 'overview';
+export type Mode2 = 'off' | 'original' | 'overview';
 export type PipelineVersion = string | null;
 export type PreparedId = string | null;
 export type PromptVersion = string;
@@ -314,7 +852,7 @@ export type ReturnedModel1 = string;
 export type RequestId1 = string;
 export type SchemaVersion = '0.1.0';
 export type Scope = 'submitted_image';
-export type Status = 'ok' | 'partial' | 'unreadable' | 'unsupported';
+export type Status1 = 'ok' | 'partial' | 'unreadable' | 'unsupported';
 
 /**
  * Image-bound proposals; an empty list does not establish a zero count.
@@ -322,6 +860,7 @@ export type Status = 'ok' | 'partial' | 'unreadable' | 'unsupported';
 export interface ImageCandidateResponse {
   candidates?: Candidates;
   decision_trace?: ImageDecisionTrace | null;
+  detail?: CandidateDetailTrace | null;
   image: CandidateImage;
   inventory_completeness?: InventoryCompleteness;
   limitations?: Limitations;
@@ -330,7 +869,7 @@ export interface ImageCandidateResponse {
   request_id: RequestId1;
   schema_version?: SchemaVersion;
   scope?: Scope;
-  status: Status;
+  status: Status1;
 }
 /**
  * An unreviewed detection, not a canonical building entity or final claim.
@@ -385,6 +924,7 @@ export interface AnalysisCall {
   purpose: Purpose;
   requested_model: RequestedModel;
   returned_model?: ReturnedModel;
+  source_box?: SourceBox;
 }
 /**
  * The exact submitted source and oriented inference/display frame.
@@ -407,6 +947,50 @@ export interface AnalysisDecisionNode {
   threshold?: Threshold;
   value?: Value;
 }
+export interface CandidateDetailTrace {
+  deferred_observations?: DeferredObservations;
+  membership_checks?: MembershipChecks;
+  mode: Mode1;
+  observations: Observations;
+  provider_calls: ProviderCalls;
+  regions: Regions;
+  reinspection_regions?: ReinspectionRegions;
+  reused_crops?: ReusedCrops;
+  selected_regions: SelectedRegions;
+  selection: Selection;
+  selection_limitations?: SelectionLimitations;
+  superseded_observation_ids?: SupersededObservationIds;
+  target_kind?: TargetKind;
+}
+export interface DeferredDetailObservation {
+  category: Category1;
+  observation_id: ObservationId;
+  reason: Reason;
+  region_id: RegionId;
+  source_box: SourceBox1;
+}
+export interface DetailMembershipCheck {
+  category: Category2;
+  observation_ids: ObservationIds;
+  reason: Reason1;
+  region_id: RegionId1;
+  source_box: SourceBox2;
+  verdict: Verdict;
+}
+export interface DetailObservation {
+  candidate_id: CandidateId;
+  clipped: Clipped;
+  observation_ids: ObservationIds1;
+  region_ids: RegionIds;
+  source_labels?: SourceLabels;
+}
+export interface DetailRegion {
+  candidate_count: CandidateCount;
+  id: Id3;
+  inference_sha256: InferenceSha2561;
+  source_box: SourceBox3;
+  status: Status;
+}
 export interface CandidateMetrics {
   completion_tokens?: CompletionTokens1;
   elapsed_ms: ElapsedMs1;
@@ -426,7 +1010,7 @@ export interface CandidateProvenance {
 export interface CandidatePreparation {
   input_height: InputHeight1;
   input_width: InputWidth1;
-  mode: Mode1;
+  mode: Mode2;
   pipeline_version?: PipelineVersion;
   prepared_id?: PreparedId;
 }

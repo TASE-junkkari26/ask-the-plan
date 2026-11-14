@@ -1,5 +1,15 @@
 # Ask the Plan frontend
 
+**Detailed scan** is enabled in the image/PDF/DXF question panel. It selects drawing
+regions, analyzes overlapping native detail and combines source instances through
+the [detail tools](../image_api/DETAIL_TOOLS.md). Uncheck it for the standard
+whole-image detector. When backend routing is enabled, the selected Hydrogen or
+Carbon analyzer uses the chosen scan mode. Results expose model-call count,
+selected regions and candidate checks; the recorded calls show each actual model
+and its cost contribution, including region selection and verification. Deferred
+crop fragments stay partial. DXF questions use only the displayed layout's raster;
+IFC questions retain their separate planner and deterministic engine path.
+
 A local React/TypeScript drawing workbench. It opens on a file import screen,
 then shows an image/PDF/DXF with a chat panel on the right or an IFC model with its
 3D inspector. No demo drawings or prepared answers are shown. Submitting a
@@ -73,7 +83,7 @@ still needs verification on the target demo devices.
 - Completed image/PDF/DXF responses show the returned model, total response time, and estimated USD token cost, with an expandable usage and pricing breakdown. The collapsed **How this was analyzed** panel displays the recorded capability check, chosen route, preparation and execution. Failed requests retain their recorded path too; responses without a trace explicitly say so.
 - Searchable drawing picker containing only imported files, with thumbnails and removal. The native dialog supports focus containment, Escape, and the `/` or Ctrl/Cmd+K shortcuts.
 - English/Finnish core UI labels; original filenames and source text stay unchanged.
-- Current-drawing scope by default, following the organizer clarification reported on 14 November 2026. Whole-building requests do not aggregate unseen drawings.
+- Image/PDF/DXF questions use the selected drawing/page/layout. IFC questions always use the entire imported model, including objects hidden in the preview. Whole-building requests do not aggregate separate imports.
 - Multiple local files through a file picker or drag and drop, marked SVG export, and candidate JSON export. Importing alone makes no analysis call.
 - Cancellation on source changes, keyboard shortcuts, help dialog, and responsive styles. On narrow screens the chat panel sits below the drawing and can be hidden from the viewer toolbar.
 
@@ -140,9 +150,9 @@ Preview URLs are released when a file is removed, a PDF page is replaced, or the
 workbench unmounts. Switching sources cancels pending page rendering without
 allowing it to restore an old selection. Asking about IFC uploads the original
 file to the local backend. Its source hash binds answers and source element
-identities to the displayed revision. Current-view scope follows enabled
-objects, and whole-model scope is an explicit choice. Answer highlights remain
-separate from clicked-object selection; source facts and calculation inputs are
+identities to the displayed revision. IFC questions always use the entire model;
+storey filters, hidden objects and section cuts affect only the preview. Answer
+highlights remain separate from clicked-object selection; source facts and calculation inputs are
 inspectable, and unavailable geometry is reported separately from matches.
 Descriptive and spatial responses can include a source-backed natural-language
 summary above their structured results. Object references show original names

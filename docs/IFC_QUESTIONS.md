@@ -65,13 +65,11 @@ every operation field or establish source truth.
 
 ## Scope and verification
 
-The default **Current view** scope uses the objects enabled by storey and
-visibility controls. It includes objects occluded by other geometry or outside
-the camera viewport; orbiting and zooming do not change its inventory. **Whole
-model** must be selected deliberately to query the complete extracted model,
-including objects unavailable in the renderer. Horizontal clipping is a visual
-cut, not an exact object inventory; reset it before asking about the current
-view. A request that needs a wider scope must not silently include hidden floors.
+The question panel always uses the entire imported IFC model, including objects
+hidden in the preview or unavailable in the renderer. There is no answer-scope
+selector. Storey filters, visibility controls, orbiting, zooming and horizontal
+section cuts affect only the preview; they do not limit or cancel questions.
+Explicit room/floor filters in the question still constrain the planned query.
 
 Answer elements receive a persistent highlight independently of the selected
 object, with a slow four-second pulse between blue and light blue. Selecting a
@@ -95,7 +93,8 @@ necessary for quantity or filtered answers.
   viewer's 512 MiB ceiling; this is not a device memory guarantee.
 - `POST /api/ifc/questions` accepts a model handle, matching revision hash,
   question, `view` or `model` scope, and exact `visible_step_ids` for view scope.
-  An explicit empty list stays empty. Cached handles may expire; resubmit the
+  The frontend sends `model` scope. API clients can still submit `view` scope;
+  an explicit empty list stays empty. Cached handles may expire; resubmit the
   source when needed.
 - Responses contain the validated query plan and `QueryResult`, included and
   excluded element identities, separately unresolved element identities, source facts, anchors, units, source revision
@@ -107,10 +106,10 @@ necessary for quantity or filtered answers.
 plan. It intersects the normal scope, including traversal results. It is distinct
 from `entity_ids`, whose existing semantics include spatial descendants.
 
-Completed answers retain their captured scope. Changing the view marks a view
-answer as historical; ask again to compute a new answer. Pending requests are
-cancelled on view/source changes. Closing the inspector preserves the answer and
-its highlights while the same model stays open. Export answer and evidence as
+Completed answers retain their model revision and scope. Viewer changes preserve
+answers and pending requests; changing the source cancels pending requests.
+Closing the inspector preserves the answer and its highlights while the same
+model stays open. Export answer and evidence as
 JSON to review the complete element sets and source inputs.
 
 ## Supported behavior and limits
@@ -177,8 +176,9 @@ negative classifications remain inspectable source inputs. Source classification
 does not independently verify physical access, traversability or fire-exit rules.
 
 Source, intermediate and result objects must all belong to the captured scope.
-If topology needed for an answer lies outside the current view, the result is
-`incomplete_coverage`; the query never includes hidden objects silently. Missing
+For API clients submitting `view` scope, if topology needed for an answer lies
+outside that view, the result is `incomplete_coverage`; the query never includes
+hidden objects silently. Missing
 required topology or usable geometry produces `missing_information`, rather than
 a claim that no connection or access exists. Mixed supported and unresolved
 objects can return verified rows as `partial`, with per-object spatial evidence
@@ -192,10 +192,10 @@ assembled deterministically from executed source values. Project metadata,
 literal file-schema declarations, authoring application information and native
 site/building addresses are extracted where present. Site latitude/longitude
 retain the original IFC degrees/minutes/seconds tuple, and elevation retains its
-length unit. Choose **Entire IFC model** for file/project metadata outside the
-drawable view inventory; a view-scoped request asks for that scope change.
-The summary requires no
-second language-model request and no reference-answer lookup. It accompanies
+length unit. The frontend's model scope includes file/project metadata outside
+the drawable inventory; a view-scoped API request asks for a scope change when
+needed. The summary requires no second language-model request and no
+reference-answer lookup. It accompanies
 the source facts, object identities and calculation evidence; prose alone does
 not establish an answer. Missing metadata remains explicit.
 

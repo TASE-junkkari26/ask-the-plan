@@ -44,8 +44,6 @@ class ApiSettings(BaseModel):
                 raise ValueError("routing requires the Gemini image provider")
             if self.preprocess_mode == "overview":
                 raise ValueError("initial routing requires original full-image pixels")
-            if self.max_concurrent > 2:
-                raise ValueError("routing permits at most two concurrent provider calls")
         return self
 
     @field_validator("origins")

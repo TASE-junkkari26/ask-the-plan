@@ -6,9 +6,22 @@ the supplied [question taxonomy](QUESTION_CLASSIFICATION.md), and source inspect
 This document does not implement a router, tools, calibration, or a new answer API.
 It preserves the original benchmark score and original reference answers.
 
+Implementation update: [callable drawing detail tools](../image_api/DETAIL_TOOLS.md)
+now provide panel selection, native crops/tiles, reconciliation and bounded
+reinspection. Their HTTP endpoints and Python operations are ready for the
+separately developed decision tree. This plan's other proposed tools retain their
+stated implementation status.
+
 The router should choose an **evidence and computation strategy**, then a model
 and reasoning budget. A difficult-looking drawing may have easy native data;
 a clear image may require an operation the current endpoint never performs.
+
+Follow-up evidence: the [large scanned-plan investigation](../experiments/image_questions/LARGE_SCAN_LOCALIZATION.md)
+localized 13/13 manually reviewed doors from a selected plan crop, versus 3/13
+from the full page using the same Hydrogen-low prompt. Larger full-page visual
+budget did not repair that case. This supports prioritizing explicit region
+selection, detail inspection and instance reconciliation before model escalation;
+it is one manually cropped development image, not an evaluated automatic route.
 
 ## First scope and priorities
 

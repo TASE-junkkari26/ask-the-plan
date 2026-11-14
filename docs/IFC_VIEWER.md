@@ -45,13 +45,14 @@ screen.
 - **Focus**, **Hide**, **Isolate**, and **Show all objects** are deliberate actions.
   Show all resets floor/visibility filtering; the horizontal section has its own
   reset. The cut-height slider is in viewer metres, not a source quantity.
-- Ask a question in the inspector's question panel. The default current-view
-  scope follows storey/visibility controls; whole-model scope is explicit.
+- Ask a question in the inspector's question panel. Questions always use the
+  entire imported IFC model, including objects hidden by storey/visibility controls
+  or unavailable in the renderer. Section cuts affect only the preview.
   Answers highlight their matching source elements separately from selection,
   with a similar four-second blue-to-light-blue pulse. Reduced-motion preferences
   keep both highlight styles steady.
   Inspect the element list and calculation inputs, or isolate matches to reveal
-  occluded objects. Reset section clipping before a current-view question.
+  occluded objects. Reset section clipping to reveal clipped matches.
 - The inspector preserves original names, IFC classes, GUIDs, STEP IDs, scalar
   properties, quantities, and unit references. Type/style definitions are labelled
   separately inside the source references. Metadata-only items remain inspectable.
@@ -200,8 +201,9 @@ identity and regenerate the artifact. The loader rejects a mismatched demo manif
 
 ## Boundaries
 
-IFC questions use Nemotron to plan supported engine operations, with revision-bound
-source evidence and exact enabled-object scopes. This does not add federation,
+IFC questions use the configured Nemotron or Gemini planner for supported engine
+operations, with revision-bound source evidence and the entire imported model as
+their source scope. This does not add federation,
 editing, geometry measurement, new IFC export, server-side geometry conversion,
 generated floor drawings, or persistent upload storage. The separate image API
 retains candidate contracts for 2D analysis. See the [verification record](VERIFICATION.md)

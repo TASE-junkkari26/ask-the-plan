@@ -983,7 +983,7 @@ class AnalysisDecisionNode(Model):
 
 class AnalysisCall(Model):
     id: Id
-    purpose: Literal["routing", "analysis"]
+    purpose: Literal["routing", "analysis", "region_proposal", "candidate_verification", "reinspection"]
     requested_model: Id
     returned_model: Id | None = None
     completed_at: Annotated[str, Field(max_length=40)]
@@ -992,6 +992,7 @@ class AnalysisCall(Model):
     input_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
     input_width: PositiveInt
     input_height: PositiveInt
+    source_box: Annotated[list[Annotated[float, Field(allow_inf_nan=False)]], Field(min_length=4, max_length=4)] | None = None
     prompt_tokens: NonnegativeInt | None = None
     completion_tokens: NonnegativeInt | None = None
 
@@ -1017,7 +1018,7 @@ class ImageDecisionTrace(Model):
     assessments: dict[Id, Annotated[str, Field(min_length=1, max_length=120)]] = Field(default_factory=dict, max_length=8)
     assessment_probabilities: dict[Id, Annotated[float, Field(ge=0, le=1)]] = Field(default_factory=dict, max_length=8)
     nodes: list[AnalysisDecisionNode] = Field(default_factory=list, max_length=20)
-    calls: list[AnalysisCall] = Field(default_factory=list, max_length=2)
+    calls: list[AnalysisCall] = Field(default_factory=list, max_length=13)
 
     @model_validator(mode="after")
     def check_trace(self):
@@ -1027,8 +1028,19 @@ class ImageDecisionTrace(Model):
         if len(call_ids) != len(set(call_ids)):
             raise ValueError("trace call IDs must be unique")
         for call in self.calls:
-            if call.input_sha256 != self.image.inference_sha256:
-                raise ValueError("single-image calls must reference the inference image")
+            if call.source_box is None:
+                if call.input_sha256 != self.image.inference_sha256:
+                    raise ValueError("single-image calls must reference the inference image")
+            else:
+                x0, y0, x1, y1 = call.source_box
+                if not (0 <= x0 < x1 <= self.image.width and 0 <= y0 < y1 <= self.image.height):
+                    raise ValueError("call source bounds must lie within the submitted image")
+                # Overview rounding can change aspect by at most one pixel.
+                expected_height = call.input_width * (y1-y0) / (x1-x0)
+                if abs(call.input_height - expected_height) > 1.01:
+                    raise ValueError("call dimensions must preserve the source region aspect")
+                if call.purpose == "routing":
+                    raise ValueError("routing must reference the full submitted inference image")
         seen = set()
         for node in self.nodes:
             if node.id in seen or (node.parent_id is not None and node.parent_id not in seen):
@@ -1037,6 +1049,57 @@ class ImageDecisionTrace(Model):
                 raise ValueError("trace node references an unknown call")
             seen.add(node.id)
         return self
+
+DetailPixelBox = Annotated[list[Annotated[int, Field(strict=True)]], Field(min_length=4, max_length=4)]
+
+
+class DetailRegion(Model):
+    id: Id
+    source_box: DetailPixelBox
+    inference_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    status: Literal["ok", "partial", "unreadable", "unsupported", "failed"]
+    candidate_count: NonnegativeInt
+
+
+class DetailObservation(Model):
+    candidate_id: Id
+    observation_ids: list[Id] = Field(min_length=1, max_length=64)
+    region_ids: list[Id] = Field(min_length=1, max_length=64)
+    clipped: bool
+    source_labels: list[str | None] = Field(default_factory=list, max_length=64)
+
+
+class DeferredDetailObservation(Model):
+    observation_id: Id
+    region_id: Id
+    category: str
+    source_box: Annotated[list[float], Field(min_length=4, max_length=4)]
+    reason: str
+
+
+class DetailMembershipCheck(Model):
+    observation_ids: list[Id] = Field(min_length=1, max_length=64)
+    category: str
+    source_box: Annotated[list[float], Field(min_length=4, max_length=4)]
+    region_id: Id
+    verdict: Literal["supported", "rejected", "ambiguous", "failed"]
+    reason: str
+
+
+class CandidateDetailTrace(Model):
+    mode: Literal["auto", "regions", "tiles"]
+    selection: Literal["automatic", "explicit"]
+    selected_regions: list[DetailPixelBox] = Field(min_length=1, max_length=4)
+    regions: list[DetailRegion] = Field(max_length=12)
+    observations: list[DetailObservation] = Field(max_length=100)
+    provider_calls: NonnegativeInt
+    selection_limitations: list[str] = Field(default_factory=list, max_length=20)
+    superseded_observation_ids: list[Id] = Field(default_factory=list, max_length=1200)
+    reinspection_regions: list[DetailPixelBox] = Field(default_factory=list, max_length=12)
+    deferred_observations: list[DeferredDetailObservation] = Field(default_factory=list, max_length=1200)
+    target_kind: str = "other"
+    reused_crops: NonnegativeInt = 0
+    membership_checks: list[DetailMembershipCheck] = Field(default_factory=list, max_length=12)
 
 
 class ImageCandidateResponse(Contract):
@@ -1052,6 +1115,7 @@ class ImageCandidateResponse(Contract):
     provenance: CandidateProvenance
     metrics: CandidateMetrics
     decision_trace: ImageDecisionTrace | None = None
+    detail: CandidateDetailTrace | None = None
 
     @model_validator(mode="after")
     def check_candidate_response(self):
@@ -1059,6 +1123,38 @@ class ImageCandidateResponse(Contract):
                 self.decision_trace.request_id != self.request_id
                 or self.decision_trace.image != self.image):
             raise ValueError("decision trace must match response request and source")
+        if self.detail is not None:
+            regions = {region.id: region for region in self.detail.regions}
+            if len(regions) != len(self.detail.regions):
+                raise ValueError("detail region IDs must be unique")
+            for box in [*self.detail.selected_regions, *(r.source_box for r in regions.values())]:
+                x0, y0, x1, y1 = box
+                if not (0 <= x0 < x1 <= self.image.width and 0 <= y0 < y1 <= self.image.height):
+                    raise ValueError("detail regions must lie within the submitted image")
+            for box in self.detail.reinspection_regions:
+                x0, y0, x1, y1 = box
+                if not (0 <= x0 < x1 <= self.image.width and 0 <= y0 < y1 <= self.image.height):
+                    raise ValueError("reinspection regions must lie within the submitted image")
+            for observation in self.detail.deferred_observations:
+                if observation.region_id not in regions:
+                    raise ValueError("deferred observations reference unknown regions")
+                x0, y0, x1, y1 = observation.source_box
+                a, b, c, d = regions[observation.region_id].source_box
+                if not (a <= x0 < x1 <= c and b <= y0 < y1 <= d):
+                    raise ValueError("deferred observations must lie inside their source region")
+            for check in self.detail.membership_checks:
+                if check.region_id not in regions:
+                    raise ValueError("membership checks reference unknown regions")
+                x0, y0, x1, y1 = check.source_box
+                a, b, c, d = regions[check.region_id].source_box
+                if not (a <= x0 < x1 <= c and b <= y0 < y1 <= d):
+                    raise ValueError("membership checks must lie inside their review region")
+            candidate_ids = {candidate.id for candidate in self.candidates}
+            if len(self.detail.observations) != len(candidate_ids) or {o.candidate_id for o in self.detail.observations} != candidate_ids:
+                raise ValueError("detail provenance must cover every surviving candidate")
+            for observation in self.detail.observations:
+                if not set(observation.region_ids) <= regions.keys():
+                    raise ValueError("detail observations reference unknown regions")
         if self.status != "ok" and not self.limitations:
             raise ValueError("non-ok candidate outcomes require an explanation")
         if self.status in {"unreadable", "unsupported"} and self.candidates:
@@ -1078,6 +1174,31 @@ class ImageCandidateResponse(Contract):
             if key in seen_boxes:
                 raise ValueError("duplicate category/geometry candidate records are invalid")
             seen_boxes.add(key)
+        return self
+
+
+class ImageRegionSelection(Model):
+    id: Id
+    source_box: DetailPixelBox
+    reason: str
+
+
+class ImageRegionResponse(Contract):
+    request_id: Id
+    image: CandidateImage
+    status: Literal["selected", "full_source"]
+    regions: list[ImageRegionSelection] = Field(min_length=1, max_length=4)
+    limitations: list[str] = Field(default_factory=list)
+    provenance: CandidateProvenance
+    metrics: CandidateMetrics
+    target_kind: str = "other"
+
+    @model_validator(mode="after")
+    def check_regions(self):
+        for region in self.regions:
+            x0, y0, x1, y1 = region.source_box
+            if not (0 <= x0 < x1 <= self.image.width and 0 <= y0 < y1 <= self.image.height):
+                raise ValueError("selected region must lie within the submitted image")
         return self
 
 

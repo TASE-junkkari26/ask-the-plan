@@ -16,9 +16,11 @@ component guide before changing behavior.
   source evidence a person can inspect. The four judging criteria are equally
   weighted: accuracy, verifiability, creativity, and inference cost.
 - Organizer clarification reported on 14 November 2026: questions should mostly
-  concern what is shown. The frontend defaults to the selected drawing/view.
-  Never silently broaden that to a whole model/building. Existing reference rows
-  that explicitly ask model-wide questions still require their stated scope.
+  concern what is shown. Image/PDF/DXF questions use the selected drawing/page/layout.
+  Per the subsequent UI preference, IFC questions always use the entire imported
+  model, independently of viewer filters; there is no answer-scope selector.
+  Preserve any narrower filters stated in the question. Existing reference rows
+  retain their stated scope.
 - Preserve literal source identifiers and original language. Normalize concepts
   separately; do not translate identifiers such as `121.A` or `7.16`.
 - Keep missing, not modeled, not extracted, ambiguous, partial, and zero distinct.

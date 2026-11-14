@@ -64,7 +64,34 @@ class ImagePreprocessor:
                 raise PreparationError("Session cache path is invalid.")
             shutil.rmtree(path)
 
-    def prepare(self, content: bytes, directory: Path) -> PreparedImage:
+    def prepare_native(self, content: bytes, directory: Path) -> PreparedImage:
+        """Reuse preparation/cache while retaining native pixels for detail tools."""
+        return self.prepare(content, directory, force_original=True)
+
+    def detail_context(self, image: PreparedImage, directory: Path):
+        """Copy a cached full-page overview for layout; never choose semantic scope."""
+        with self._lock:
+            self._check_open()
+            cached = self._entries.get(image.inference_sha256)
+            if cached is None:
+                return image, None
+            full = next(r for r in cached.regions if r.role == "full_source")
+            source = (self.cache_root / cached.id / full.overview_uri).resolve()
+            if not source.is_relative_to(self.cache_root.resolve()):
+                raise PreparationError("Invalid cached overview path")
+            target = directory / "layout-overview.png"
+            shutil.copyfile(source, target)
+            overview = replace(image, path=target,
+                inference_sha256=hashlib.sha256(target.read_bytes()).hexdigest(),
+                inference_width=full.overview_width, inference_height=full.overview_height,
+                preprocessing_mode="overview")
+            hints = {"source_width": image.width, "source_height": image.height,
+                "layout_candidates": [{"role": r.role, "source_box": list(r.source_bbox)}
+                    for r in cached.regions if r.role != "full_source"],
+                "note": "Local whitespace/foreground layout proposals only; not semantic views or permission to discard source scope."}
+            return overview, hints
+
+    def prepare(self, content: bytes, directory: Path, *, force_original: bool = False) -> PreparedImage:
         started = perf_counter()
         with self._lock:
             self._check_open()
@@ -95,7 +122,7 @@ class ImagePreprocessor:
 
                 model_path, model_sha = image.path, image.inference_sha256
                 model_width, model_height = image.width, image.height
-                if self.settings.preprocess_mode == "overview":
+                if self.settings.preprocess_mode == "overview" and not force_original:
                     full = next(region for region in cached.regions if region.role == "full_source")
                     # Keep all page panels, scale bars, title blocks and relative
                     # positions. Region roles are never input-selection rules.
@@ -111,7 +138,7 @@ class ImagePreprocessor:
                 return replace(
                     image, path=model_path, inference_sha256=model_sha,
                     inference_width=model_width, inference_height=model_height,
-                    preprocessing_mode=self.settings.preprocess_mode, prepared_id=cached.id,
+                    preprocessing_mode="original" if force_original else self.settings.preprocess_mode, prepared_id=cached.id,
                     preparation_ms=(perf_counter() - started) * 1000, preparation_cache_hit=hit,
                 )
         except (PreparationError, OSError):

@@ -4,10 +4,10 @@ An evidence-backed construction drawing and BIM question-answering project for
 Stoa's **Make Blueprints Talk** challenge. See the [challenge brief](dataset/task.md)
 and [repository instructions](AGENTS.md).
 
-Questions default to the drawing/view currently shown, following the organizer
-clarification reported on 14 November 2026. Explicit whole-model questions retain
-their stated scope. Answers should link to their source objects, properties,
-regions, and calculation steps.
+Image/PDF/DXF questions use the drawing/page/layout currently shown. IFC questions
+always use the entire imported IFC model, regardless of viewer filters or section
+cuts. Answers should link to their source objects, properties, regions, and
+calculation steps.
 
 ## Project scope
 
@@ -21,6 +21,13 @@ optional extensions unless a supplied question needs them. See the
 
 ## Current state
 
+The frontend now includes **Detailed scan** for large drawings. It uses automatic
+panel selection, native overlapping tiles and source-bound reconciliation through
+the [callable detail tools](image_api/DETAIL_TOOLS.md). These operations are
+integrated with the fetched capability router: it selects
+Hydrogen or Carbon once, then the detail tools inspect native crops with per-call
+model/cost evidence. The individual tools remain independently callable.
+
 | Component | Implemented | Boundary |
 |---|---|---|
 | Frontend | Import opening screen, image/PDF/DXF candidate review, IFC 3D inspection and questions with persistent answer highlights and source evidence, searchable import library, exports | Imports last until refresh. DXF preview uses the local backend. Asking uploads the selected image/page/layout or IFC. Synthetic sources stay offline fixtures. |
@@ -29,7 +36,7 @@ optional extensions unless a supplied question needs them. See the
 | Shared contracts | Pydantic models, generated JSON Schemas/TypeScript, reference/unit/scope/evidence validation | Validation cannot prove source completeness or correctness. |
 | Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI, bounded IFC question planning | The IFC engine computes answers from validated plans; image detections remain candidate proposals. Credentials stay on the backend. |
 | IFC question API | Revision-bound session uploads, independently selected Nemotron/Gemini planning, bounded source discovery and plan repair, spatial prerequisites, exterior-door queries and deterministic answers | Uses the same local server as image analysis. Exact view scope and explicit model scope remain authoritative. Original sources remain temporary session artifacts for bounded geometry checks. Unknown exterior classifications stay separate; partial counts show lower bounds. Unsupported operations remain non-answers. |
-| Image candidate API | Local HTTP image/question endpoint returning candidate boxes from Nemotron or Gemini Hydrogen-low/Carbon-medium, with uncertainty, image hashes, display coordinates and optional capability routing | Connected to imported 2D drawings; one selected analyzer per request, candidate proposals only, with no final counts/answers or IFC analysis. |
+| Image candidate API | Local HTTP image/question endpoint returning candidate boxes from Nemotron or Gemini Hydrogen-low/Carbon-medium, with uncertainty, image hashes, display coordinates and optional capability routing | Connected to imported 2D drawings; one selected analyzer per question with bounded detail calls, candidate proposals only, with no final counts/answers or IFC analysis. |
 | Raster preprocessing | Standalone source/crop/overview artifacts, coordinate transforms, optional local Tesseract OCR, inspection-tool adapter, and bounded image-API session preparation | API defaults to unchanged model input with OCR off; optional full-source overview mode preserves page layout. No semantic room segmentation, physical calibration, or agent tool loop. |
 | Perception | Experimental opt-in Gemini capability routing, recorded expandable decision path, research plans and saved image experiments | Routing is off by default pending paired evaluation/calibration. No evaluated general raster inventory/reconstruction. Standalone optional OCR is documented separately. |
 

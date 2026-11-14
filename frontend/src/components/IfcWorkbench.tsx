@@ -260,8 +260,6 @@ export default function IfcWorkbench({
   const [notice, setNotice] = useState('');
   const [lookup, setLookup] = useState('');
   const [tab, setTab] = useState<'questions' | 'inspect'>('questions');
-  const [viewRevision, setViewRevision] = useState(0);
-  const [visibilityPending, setVisibilityPending] = useState(false);
   const busy = ['reading', 'converting', 'rendering'].includes(state.status);
   const ready = state.status === 'ready';
 
@@ -294,8 +292,6 @@ export default function IfcWorkbench({
     setNotice('');
     setLookup('');
     setTab('questions');
-    setVisibilityPending(false);
-    setViewRevision((value) => value + 1);
     report({ status: 'reading' });
     const dispose = (instance: IfcAdapter | undefined) => {
       // Never allow a late SDK cleanup failure to become an unhandled rejection.
@@ -416,13 +412,10 @@ export default function IfcWorkbench({
     (nextStorey: string, operation: (adapter: IfcAdapter) => Promise<void>) => {
       const request = ++visibilityRequest.current;
       setStorey(nextStorey);
-      setVisibilityPending(true);
-      setViewRevision((value) => value + 1);
       void run(operation).then((success) => {
         if (success) confirmedStorey.current = nextStorey;
         else if (request === visibilityRequest.current)
           setStorey(confirmedStorey.current);
-        if (request === visibilityRequest.current) setVisibilityPending(false);
       });
     },
     [run],
@@ -450,11 +443,6 @@ export default function IfcWorkbench({
     onStatus(source.id, 'cancelled');
   };
   const retry = () => setAttempt((value) => value + 1);
-  const getViewStepIds = useCallback(async () => {
-    const adapter = adapterRef.current;
-    if (!adapter) throw new DOMException('Viewer closed.', 'AbortError');
-    return adapter.getViewStepIds();
-  }, []);
   const highlight = useCallback(async (elements: EvidenceElement[]) => {
     const adapter = adapterRef.current;
     if (!adapter) throw new DOMException('Viewer closed.', 'AbortError');
@@ -675,11 +663,7 @@ export default function IfcWorkbench({
                   source={source}
                   sourceHash={hash}
                   ready={ready}
-                  viewBusy={visibilityPending}
                   section={section}
-                  viewRevision={viewRevision}
-                  viewLabel={`${info?.storeys.find((node) => String(node.id) === storey)?.label ?? 'All storeys'} · current object visibility`}
-                  getViewStepIds={getViewStepIds}
                   highlight={highlight}
                   clearHighlights={clearHighlights}
                   focus={(ids) => { void run((adapter) => adapter.fit(ids)); }}
@@ -811,7 +795,6 @@ export default function IfcWorkbench({
                     disabled={!ready || !info?.hasGeometry}
                     onChange={(event) => {
                       const checked = event.target.checked;
-                      setViewRevision((value) => value + 1);
                       setSection(checked);
                       run((adapter) =>
                         adapter.section(checked ? height : null),
@@ -835,7 +818,6 @@ export default function IfcWorkbench({
                         value={height}
                         onChange={(event) => {
                           const next = Number(event.target.value);
-                          setViewRevision((value) => value + 1);
                           setHeight(next);
                           run((adapter) => adapter.section(next));
                         }}
@@ -845,7 +827,6 @@ export default function IfcWorkbench({
                       className="text-button"
                       onClick={() => {
                         setSection(false);
-                        setViewRevision((value) => value + 1);
                         setHeight((info.minY + info.maxY) / 2);
                         run((adapter) => adapter.section(null));
                       }}

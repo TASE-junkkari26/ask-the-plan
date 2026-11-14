@@ -250,6 +250,7 @@ export default function App() {
   const [language, setLanguage] = useState<Language>('en');
   const t = copy[language];
   const [query, setQuery] = useState('');
+  const [detailedScan, setDetailedScan] = useState(true);
   const [candidateResponse, setCandidateResponse] = useState<{
     result: ImageCandidateResponse;
     question: string;
@@ -270,7 +271,7 @@ export default function App() {
       : language === 'fi' ? 'Valitaan analyysimallia…' : 'Choosing analysis model…';
   const [selected, setSelected] = useState<string | null>(null);
   const [showMarks, setShowMarks] = useState(true);
-  const [showLabels, setShowLabels] = useState(true);
+  const [showLabels, setShowLabels] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -468,6 +469,7 @@ export default function App() {
           if (requestRef.current === controller && !controller.signal.aborted)
             setCandidateProgress({ phase: 'handoff', model: progress.requested_model });
         },
+        detailedScan,
       );
       if (requestRef.current !== controller || controller.signal.aborted)
         return;
@@ -1530,6 +1532,23 @@ export default function App() {
                         : 'This view only'}
                     </span>
                   </div>
+                  <label className="detail-scan-option">
+                    <input
+                      type="checkbox"
+                      checked={detailedScan}
+                      onChange={(event) => setDetailedScan(event.target.checked)}
+                      disabled={importing || asking}
+                      aria-describedby="detail-scan-description"
+                    />
+                    <span>
+                      <strong>{language === 'fi' ? 'Tarkka tunnistus' : 'Detailed scan'}</strong>
+                      <span id="detail-scan-description">
+                        {language === 'fi'
+                          ? 'Kohdistaa piirustusalueisiin; voi käyttää useita mallikutsuja.'
+                          : 'Focuses on drawing regions; may use multiple model calls.'}
+                      </span>
+                    </span>
+                  </label>
                   <form className="question-form" onSubmit={submit}>
                     <textarea
                       aria-label="Question about the drawing"

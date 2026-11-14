@@ -1,5 +1,10 @@
 # Live 2D question evaluation
 
+The [raster identity revision](RASTER_IDENTITY_RESULTS.md) tests failed non-IFC
+cases and controls: 15/27 matches versus 6/27 for the previous Detailed scan,
+with all six controls retained and fewer model calls. It is targeted development
+evidence, not a replacement full-100 score.
+
 See [results and recommendations](RESULTS.md) for the 14 November 2026 pilot.
 This is evaluation tooling, not a new production answer planner. The production
 candidate API, prompt, preprocessing defaults and frontend were not changed.
@@ -50,6 +55,61 @@ input plus output/thinking tokens, before cache discounts, credits and taxes;
 missing usage and provider errors are reported separately.
 
 Offline harness checks: `.\.venv\Scripts\python.exe -m unittest tests.test_image_benchmark -v`.
+
+## Large scanned-plan localization investigation
+
+The implemented follow-up is documented in [callable detail tools](../../image_api/DETAIL_TOOLS.md).
+Use `python -m experiments.image_questions.run_detail --help` for opt-in live
+testing of automatic selection, explicit regions or overlapping tiles. It records
+inputs/outputs and source overlays in a fresh ignored directory. It does not use
+reference answers or change the original benchmark score.
+
+See [the door-localization investigation](LARGE_SCAN_LOCALIZATION.md) for a
+separate user-supplied image: seven comparisons, manual reference boxes, and
+the improvement from selecting the plan region. This is a single development
+case, not an update to the 100-image score or an evaluated automatic cropper.
+
+The opt-in `diagnose_localization.py` runner compares explicit source-pixel crops
+using the production image normalizer/provider/prompt. It bypasses HTTP/browser
+code and the preparation cache. Its JSON spec has a `question` and `cases`, each
+with a unique `id`, integer `crop: [x0, y0, x1, y1]`, and optional image
+`resolution` (`low`, `medium`, `high`, `ultra_high`). Reference annotations in the
+spec are retained locally and never passed to the model.
+
+```text
+python -m experiments.image_questions.diagnose_localization --source path/to/plan.png --spec path/to/cases.json --output experiments/runs/my-localization-run --run
+```
+
+This makes paid calls to the configured Gemini service. Use authorized source
+material, the configured Python environment, and a fresh output directory.
+
+## Exact-input Detailed scan rerun
+
+The [completed same-100 result](GEMINI_DETAIL_100_RESULTS.md) was 72/100 versus
+79/100, with three corrected cases and ten regressions. This experiment does not
+support enabling Detailed scan as a universal accuracy improvement.
+
+`benchmark_detail.py` copies a completed 100-case baseline's answer-free manifest,
+source/license metadata and exact display PNG bytes into a new directory. It runs
+the current `/api/v1/tools/detect-detail` with `mode=tiles,max_calls=9`. Both case
+requests and Gemini calls are serialized, without retries or per-case tuning.
+The provider's actual input crops, prompt/schema, reply and usage are recorded.
+
+```text
+python -m experiments.image_questions.benchmark_detail plan --baseline OLD_RUN --run-dir NEW_RUN
+python -m experiments.image_questions.benchmark_detail run --run-dir NEW_RUN
+python -m experiments.image_questions.benchmark_detail score --run-dir NEW_RUN
+python -m experiments.image_questions.audit_detail_run --run-dir NEW_RUN
+python -m experiments.image_questions.compare_detail --baseline OLD_RUN --detail NEW_RUN
+```
+
+Scoring requires completion of every case before reading reference answers and
+uses the original candidate-count agreement rules. Partial count matches remain
+comparable, while strict `ok` matches are reported separately. Failures, budgets
+and abstentions stay in the denominator. The audit verifies source/crop hashes,
+question binding, model settings, preserved baseline files and nonoverlapping
+case/provider timelines. The comparison records repaired and regressed cases.
+Serial wall time is not directly comparable to the original six-case parallel run.
 
 ## Earlier Nemotron pilot
 

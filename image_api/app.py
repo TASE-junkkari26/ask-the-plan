@@ -19,7 +19,9 @@ from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, StreamingResponse
 
-from contracts.models import (CandidateImage, ImageCandidateError, ImageCandidateResponse,
+from pydantic import ValidationError
+
+from contracts.models import (AnalysisCall, CandidateImage, ImageCandidateError, ImageCandidateResponse, ImageRegionResponse,
                               ImageDecisionTrace, ImageCandidateProgress, ImageCandidateStreamEvent)
 from dxf_api.render import MAX_DXF_BODY_BYTES
 from dxf_api.routes import install_dxf_routes
@@ -34,6 +36,7 @@ from nemotron import AsyncNemotronClient, ConfigurationError, NemotronSettings
 from .config import ApiSettings
 from .errors import ApiError
 from .preprocessing import ImagePreprocessor
+from .detail import DetailTools, DetailOptions
 from .service import CandidateService, GeminiCandidateProvider
 from .routing import RoutedCandidateService
 
@@ -188,6 +191,9 @@ def create_app(settings: ApiSettings | None = None, *,
         extra_clients = []
         ifc_gemini_client = None
         app.state.service = None
+        app.state.detail_tools = None
+        app.state.detail_gemini_client = None
+        app.state.detail_slots = asyncio.Semaphore(settings.max_concurrent)
         app.state.in_flight = 0
         app.state.preprocessor = ImagePreprocessor(settings)
         try:
@@ -228,6 +234,9 @@ def create_app(settings: ApiSettings | None = None, *,
                                      else AsyncGeminiClient())
                     app.state.service = CandidateService(
                         None, settings, provider=GeminiCandidateProvider(gemini_client))
+                    app.state.detail_gemini_client = gemini_client
+                    app.state.detail_tools = DetailTools(
+                        app.state.service, gemini_client, app.state.preprocessor, slots=app.state.detail_slots)
                     if settings.routing_mode != "off":
                         baseline = app.state.service
                         # Reuse an already configured Hydrogen client, including injected transports.
@@ -236,6 +245,7 @@ def create_app(settings: ApiSettings | None = None, *,
                         else:
                             normal_client = AsyncGeminiClient(gemini_client.settings.profile("normal"))
                             extra_clients.append(normal_client)
+                        app.state.detail_gemini_client = normal_client
                         try:
                             strong_client = (strong_client_factory() if strong_client_factory is not None
                                              else AsyncGeminiClient(gemini_client.settings.profile(
@@ -296,16 +306,25 @@ def create_app(settings: ApiSettings | None = None, *,
         return JSONResponse({"status": "ok" if configured else "unconfigured", "configured": configured},
                             status_code=200 if configured else 503)
 
-    async def read_input(request: Request):
+    async def read_input(request: Request, tool: str | None = None):
         if request.headers.get("content-type", "").split(";", 1)[0].strip().lower() != "multipart/form-data":
             raise ApiError(415, "unsupported_media_type", "Send multipart/form-data with image and question fields.")
         # Read under the ASGI byte cap before multipart parsing allocates temp files.
         await request.body()
         try:
-            async with request.form(max_files=1, max_fields=1, max_part_size=16 * 1024) as form:
-                if (set(form) != {"image", "question"}
+            async with request.form(max_files=1, max_fields=2 if tool == "detail" else 1, max_part_size=16 * 1024) as form:
+                if (not {"image", "question"} <= set(form)
+                        or not set(form) <= ({"image", "question", "options"} if tool == "detail" else {"image", "question"})
                         or len(form.getlist("image")) != 1 or len(form.getlist("question")) != 1):
                     raise ApiError(422, "invalid_request", "Supply exactly one image and one question.")
+                options = DetailOptions()
+                if "options" in form:
+                    if len(form.getlist("options")) != 1 or not isinstance(form["options"], str):
+                        raise ApiError(422, "invalid_options", "Supply one JSON options object.")
+                    try:
+                        options = DetailOptions.model_validate_json(form["options"])
+                    except ValidationError:
+                        raise ApiError(422, "invalid_options", "Detail options do not match the tool contract.") from None
                 upload, question = form["image"], form["question"]
                 if not isinstance(upload, UploadFile) or not isinstance(question, str):
                     raise ApiError(422, "invalid_request", "Image must be a file and question must be text.")
@@ -318,18 +337,19 @@ def create_app(settings: ApiSettings | None = None, *,
             raise ApiError(422, "invalid_multipart", "Malformed multipart form or repeated/oversized fields.") from None
         if len(content) > settings.max_image_bytes:
             raise ApiError(413, "image_too_large", "Image exceeds the upload byte limit.")
-        return content, question
+        return content, question, options
 
     @asynccontextmanager
-    async def prepared_input(request: Request, input_data):
-        content, question = input_data
+    async def prepared_input(request: Request, input_data, tool: str | None = None):
+        content, question, options = input_data
         directory = TemporaryDirectory(prefix="ask-plan-image-")
         preparation = asyncio.create_task(asyncio.to_thread(
-            request.app.state.preprocessor.prepare, content, Path(directory.name)))
+            request.app.state.preprocessor.prepare_native if tool else request.app.state.preprocessor.prepare,
+            content, Path(directory.name)))
         try:
             # Shield the worker so a timeout cannot remove files it is still writing.
             image = await asyncio.shield(preparation)
-            yield image, question
+            yield image, question, options, Path(directory.name)
         finally:
             if preparation.done():
                 directory.cleanup()
@@ -341,19 +361,53 @@ def create_app(settings: ApiSettings | None = None, *,
                 preparation.add_done_callback(cleanup_after_preparation)
 
     async def analyze(request: Request, request_id: str, prepared, *, on_handoff=None,
-                      monitor_disconnect=True):
-        image, question = prepared
+                      monitor_disconnect=True, tool: str | None = None):
+        image, question, options, directory = prepared
         def handoff(model):
             if on_handoff:
                 on_handoff(ImageCandidateProgress(
                     request_id=request_id, question_sha256=hashlib.sha256(question.encode()).hexdigest(),
                     image=CandidateImage(sha256=image.sha256, inference_sha256=image.inference_sha256,
                                          width=image.width, height=image.height), requested_model=model))
-        inference = asyncio.create_task(request.app.state.service.extract(
-            image, question, request_id,
-            on_trace=lambda trace: setattr(request.state, "decision_trace", trace),
-            on_handoff=handoff if on_handoff else None,
-            deadline=request.state.analysis_deadline))
+        service = request.app.state.service
+        def save_trace(trace):
+            request.state.decision_trace = trace
+
+        async def run_detail(selected):
+            detail = DetailTools(selected, request.app.state.detail_gemini_client,
+                                 request.app.state.preprocessor, slots=request.app.state.detail_slots)
+            return await detail.extract(image, question, request_id, directory, options,
+                                        on_call=analysis_calls.append)
+
+        analysis_calls: list[AnalysisCall] = []
+        if tool == "regions":
+            operation = request.app.state.detail_tools.propose_regions(image, question, request_id)
+        elif tool == "detail" and isinstance(service, RoutedCandidateService):
+            operation = service.extract(image, question, request_id, on_trace=save_trace,
+                on_handoff=handoff if on_handoff else None, deadline=request.state.analysis_deadline,
+                analyze_selected=run_detail, analysis_calls=analysis_calls, preparation_mode=options.mode)
+        elif tool == "detail":
+            async def manual_detail():
+                trace = ImageDecisionTrace(request_id=request_id,
+                    question_sha256=hashlib.sha256(question.encode()).hexdigest(),
+                    image=CandidateImage(sha256=image.sha256, inference_sha256=image.inference_sha256,
+                                         width=image.width, height=image.height),
+                    mode="off", policy_version="detail-tools-v2", capability_version="native-detail-v2",
+                    selected_profile="manual")
+                save_trace(trace)
+                if on_handoff:
+                    handoff(service.provider.client.settings.model)
+                try:
+                    result = await run_detail(service)
+                finally:
+                    trace.calls = list(analysis_calls)
+                    save_trace(trace.model_copy(deep=True))
+                return result.model_copy(update={"decision_trace": trace})
+            operation = manual_detail()
+        else:
+            operation = service.extract(image, question, request_id, on_trace=save_trace,
+                on_handoff=handoff if on_handoff else None, deadline=request.state.analysis_deadline)
+        inference = asyncio.create_task(operation)
         disconnected = asyncio.create_task(until_disconnect(request)) if monitor_disconnect else None
         try:
             if disconnected is None:
@@ -368,16 +422,16 @@ def create_app(settings: ApiSettings | None = None, *,
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
 
-    async def process(request: Request, request_id: str):
-        async with prepared_input(request, await read_input(request)) as prepared:
-            return await analyze(request, request_id, prepared)
+    async def process(request: Request, request_id: str, tool: str | None = None):
+        async with prepared_input(request, await read_input(request, tool), tool) as prepared:
+            return await analyze(request, request_id, prepared, tool=tool)
 
     async def until_disconnect(request: Request):
         while not await request.is_disconnected():
             await asyncio.sleep(0.1)
         raise ApiError(499, "client_disconnected", "Client disconnected before inference completed.", retryable=True)
 
-    async def stream_events(request: Request, prepared):
+    async def stream_events(request: Request, prepared, tool: str | None = None):
         # A single handoff plus one terminal frame. No provider work is retried.
         queue = asyncio.Queue(maxsize=2)
         handoff_sent = False
@@ -396,7 +450,7 @@ def create_app(settings: ApiSettings | None = None, *,
                 spec = tuple(int(part) for part in request.scope.get("asgi", {}).get("spec_version", "2.0").split("."))
                 result = await asyncio.wait_for(analyze(
                     request, request.state.request_id, prepared,
-                    on_handoff=handoff, monitor_disconnect=spec >= (2, 4)),
+                    on_handoff=handoff, monitor_disconnect=spec >= (2, 4), tool=tool),
                     timeout=max(0.001, request.state.analysis_deadline - perf_counter()))
                 event = ImageCandidateStreamEvent(type="result", result=result)
             except asyncio.CancelledError:
@@ -430,6 +484,11 @@ def create_app(settings: ApiSettings | None = None, *,
                      (413, 415, 422, 429, 499, 500, 502, 503, 504)}},
               openapi_extra=request_body)
     async def candidates(request: Request):
+        return await dispatch(request)
+
+    async def dispatch(request: Request, tool: str | None = None):
+        if tool and request.app.state.detail_tools is None:
+            raise ApiError(503, "detail_not_configured", "Detailed scan requires the Gemini image provider on the backend.")
         if request.app.state.service is None:
             key_name = "GEMINI_API_KEY" if settings.provider == "gemini" else "VERDA_INFERENCE_KEY"
             raise ApiError(503, "not_configured", f"Configure {key_name} on the backend.")
@@ -449,19 +508,19 @@ def create_app(settings: ApiSettings | None = None, *,
         try:
             accepts = [part.split(";", 1)[0].strip().lower()
                        for part in request.headers.get("accept", "").split(",")]
-            if "application/x-ndjson" in accepts:
+            if "application/x-ndjson" in accepts and tool != "regions":
                 # Consume and validate the bounded upload before streaming headers;
                 # body reading must not race StreamingResponse's disconnect listener.
-                input_data = await asyncio.wait_for(read_input(request), timeout=settings.deadline_seconds)
-                preparation_context = prepared_input(request, input_data)
+                input_data = await asyncio.wait_for(read_input(request, tool), timeout=settings.deadline_seconds)
+                preparation_context = prepared_input(request, input_data, tool)
                 prepared = await asyncio.wait_for(preparation_context.__aenter__(),
                     timeout=max(0.001, request.state.analysis_deadline - perf_counter()))
                 async def cleanup():
                     await preparation_context.__aexit__(None, None, None)
-                response = _CandidateStreamResponse(stream_events(request, prepared), release, cleanup)
+                response = _CandidateStreamResponse(stream_events(request, prepared, tool), release, cleanup)
                 streaming = True
                 return response
-            return await asyncio.wait_for(process(request, request.state.request_id),
+            return await asyncio.wait_for(process(request, request.state.request_id, tool),
                                           timeout=settings.deadline_seconds)
         except asyncio.TimeoutError:
             raise ApiError(504, "deadline_exceeded", "Candidate request exceeded its total deadline.", retryable=True) from None
@@ -472,6 +531,28 @@ def create_app(settings: ApiSettings | None = None, *,
                         await preparation_context.__aexit__(None, None, None)
                 finally:
                     release()
+
+    @app.post("/api/v1/tools/propose-regions", response_model=ImageRegionResponse, openapi_extra=request_body)
+    async def propose_regions(request: Request):
+        return await dispatch(request, "regions")
+
+    detail_body = deepcopy(request_body)
+    detail_body["requestBody"]["content"]["multipart/form-data"]["schema"]["properties"]["options"] = {
+        "type": "string", "description": "JSON DetailOptions object; omit for automatic drawing-region selection then detection.",
+        "default": '{"mode":"auto","max_calls":9}'}
+
+    @app.post("/api/v1/tools/detect-detail", response_model=ImageCandidateResponse, openapi_extra=detail_body)
+    async def detect_detail(request: Request):
+        return await dispatch(request, "detail")
+
+    @app.get("/api/v1/tools")
+    async def tools_manifest():
+        return {"coordinate_system": "display_pixels_top_left", "tools": [
+            {"name": "propose_regions", "method": "POST", "path": "/api/v1/tools/propose-regions",
+             "description": "Propose all question-relevant drawing panels with padded source-pixel bounds; ambiguous selection retains the whole source."},
+            {"name": "detect_detail", "method": "POST", "path": "/api/v1/tools/detect-detail",
+             "description": "Route once, detect on native regions or overlapping tiles, and reconcile source instances.",
+             "options_schema": DetailOptions.model_json_schema()}]}
 
     install_ifc_routes(app)
     install_dxf_routes(app)

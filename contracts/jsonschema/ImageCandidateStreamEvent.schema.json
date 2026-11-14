@@ -72,7 +72,10 @@
         "purpose": {
           "enum": [
             "routing",
-            "analysis"
+            "analysis",
+            "region_proposal",
+            "candidate_verification",
+            "reinspection"
           ],
           "title": "Purpose",
           "type": "string"
@@ -94,6 +97,23 @@
           ],
           "default": null,
           "title": "Returned Model"
+        },
+        "source_box": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Box"
         }
       },
       "required": [
@@ -259,6 +279,130 @@
         "maximum"
       ],
       "title": "BoxShape",
+      "type": "object"
+    },
+    "CandidateDetailTrace": {
+      "additionalProperties": false,
+      "properties": {
+        "deferred_observations": {
+          "items": {
+            "$ref": "#/$defs/DeferredDetailObservation"
+          },
+          "maxItems": 1200,
+          "title": "Deferred Observations",
+          "type": "array"
+        },
+        "membership_checks": {
+          "items": {
+            "$ref": "#/$defs/DetailMembershipCheck"
+          },
+          "maxItems": 12,
+          "title": "Membership Checks",
+          "type": "array"
+        },
+        "mode": {
+          "enum": [
+            "auto",
+            "regions",
+            "tiles"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/$defs/DetailObservation"
+          },
+          "maxItems": 100,
+          "title": "Observations",
+          "type": "array"
+        },
+        "provider_calls": {
+          "minimum": 0,
+          "title": "Provider Calls",
+          "type": "integer"
+        },
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/DetailRegion"
+          },
+          "maxItems": 12,
+          "title": "Regions",
+          "type": "array"
+        },
+        "reinspection_regions": {
+          "items": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "type": "array"
+          },
+          "maxItems": 12,
+          "title": "Reinspection Regions",
+          "type": "array"
+        },
+        "reused_crops": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Reused Crops",
+          "type": "integer"
+        },
+        "selected_regions": {
+          "items": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "type": "array"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Selected Regions",
+          "type": "array"
+        },
+        "selection": {
+          "enum": [
+            "automatic",
+            "explicit"
+          ],
+          "title": "Selection",
+          "type": "string"
+        },
+        "selection_limitations": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Selection Limitations",
+          "type": "array"
+        },
+        "superseded_observation_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1200,
+          "title": "Superseded Observation Ids",
+          "type": "array"
+        },
+        "target_kind": {
+          "default": "other",
+          "title": "Target Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "selection",
+        "selected_regions",
+        "regions",
+        "observations",
+        "provider_calls"
+      ],
+      "title": "CandidateDetailTrace",
       "type": "object"
     },
     "CandidateImage": {
@@ -462,6 +606,210 @@
       "title": "CandidateProvenance",
       "type": "object"
     },
+    "DeferredDetailObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "observation_id": {
+          "minLength": 1,
+          "title": "Observation Id",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "region_id": {
+          "minLength": 1,
+          "title": "Region Id",
+          "type": "string"
+        },
+        "source_box": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Source Box",
+          "type": "array"
+        }
+      },
+      "required": [
+        "observation_id",
+        "region_id",
+        "category",
+        "source_box",
+        "reason"
+      ],
+      "title": "DeferredDetailObservation",
+      "type": "object"
+    },
+    "DetailMembershipCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "observation_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Observation Ids",
+          "type": "array"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "region_id": {
+          "minLength": 1,
+          "title": "Region Id",
+          "type": "string"
+        },
+        "source_box": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Source Box",
+          "type": "array"
+        },
+        "verdict": {
+          "enum": [
+            "supported",
+            "rejected",
+            "ambiguous",
+            "failed"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        }
+      },
+      "required": [
+        "observation_ids",
+        "category",
+        "source_box",
+        "region_id",
+        "verdict",
+        "reason"
+      ],
+      "title": "DetailMembershipCheck",
+      "type": "object"
+    },
+    "DetailObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_id": {
+          "minLength": 1,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "clipped": {
+          "title": "Clipped",
+          "type": "boolean"
+        },
+        "observation_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Observation Ids",
+          "type": "array"
+        },
+        "region_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Region Ids",
+          "type": "array"
+        },
+        "source_labels": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxItems": 64,
+          "title": "Source Labels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "observation_ids",
+        "region_ids",
+        "clipped"
+      ],
+      "title": "DetailObservation",
+      "type": "object"
+    },
+    "DetailRegion": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_count": {
+          "minimum": 0,
+          "title": "Candidate Count",
+          "type": "integer"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "inference_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Inference Sha256",
+          "type": "string"
+        },
+        "source_box": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Source Box",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "partial",
+            "unreadable",
+            "unsupported",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source_box",
+        "inference_sha256",
+        "status",
+        "candidate_count"
+      ],
+      "title": "DetailRegion",
+      "type": "object"
+    },
     "ImageCandidate": {
       "additionalProperties": false,
       "description": "An unreviewed detection, not a canonical building entity or final claim.",
@@ -643,6 +991,17 @@
           ],
           "default": null
         },
+        "detail": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CandidateDetailTrace"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "image": {
           "$ref": "#/$defs/CandidateImage"
         },
@@ -741,7 +1100,7 @@
           "items": {
             "$ref": "#/$defs/AnalysisCall"
           },
-          "maxItems": 2,
+          "maxItems": 13,
           "title": "Calls",
           "type": "array"
         },

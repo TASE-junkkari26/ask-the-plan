@@ -2,9 +2,83 @@
 
 export type Code = string;
 /**
- * @maxItems 2
+ * @maxItems 13
  */
-export type Calls = [] | [AnalysisCall] | [AnalysisCall, AnalysisCall];
+export type Calls =
+  | []
+  | [AnalysisCall]
+  | [AnalysisCall, AnalysisCall]
+  | [AnalysisCall, AnalysisCall, AnalysisCall]
+  | [AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall]
+  | [AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall]
+  | [AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall]
+  | [AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall]
+  | [AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall, AnalysisCall]
+  | [
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall
+    ]
+  | [
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall
+    ]
+  | [
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall
+    ]
+  | [
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall
+    ]
+  | [
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall,
+      AnalysisCall
+    ];
 export type CompletedAt = string;
 export type CompletionTokens = number | null;
 export type ElapsedMs = number;
@@ -14,9 +88,10 @@ export type InputSha256 = string;
 export type InputWidth = number;
 export type Outcome = 'completed' | 'failed' | 'cancelled';
 export type PromptTokens = number | null;
-export type Purpose = 'routing' | 'analysis';
+export type Purpose = 'routing' | 'analysis' | 'region_proposal' | 'candidate_verification' | 'reinspection';
 export type RequestedModel = string;
 export type ReturnedModel = string | null;
+export type SourceBox = [number, number, number, number] | null;
 export type CapabilityVersion = string;
 export type CoordinateSystem = 'display_pixels_top_left';
 export type Height = number;
@@ -322,6 +397,7 @@ export interface AnalysisCall {
   purpose: Purpose;
   requested_model: RequestedModel;
   returned_model?: ReturnedModel;
+  source_box?: SourceBox;
 }
 /**
  * The exact submitted source and oriented inference/display frame.

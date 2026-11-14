@@ -24,7 +24,9 @@ export function ResponseMetrics({
 }) {
   const fi = language === 'fi';
   const rates = modelRates(model, completedAt);
-  const cost = estimateTokenCost(model, inputTokens, outputTokens, completedAt);
+  // Tool totals can mix a cheap layout model and a stronger detector. A single
+  // returned-model rate must never reprice those aggregate tokens.
+  const cost = decisionTrace ? null : estimateTokenCost(model, inputTokens, outputTokens, completedAt);
   const allCalls = decisionTrace ? estimateCallCosts(decisionTrace.calls ?? []) : null;
   const routingCalls = decisionTrace?.calls?.filter((call) => call.purpose === 'routing') ?? [];
   const tokens = (value: number | null | undefined) => value == null
@@ -66,7 +68,7 @@ export function ResponseMetrics({
         <div><dt>{fi ? 'Mallikutsun aika' : 'Model request time'}</dt><dd>{formatResponseTime(modelTimeMs, language)}</dd></div>
         {preparationTimeMs != null && Number.isFinite(preparationTimeMs) && preparationTimeMs >= 0 && <div><dt>{fi ? 'Kuvan esikäsittely' : 'Image preprocessing'}</dt><dd>{formatResponseTime(preparationTimeMs, language)}</dd></div>}
       </dl>
-      {decisionTrace && <p>{fi ? 'Hinta-arvio sisältää tallennetut reititys- ja analyysikutsut. Raportoimattomat veloitukset jäävät tuntemattomiksi.' : 'The total estimate includes recorded routing and analysis calls. Unreported charges remain unknown.'}</p>}
+      {decisionTrace && <p>{fi ? 'Hinta-arvio käyttää kunkin tallennetun reititys- ja työkalukutsun toteutunutta mallia. Raportoimattomat veloitukset jäävät tuntemattomiksi.' : 'The total uses the actual model of each recorded routing and tool call. Unreported charges remain unknown.'}</p>}
       <p>{fi
         ? 'Vastausaika sisältää kuvan valmistelun, lähetyksen ja analyysin.'
         : 'Response time includes image preparation, upload and analysis.'}</p>
@@ -74,7 +76,7 @@ export function ResponseMetrics({
         <p>{fi
           ? 'Arvio maksullisen standardihinnaston mukaan ennen välimuistialennuksia, hyvityksiä ja veroja. Geminin tulostokenit sisältävät ajattelutokenit.'
           : 'Paid standard rate estimate before cache discounts, credits and taxes. Gemini output includes thinking tokens.'}</p>
-        {!cost && <p>{fi
+        {!cost && !allCalls && <p>{fi
           ? 'Hinta-arvio edellyttää sekä syöte- että tulostokenien määrää.'
           : 'Both input and output token usage are needed to estimate cost.'}</p>}
         <p><a href={`${PRICING_SOURCE_URL}#${model}`} target="_blank" rel="noreferrer">{fi ? 'Googlen hinnasto' : 'Google pricing'}</a> · {fi ? 'Tarkistettu' : 'Checked'} <time dateTime={PRICING_VERIFIED_ON}>{PRICING_VERIFIED_ON}</time></p>
