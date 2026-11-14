@@ -1,0 +1,293 @@
+{
+  "$comment": "Generated from contracts.models; do not edit manually. JSON Schema checks structure. Pydantic and semantic validators also enforce local invariants, references, units, scope, and evidence.",
+  "$defs": {
+    "BoxShape": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "box",
+          "title": "Kind",
+          "type": "string"
+        },
+        "maximum": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Maximum",
+          "type": "array"
+        },
+        "minimum": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Minimum",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "minimum",
+        "maximum"
+      ],
+      "title": "BoxShape",
+      "type": "object"
+    },
+    "CandidateImage": {
+      "additionalProperties": false,
+      "description": "The exact submitted source and oriented inference/display frame.",
+      "properties": {
+        "coordinate_system": {
+          "const": "display_pixels_top_left",
+          "default": "display_pixels_top_left",
+          "title": "Coordinate System",
+          "type": "string"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "integer"
+        },
+        "inference_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Inference Sha256",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "inference_sha256",
+        "width",
+        "height"
+      ],
+      "title": "CandidateImage",
+      "type": "object"
+    },
+    "CandidateMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "completion_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completion Tokens"
+        },
+        "elapsed_ms": {
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "number"
+        },
+        "prompt_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Tokens"
+        }
+      },
+      "required": [
+        "elapsed_ms"
+      ],
+      "title": "CandidateMetrics",
+      "type": "object"
+    },
+    "CandidateProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt_version": {
+          "minLength": 1,
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "requested_model": {
+          "minLength": 1,
+          "title": "Requested Model",
+          "type": "string"
+        },
+        "returned_model": {
+          "minLength": 1,
+          "title": "Returned Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requested_model",
+        "returned_model",
+        "prompt_version"
+      ],
+      "title": "CandidateProvenance",
+      "type": "object"
+    },
+    "ImageCandidate": {
+      "additionalProperties": false,
+      "description": "An unreviewed detection, not a canonical building entity or final claim.",
+      "properties": {
+        "category": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Category",
+          "type": "string"
+        },
+        "geometry": {
+          "$ref": "#/$defs/BoxShape"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "source_label": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Label"
+        },
+        "uncertain": {
+          "title": "Uncertain",
+          "type": "boolean"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "visual_cue": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Visual Cue",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "category",
+        "geometry",
+        "uncertain",
+        "visual_cue"
+      ],
+      "title": "ImageCandidate",
+      "type": "object"
+    }
+  },
+  "$id": "urn:stoa:contracts:0.1.0:ImageCandidateResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Image-bound proposals; an empty list does not establish a zero count.",
+  "properties": {
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/ImageCandidate"
+      },
+      "maxItems": 100,
+      "title": "Candidates",
+      "type": "array"
+    },
+    "image": {
+      "$ref": "#/$defs/CandidateImage"
+    },
+    "inventory_completeness": {
+      "const": "unverified",
+      "default": "unverified",
+      "title": "Inventory Completeness",
+      "type": "string"
+    },
+    "limitations": {
+      "items": {
+        "maxLength": 2000,
+        "minLength": 1,
+        "pattern": "\\S",
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "metrics": {
+      "$ref": "#/$defs/CandidateMetrics"
+    },
+    "provenance": {
+      "$ref": "#/$defs/CandidateProvenance"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1.0",
+      "default": "0.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scope": {
+      "const": "submitted_image",
+      "default": "submitted_image",
+      "title": "Scope",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "ok",
+        "partial",
+        "unreadable",
+        "unsupported"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "request_id",
+    "image",
+    "status",
+    "provenance",
+    "metrics"
+  ],
+  "title": "ImageCandidateResponse",
+  "type": "object"
+}

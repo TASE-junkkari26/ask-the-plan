@@ -23,11 +23,12 @@ optional extensions unless a supplied question needs them. See the
 
 | Component | Implemented | Boundary |
 |---|---|---|
-| Frontend | React workbench, synthetic drawings/answers, selectable overlays, calculations, multiple local image/PDF/IFC imports, searchable preview library, 3D inspection, 2D export | Mock QA adapter; imports last until refresh, with no backend/model calls. Uploaded files are not analysed. |
+| Frontend | React workbench, demo answers, multiple local image/PDF/IFC imports, Nemotron candidate overlays, searchable library, local 3D inspection and 2D export | Imported images/PDF pages use the candidate API; IFC remains local inspection, and demos retain prepared answers. No final-answer planner. |
 | IFC engine | CPU extraction, structured selection/traversal, scalar properties/quantities, counts, grouping/ranking, evidence and caching | Standalone Python/CLI; no natural-language planner, HTTP API, or geometry-measurement engine. |
 | Shared contracts | Pydantic models, generated JSON Schemas/TypeScript, reference/unit/scope/evidence validation | Validation cannot prove source completeness or correctness. |
-| Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI | Dated live checks are recorded in the guide; no connected question planner or frontend integration. |
-| Perception and services | Research plans and a saved one-image door-labeling experiment | No general OCR, raster inventory/reconstruction, model routing, or frontend/backend HTTP integration. |
+| Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI | Frontend image detection uses the candidate API; natural-language IFC planning remains pending. Credentials stay on the backend. |
+| Image candidate API | Local HTTP image/question endpoint returning Nemotron candidate boxes, uncertainty, image hashes and display coordinates | Connected to imported 2D drawings; candidate proposals only, with no final counts/answers or IFC analysis. |
+| Perception | Research plans and a saved one-image door-labeling experiment | No general OCR, raster inventory/reconstruction, or model routing. |
 
 ## Configure Nemotron
 
@@ -54,6 +55,25 @@ On Linux, use `.venv/bin/python -m nemotron check`. This sends a request to Verd
 local tests do not require a key or make inference calls. Installation also
 provides the `nemotron` console command. See [Nemotron setup and usage](docs/nvidia_info.md)
 for image, JSON, and async examples.
+
+## Run the image candidate API
+
+With the existing backend `.env`, install the API extra and start the service:
+
+```sh
+.venv/bin/python -m pip install -e '.[api,test]'
+.venv/bin/python -m uvicorn image_api.app:app --host 127.0.0.1 --port 8000
+```
+
+On Windows, use `.\.venv\Scripts\python.exe` for both commands. Open
+<http://127.0.0.1:8000/docs> to submit one image and one question. The API returns
+image-bound candidate boxes, not a final answer/count. Leave this backend running
+and start `npm run dev` in a second terminal. In the UI, import a drawing, select
+its image/PDF page, and submit a question to see candidate boxes and a review list.
+Files are previewed locally until a question is submitted; asking sends the
+displayed raster to Nemotron through the backend. Imported IFC models remain
+local 3D inspection and do not use this endpoint. See [API usage and UI handoff](image_api/README.md) for multipart
+examples, generated types, coordinates, limits, and errors.
 
 ## Start the frontend
 
@@ -129,9 +149,10 @@ scope/unit semantics, and limitations. This CLI is independent of the mock UI.
 The [verification record](docs/VERIFICATION.md) gives the latest commands,
 platform versions, results, and limits. Windows Python, frontend logic, schema,
 and build checks passed on 14 November 2026, including the installed preview's
-real-model test. Selected Linux browser interactions, including local file import
-and PDF preview, have been checked; real backend integration and target-device
-checks remain outstanding.
+real-model test. Separate Linux checks cover the image candidate API, candidate
+UI integration, local imports/PDF previews, and IFC inspection. The verification
+record distinguishes those passes from checks of their combined merge and from
+target-device checks that remain outstanding.
 Nemotron's HTTP tests use mocked responses; earlier live text/image observations
 and the saved door-labeling pilot are recorded separately from this offline pass.
 
@@ -170,6 +191,7 @@ Python source models rather than editing the generated output.
 frontend/       Browser prototype and generated TypeScript wire types
 ifc_engine/     Local IFC extraction and structured query execution
 nemotron/       Backend Verda text/vision client and connection-check CLI
+image_api/      Local image/question HTTP service returning candidate boxes
 experiments/    Reproducible model experiments, prompts, and findings
 contracts/      Shared models, validation, JSON Schemas, synthetic examples
 tests/          Contract, IFC, Nemotron, reporting, and documentation checks
@@ -204,6 +226,7 @@ adjust commands to the actual root rather than assuming that layout.
 | [Tech stack recommendation](docs/TECH_STACK_RECOMMENDATION.md) | Dated architecture rationale and candidate components |
 | [OCR recommendations](docs/ocr_recs.md) | Perception candidates and evaluation gates; not an installed pipeline |
 | [Nemotron configuration](docs/nvidia_info.md) | Implemented backend client, local key setup, usage, and live-verification boundary |
+| [Image candidate API](image_api/README.md) | HTTP setup, candidate contracts, image coordinates, and frontend handoff |
 | [Experiments](experiments/README.md) | Reproducible investigations, starting with raster door labeling |
 | [Full dataset findings](dataset/FULL_DATASET_FINDINGS.md) | Full-corpus audit and source-specific pitfalls |
 | [Preview findings](dataset/DATASET_FINDINGS.md) | Historical preview-only audit |

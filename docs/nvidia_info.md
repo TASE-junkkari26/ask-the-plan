@@ -5,8 +5,12 @@ supports synchronous/asynchronous Chat Completions, local PNG/JPEG/WebP images,
 JSON-object output with Pydantic validation, tool-call transport, bounded retries,
 and request timeouts. A CLI sends a connection check or a text/image request.
 
-The frontend and IFC CLI remain independent. This adapter does not implement a
+The IFC CLI remains independent. This transport adapter does not implement a
 question planner, object detector, annotation batch job, or drawing-analysis API.
+The separate [image candidate API](../image_api/README.md) now wraps this client
+to accept one image/question over HTTP and return localized candidate proposals.
+The frontend now uses this API for imported drawings and displays candidate
+overlays, cues, and uncertainty. It does not produce final answers/counts.
 Model predictions and syntactically valid JSON do not establish source truth,
 correct localization, or a complete object inventory.
 

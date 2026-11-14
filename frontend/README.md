@@ -1,6 +1,10 @@
 # Ask the Plan frontend
 
-A local React/TypeScript prototype for answering questions about the drawing currently shown. Sources and answers are explicitly illustrative. No backend, model endpoint, or credentials are used.
+A React/TypeScript workbench for the drawing currently shown. Demo sources use
+prepared answers. Imported images/PDFs connect to the internal Nemotron image API
+and show candidate boxes, uncertainty, and source close-ups. Inference credentials
+stay on the Python backend. Imported IFC models use a separate local 3D viewer
+and source-property inspector; they are not submitted for candidate analysis.
 
 The [project scope](../docs/PROJECT_SCOPE.md) is the supplied dataset's question
 families. Build real integrations and evidence views for that set; unknown
@@ -10,8 +14,8 @@ demo answers alone do not establish dataset coverage.
 The frontend follows the [roadmap's UI direction](../docs/ROADMAP.md#ui-direction):
 one dominant source viewport, a searchable drawing picker, and an answer/evidence
 panel with a fixed question composer. Selecting evidence opens a contextual source
-close-up. The real backend connection remains planned; the features below describe
-the current prototype with illustrative sources and prepared answers.
+close-up. Imported-file detection returns candidate proposals rather than final
+answers/counts; illustrative demo sources retain their prepared behavior.
 
 ## Run
 
@@ -22,6 +26,18 @@ Install Node.js 22.12 or later (24 LTS is the tested baseline). From the
 npm.cmd run setup:frontend
 npm.cmd run dev
 ```
+
+For imported-file analysis, also start the backend in a separate terminal from
+the repository root (Linux):
+
+```sh
+.venv/bin/python -m uvicorn image_api.app:app --host 127.0.0.1 --port 8000
+```
+
+On Windows use `.\.venv\Scripts\python.exe`. First install the project's `api`
+extra and configure the backend `.env` as described in the
+[API guide](../image_api/README.md#install-and-run). Vite proxies `/api` to that
+local server; the browser never receives the inference key.
 
 On Linux, use `npm` instead of `npm.cmd`. These root scripts forward to this
 directory. The root has no dependency lockfile; do not run root `npm ci`. If
@@ -43,7 +59,8 @@ still needs verification on the target demo devices.
 - Prepared door/window counts, bedroom net-area subtraction, corridor width, exact door-schedule lookup, and missing-information responses.
 - English/Finnish question examples and core UI labels; original source text/IDs stay unchanged.
 - Current-drawing scope by default, following the organizer clarification reported on 14 November 2026. Whole-building requests do not aggregate unseen drawings.
-- Multiple local image/SVG/PDF imports through a file picker or drag and drop, a searchable library with thumbnails and removal, PDF page navigation, and marked-SVG/result-JSON export. IFC imports use a separate 3D renderer with object properties, storeys, visibility controls, and sectioning. Local uploads are not analysed and are not sent anywhere.
+- Multiple local image/SVG/PDF imports through a file picker or drag and drop, a searchable library with thumbnails and removal, PDF page navigation, and marked-SVG/result-JSON export. Asking about an imported drawing sends its displayed raster/page to Nemotron and renders unverified candidate regions.
+- IFC imports and the prepared FZK-Haus model use a separate local 3D renderer with original object properties, storeys, visibility controls and sectioning. IFC models are not uploaded or analysed by Nemotron.
 - Loading states, cancellation on source changes, recent questions, keyboard shortcuts, help dialog, and responsive styles. On narrow screens the answer panel sits below the drawing and can be hidden from the viewer toolbar; answers scroll independently of the composer.
 
 The interface uses the existing Lucide icons and a bundled Cantarell variable
@@ -74,17 +91,45 @@ browse other drawings. PDF previews limit their canvas size for large sheets.
 Exported SVGs embed the displayed image or rendered PDF page, so they do not
 depend on a temporary browser URL.
 
-Files stay in memory in the current tab and are cleared on refresh. They are not
-uploaded, stored on a server, or analysed; question answering and demo evidence
-are disabled for imported drawings. Preview URLs are released when a file is
-removed, a PDF page is replaced, or the workbench unmounts. Switching sources
-cancels pending page rendering without allowing it to restore an old selection. Switching away from IFC also cancels conversion/loading and disposes the scene and workers. Only the most recent converted model buffer is cached in memory.
+Imports stay in memory in the current tab and are cleared on refresh. Importing
+alone makes no analysis call. For an image/PDF, submitting a question rasterizes the selected view
+onto white PNG, sends that image/question to the API, and displays the same frozen
+snapshot beneath candidate boxes. This works with the supported image formats
+and the displayed PDF page. API limits are 20 MiB for the rendered PNG and 40
+megapixels; previews can be larger and will receive a clear analysis-limit error.
 
-The `dev` and `build` commands prepare the pinned WASM asset explicitly, so installing with `--ignore-scripts` works. The checked-in FZK-Haus demo needs no dataset at startup. To regenerate it from the optional dataset, run `npm --prefix frontend run prepare:ifc-demo` from the root.
+Select a numbered box or candidate row to inspect its visual cue, original label,
+uncertainty, and image close-up. Focus, pan, zoom, rotation, marking/label toggles,
+marked SVG export, and raw candidate JSON export work for detected candidates.
+An empty list does not establish a true object count of zero. Partial/unreadable/
+unsupported results and request errors stay distinct.
+
+Source/page changes abort analysis, clear candidate state, and discard stale
+responses. The client checks returned image hashes/dimensions against the actual
+submitted raster. Preview and snapshot URLs are released on replacement/removal
+or unmount. The original demo answer flow remains separate.
+
+IFC remains local inspection: its files are not uploaded and its question composer
+is disabled. Switching away from IFC cancels conversion/loading and disposes the
+scene and workers. Only the most recent converted model buffer is cached in
+memory. The `dev` and `build` commands prepare the pinned WASM asset explicitly,
+so installing with `--ignore-scripts` works. The checked-in FZK-Haus demo needs no
+dataset at startup. To regenerate it from the optional dataset, run
+`npm --prefix frontend run prepare:ifc-demo` from the root.
 
 ## Backend integration boundary
 
-`src/demo/engine.ts` exports `askDemo`, the asynchronous fixture adapter. Replace it with an API client accepting the generated `QuestionRequest` and returning a `QueryResult` plus resolved presentation evidence.
+`src/demo/engine.ts` exports `askDemo`, the asynchronous fixture adapter used only
+by synthetic sources. A future final-answer API would accept the generated
+`QuestionRequest` and return a `QueryResult` plus resolved presentation evidence.
+
+The [image candidate API](../image_api/README.md) is connected through
+`src/lib/candidateApi.ts`. It returns `ImageCandidateResponse` proposals,
+not final `QueryResult` claims, with generated candidate/error TypeScript types.
+`CandidateLayer` and `CandidatePanel` render these separately from demo answers.
+The development/preview proxy targets `http://127.0.0.1:8000` by default;
+`IMAGE_API_PROXY_TARGET` can override the Vite server process's backend target.
+A hosted build needs its server to forward `/api` to the Python service.
 
 `src/types.ts` defines UI-only `Mark` and `DemoResponse` presentation records. They resolve the canonical entity, source geometry, label, ordinal, and calculation display. They are not additional physical facts or changes to the shared Python contracts. `src/contracts/` is generated from the committed request/result JSON Schemas.
 
@@ -99,9 +144,9 @@ Mock result IDs/anchors/coverage references are presentation fixtures. Sample en
 Preserve this separation during integration:
 
 1. The backend owns the answer, scope, inventory completeness, source identity, unit conversion, and calculation trace.
-2. Resolve source regions into the displayed source frame. The demo sources use a fixed 1100 × 780 frame; local file preview currently fits the original file into that frame with no evidence overlays. Real imported-file annotations must use the backend's declared frames/transforms.
+2. Resolve source regions into the displayed source frame. The demo sources use a fixed 1100 × 780 frame. Candidate boxes in uploaded-image pixels use the same centered fit into the imported image's 1050 × 730 area at (25,25), with shared pan/zoom/rotation. Close-ups use the actual submitted snapshot.
 3. The frontend formats values, renders evidence, and manages selection. It must not infer the answer from the currently visible mark count.
-4. Uploaded files require a real ingestion service before question answering can be enabled for them.
+4. Candidate detections are unreviewed, response-local observations; they do not establish canonical object identities or exhaustive inventories for final answers.
 
 ## Checks
 
@@ -113,7 +158,7 @@ npm.cmd run build
 node scripts/smoke-render.mjs
 ```
 
-Tests cover per-drawing scope, multilingual object consistency, logical identity across source appearances, polygon/column area arithmetic, precise schedule lookup, missing information, cancellation, rotated focus coordinates, bounded zoom, import format/size validation, image decoding failures, preview URL cleanup, separate IFC/2D limits, bounded converted-model caching, and cycle-safe property inspection. `scripts/export-demo-fixtures.ts` emits sample result envelopes for validation against the Python contracts.
+Tests cover per-drawing scope, multilingual object consistency, logical identity across source appearances, polygon/column area arithmetic, precise schedule lookup, missing information, cancellation, rotated focus coordinates, bounded zoom, import format/size validation, image decoding failures, preview URL cleanup, candidate response validation and display mapping, separate IFC/2D limits, bounded converted-model caching, and cycle-safe property inspection. `scripts/export-demo-fixtures.ts` emits sample result envelopes for validation against the Python contracts.
 
 The latest checks are recorded in the [verification record](../docs/VERIFICATION.md).
 The frontend logic checks, production build, and initial server-rendering smoke

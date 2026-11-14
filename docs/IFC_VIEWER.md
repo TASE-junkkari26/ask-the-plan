@@ -24,8 +24,9 @@ opened again to retry or removed.
 Only the active source has a renderer. Switching to a drawing disposes the 3D
 scene and workers; switching to IFC removes the SVG renderer, PDF pagination,
 marked-SVG export, and 2D camera handlers. Imported PDFs retain their current page.
-No model or drawing is uploaded. Local files and the converted-model cache are
-cleared by refreshing the tab.
+IFC models are not uploaded. Image/PDF imports can separately submit a displayed
+raster to the [candidate API](../image_api/README.md) when a question is asked.
+Local files and the converted-model cache are cleared by refreshing the tab.
 
 ## Controls and source properties
 
@@ -105,8 +106,9 @@ identity and regenerate the artifact. The loader rejects a mismatched demo manif
 
 ## Boundaries
 
-This version has no backend connection or real question answering for IFC/imported
+This IFC viewer has no backend connection or real question answering for IFC
 sources, federation, editing, measurement, new IFC export, server conversion,
-generated floor drawings, or persistent upload storage. The Python IFC engine and
-shared contracts are unchanged. See the [verification record](VERIFICATION.md)
+generated floor drawings, or persistent upload storage. This viewer does not
+change the Python IFC engine or its query contracts; the separate image API adds
+candidate contracts for 2D analysis. See the [verification record](VERIFICATION.md)
 for checks actually run; selected-model tests are not corpus-wide compatibility.

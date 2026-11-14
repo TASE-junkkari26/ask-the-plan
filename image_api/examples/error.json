@@ -1,0 +1,7 @@
+{
+  "schema_version": "0.1.0",
+  "request_id": "synthetic-request",
+  "code": "busy",
+  "message": "Candidate service is busy; try again later.",
+  "retryable": true
+}

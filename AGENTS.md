@@ -28,10 +28,13 @@ component guide before changing behavior.
 
 ## Component boundaries
 
-- `frontend/`: React/TypeScript/Vite workbench with synthetic sources and prepared
-  answers. Its mock adapter is `src/demo/engine.ts`. Local uploads support
-  image/PDF previews and IFC 3D inspection; they are not analysed. Backend
-  integration is pending. See [the viewer guide](docs/IFC_VIEWER.md).
+- `frontend/`: React/TypeScript/Vite workbench. Synthetic sources use prepared
+  answers via `src/demo/engine.ts`. Imported images/PDFs can submit their displayed
+  raster/page to `image_api/` and render unverified candidate boxes. IFC imports
+  use local 3D viewing and source-property inspection, without Nemotron analysis.
+  Final-answer planning remains pending. See [the viewer guide](docs/IFC_VIEWER.md).
+- `image_api/`: internal HTTP adapter for one image and one question, using the
+  existing Nemotron client. Returns candidate regions, not final counts/answers.
 - `ifc_engine/`: independent CPU IFC extractor/structured query executor. See
   [its guide](docs/IFC_ENGINE.md) for supported operations and limitations. It is
   not an HTTP service or natural-language planner.

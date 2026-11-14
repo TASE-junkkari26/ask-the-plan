@@ -51,6 +51,11 @@ import {
 } from 'lucide-react';
 import { DrawingArtwork } from './components/DrawingArtwork';
 import { MarkLayer } from './components/MarkLayer';
+import { CandidateLayer } from './components/CandidateLayer';
+import { CandidatePanel } from './components/CandidatePanel';
+import type { ImageCandidateResponse } from './contracts/ImageCandidateResponse';
+import { prepareCandidateImage, requestCandidates } from './lib/candidateApi';
+import { candidateBounds } from './lib/candidateGeometry';
 import { ViewerBoundary } from './components/ViewerBoundary';
 import {
   ImportedDrawingList,
@@ -208,8 +213,9 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
       <div className="help-note">
         <Sparkles size={17} />
         <span>
-          This prototype uses illustrative drawings and prepared answers.
-          Uploaded files are previewed locally; they are not analysed.
+          Demo drawings use prepared answers. Imported images and PDF pages can
+          be sent to Nemotron when you submit a question; highlights are candidates
+          for review. IFC models support local viewing and inspection only.
         </span>
       </div>
       <div className="shortcut-grid">
@@ -337,6 +343,13 @@ export default function App() {
   const [response, setResponse] = useState<DemoResponse | null>(() =>
     resolveDemo(DRAWINGS[0], initialQuestion, 'en'),
   );
+  const [candidateResponse, setCandidateResponse] = useState<{
+    result: ImageCandidateResponse;
+    question: string;
+  } | null>(null);
+  const [candidateError, setCandidateError] = useState('');
+  const [analysisUrl, setAnalysisUrl] = useState<string | null>(null);
+  const analysisUrlRef = useRef<string | null>(null);
   const [asking, setAsking] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'evidence' | 'calculation'>(
@@ -373,6 +386,7 @@ export default function App() {
       : null;
   const ifcActive = ifcSource !== null;
   const localActive = activeLocalSource !== null || activeIfcDemo;
+  const displayImported = imported && analysisUrl ? { ...imported, url: analysisUrl } : imported;
   const [importProgress, setImportProgress] = useState<{
     name: string;
     current: number;
@@ -414,6 +428,8 @@ export default function App() {
         ? drawing.titleFi
         : drawing.title;
   const marks = localActive ? [] : (response?.marks ?? []);
+  const candidateCount = imported ? (candidateResponse?.result.candidates?.length ?? 0) : 0;
+  const overlayCount = imported ? candidateCount : marks.length;
   const selectedMark = marks.find((mark) => mark.id === selected);
   const missing = response?.intent === 'missing';
 
@@ -478,6 +494,7 @@ export default function App() {
       pageRef.current = null;
       localDrawingsRef.current.forEach(releaseSource);
       ifcCache.clear();
+      if (analysisUrlRef.current) URL.revokeObjectURL(analysisUrlRef.current);
       localDrawingsRef.current = [];
     },
     [],
@@ -517,7 +534,16 @@ export default function App() {
     setRotation(0);
   }
 
+  function clearCandidates() {
+    setCandidateResponse(null);
+    setCandidateError('');
+    if (analysisUrlRef.current) URL.revokeObjectURL(analysisUrlRef.current);
+    analysisUrlRef.current = null;
+    setAnalysisUrl(null);
+  }
+
   function chooseDrawing(next: Drawing) {
+    clearCandidates();
     requestRef.current?.abort();
     requestRef.current = null;
     viewVersion.current += 1;
@@ -538,8 +564,10 @@ export default function App() {
   }
 
   async function ask(question: string) {
-    if (!question.trim() || localActive) return;
+    if (!question.trim() || importing || asking || ifcActive) return;
+    const questionText = question.trim();
     requestRef.current?.abort();
+    clearCandidates();
     const controller = new AbortController();
     requestRef.current = controller;
     setAsking(true);
@@ -547,24 +575,35 @@ export default function App() {
     setActiveTab('evidence');
     setShowMarks(true);
     try {
-      const answer = await askDemo(
-        drawing,
-        question,
-        language,
-        controller.signal,
-      );
-      if (requestRef.current !== controller) return;
-      setResponse(answer);
+      if (imported) {
+        const image = await prepareCandidateImage(imported, controller.signal);
+        if (requestRef.current !== controller || controller.signal.aborted) return;
+        const snapshot = URL.createObjectURL(image.blob);
+        analysisUrlRef.current = snapshot;
+        setAnalysisUrl(snapshot);
+        const answer = await requestCandidates(image, questionText, controller.signal);
+        if (requestRef.current !== controller || controller.signal.aborted) return;
+        setCandidateResponse({ result: answer, question: questionText });
+      } else {
+        const answer = await askDemo(drawing, questionText, language, controller.signal);
+        if (requestRef.current !== controller || controller.signal.aborted) return;
+        setResponse(answer);
+      }
       setQuery('');
       setHistory((h) =>
-        [question, ...h.filter((q) => q !== question)].slice(0, 4),
+        [questionText, ...h.filter((q) => q !== questionText)].slice(0, 4),
       );
       resetViewport();
     } catch (error) {
-      if (!(error instanceof DOMException && error.name === 'AbortError'))
-        setToast('The demo answer could not be loaded. Please try again.');
+      if (requestRef.current === controller && !controller.signal.aborted) {
+        if (imported) setCandidateError(error instanceof Error ? error.message : 'Candidate analysis failed. Please try again.');
+        else setToast('The demo answer could not be loaded. Please try again.');
+      }
     } finally {
-      if (requestRef.current === controller) setAsking(false);
+      if (requestRef.current === controller) {
+        requestRef.current = null;
+        setAsking(false);
+      }
     }
   }
   function submit(event: FormEvent) {
@@ -580,10 +619,20 @@ export default function App() {
     setPan(focusPan(mark.bounds, paperWidth, nextZoom, rotation));
   }
 
+  function focusCandidate(id: string) {
+    const result = candidateResponse?.result;
+    const candidate = result?.candidates?.find((item) => item.id === id);
+    if (!result || !candidate) return;
+    setSelected(id);
+    setShowMarks(true);
+    setZoom(1.65);
+    setPan(focusPan(candidateBounds(candidate, result.image), paperWidth, 1.65, rotation));
+  }
+
   function pointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (
       event.button !== 0 ||
-      (event.target as Element).closest('.evidence-mark,button')
+      (event.target as Element).closest('.evidence-mark,.candidate-mark,button')
     )
       return;
     dragRef.current = { x: event.clientX, y: event.clientY, pan };
@@ -614,6 +663,7 @@ export default function App() {
   }
 
   function chooseImported(source: LocalSource, closePicker = true) {
+    clearCandidates();
     viewVersion.current += 1;
     cancelPagePreview();
     requestRef.current?.abort();
@@ -654,6 +704,7 @@ export default function App() {
   );
 
   function chooseIfcDemo() {
+    clearCandidates();
     viewVersion.current += 1;
     cancelPagePreview();
     requestRef.current?.abort();
@@ -740,6 +791,12 @@ export default function App() {
   }
 
   async function openPage(source: LocalDrawing, page: number) {
+    requestRef.current?.abort();
+    requestRef.current = null;
+    setAsking(false);
+    clearCandidates();
+    setSelected(null);
+    viewVersion.current += 1;
     cancelPagePreview();
     const controller = new AbortController();
     pageRef.current = controller;
@@ -827,9 +884,9 @@ export default function App() {
     svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     svg.setAttribute('width', '1100');
     svg.setAttribute('height', '780');
-    if (localActive && imported?.url.startsWith('blob:')) {
+    if (imported && displayImported?.url.startsWith('blob:')) {
       // PDF previews are rendered PNG blobs, not the original PDF bytes.
-      const preview = await fetch(imported.url).then((result) => result.blob());
+      const preview = await fetch(displayImported.url).then((result) => result.blob());
       const data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result));
@@ -1207,9 +1264,11 @@ export default function App() {
                         Marked drawing <span>.svg</span>
                       </button>
                       <button
-                        disabled={!response}
+                        disabled={imported ? !candidateResponse : !response}
                         onClick={() => {
-                          if (response)
+                          if (candidateResponse && imported)
+                            downloadBlob(new Blob([JSON.stringify(candidateResponse.result, null, 2)], { type: 'application/json' }), 'drawing-candidates.json');
+                          else if (response)
                             downloadBlob(
                               new Blob(
                                 [JSON.stringify(response.result, null, 2)],
@@ -1221,7 +1280,7 @@ export default function App() {
                         }}
                       >
                         <FileText size={15} />
-                        Answer & evidence <span>.json</span>
+                        {imported ? 'Candidate regions' : 'Answer & evidence'} <span>.json</span>
                       </button>
                     </div>
                   )}
@@ -1309,7 +1368,7 @@ export default function App() {
                               checked={showMarks}
                               onChange={(e) => setShowMarks(e.target.checked)}
                             />
-                            Answer markings <span>{marks.length}</span>
+                            {imported ? 'Candidate markings' : 'Answer markings'} <span>{overlayCount}</span>
                           </label>
                           <label>
                             <input
@@ -1370,20 +1429,23 @@ export default function App() {
                       style={{
                         fontFamily: 'Inter, Segoe UI, Arial, sans-serif',
                       }}
-                      aria-label={`${title} source drawing with ${showMarks ? marks.length : 0} evidence marks`}
+                      aria-label={`${title} source drawing with ${showMarks ? overlayCount : 0} ${imported ? 'candidate' : 'evidence'} marks`}
                     >
                       <DrawingArtwork
                         drawing={drawing}
-                        imported={localActive ? imported : null}
+                        imported={displayImported}
                       />
                       {!asking && showMarks && (
-                        <MarkLayer
+                        imported && candidateResponse ? <CandidateLayer
+                          response={candidateResponse.result}
+                          selected={selected}
+                          labels={showLabels}
+                          onSelect={(id) => setSelected((value) => value === id ? null : id)}
+                        /> : <MarkLayer
                           marks={marks}
                           selected={selected}
                           labels={showLabels}
-                          onSelect={(id) =>
-                            setSelected((s) => (s === id ? null : id))
-                          }
+                          onSelect={(id) => setSelected((value) => value === id ? null : id)}
                         />
                       )}
                     </svg>
@@ -1394,7 +1456,7 @@ export default function App() {
                       ? 'Panning drawing'
                       : 'Drag to pan · Scroll to zoom · Drop files to import'}
                   </div>
-                  {showMarks && !!marks.length && !asking && (
+                  {showMarks && !!overlayCount && !asking && (
                     <button
                       className="overlay-legend"
                       title="Fit all answer markings"
@@ -1404,8 +1466,8 @@ export default function App() {
                       }}
                     >
                       <ScanLine size={14} />
-                      <strong>{marks.length}</strong>{' '}
-                      {response?.intent === 'area'
+                      <strong>{overlayCount}</strong>{' '}
+                      {imported ? (language === 'fi' ? 'ehdokasta tarkistettavaksi' : 'candidates to review') : response?.intent === 'area'
                         ? 'room boundary'
                         : response?.intent === 'width'
                           ? 'dimension'
@@ -1453,7 +1515,7 @@ export default function App() {
                           : language === 'fi'
                             ? 'Avataan PDF-sivua…'
                             : 'Opening PDF page…'
-                        : language === 'fi'
+                        : imported ? (language === 'fi' ? 'Paikannetaan ehdokkaita…' : 'Locating candidates…') : language === 'fi'
                           ? 'Haetaan demovastausta…'
                           : 'Locating demo evidence…'}
                     </div>
@@ -1594,7 +1656,7 @@ export default function App() {
                 </span>
                 <div>
                   <h2>{t.ask}</h2>
-                  <p>{t.intro}</p>
+                  <p>{imported ? (language === 'fi' ? 'Paikanna näkyvät kohteet tästä kuvasta.' : 'Locate visible objects in this image.') : t.intro}</p>
                 </div>
                 <button
                   className="icon-button panel-close"
@@ -1605,45 +1667,62 @@ export default function App() {
                 </button>
               </div>
 
-              {localActive ? (
-                <div className="local-preview-state">
-                  <span className="empty-state-icon">
-                    <FileImage size={28} />
-                  </span>
-                  <h3>
-                    {language === 'fi'
-                      ? 'Piirustuksesi on valmis katseltavaksi.'
-                      : 'Your drawing is ready to view.'}
-                  </h3>
-                  <p>
-                    {language === 'fi'
-                      ? 'Siirrä, suurenna, kierrä tai selaa PDF-sivuja. Tuotuja tiedostoja ei analysoida eikä lähetetä palvelimelle.'
-                      : 'Pan, zoom, rotate, or browse PDF pages. Imported files are previewed locally; they are not analysed or sent to a server.'}
+            {imported && candidateResponse && analysisUrl ? (
+              <CandidatePanel
+                response={candidateResponse.result}
+                question={candidateResponse.question}
+                selected={selected}
+                onSelect={(id) => { setSelected((value) => value === id ? null : id); setShowMarks(true); }}
+                onFocus={focusCandidate}
+                imageUrl={analysisUrl}
+                language={language}
+              />
+            ) : imported ? (
+              <div className="local-preview-state">
+                <span className="empty-state-icon">
+                  <FileImage size={28} />
+                </span>
+                <h3>
+                  {language === 'fi'
+                    ? 'Piirustuksesi on valmis katseltavaksi.'
+                    : asking ? 'Locating candidates…' : 'Your drawing is ready to analyse.'}
+                </h3>
+                <p>
+                  {language === 'fi'
+                    ? 'Kysy näkyvistä kohteista. Kysymyksen lähettäminen lähettää tämän kuvan tai PDF-sivun Nemotronille. Tulokset ovat tarkistettavia ehdokkaita.'
+                    : 'Ask about visible objects. Submitting sends this image or PDF page to Nemotron and highlights the candidates it finds for you to review.'}
+                </p>
+                {candidateError && <p role="alert" className="candidate-api-error">{candidateError}</p>}
+                {asking && <button className="secondary-button" onClick={() => {
+                  requestRef.current?.abort();
+                  requestRef.current = null;
+                  setAsking(false);
+                  clearCandidates();
+                }}>Cancel analysis</button>}
+                {imported && (
+                  <p className="local-file-details">
+                    {fileSize(imported.file.size)} ·{' '}
+                    {imported.kind === 'pdf'
+                      ? `${imported.pages} ${language === 'fi' ? 'sivua' : imported.pages === 1 ? 'page' : 'pages'}`
+                      : `${imported.width} × ${imported.height} px`}
                   </p>
-                  {imported && (
-                    <p className="local-file-details">
-                      {fileSize(imported.file.size)} ·{' '}
-                      {imported.kind === 'pdf'
-                        ? `${imported.pages} ${language === 'fi' ? 'sivua' : imported.pages === 1 ? 'page' : 'pages'}`
-                        : `${imported.width} × ${imported.height} px`}
-                    </p>
-                  )}
-                  <button
-                    className="secondary-button"
-                    onClick={() => setSidebarOpen(true)}
-                  >
-                    <FolderOpen size={14} />
-                    {t.drawings} ({localDrawings.length})
-                  </button>
-                  <p className="import-local-note">{t.localNote}</p>
-                  <button
-                    className="secondary-button"
-                    onClick={() => chooseDrawing(DRAWINGS[0])}
-                  >
-                    Explore demo answers <ArrowRight size={14} />
-                  </button>
-                </div>
-              ) : (
+                )}
+                <button
+                  className="secondary-button"
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  <FolderOpen size={14} />
+                  {t.drawings} ({localDrawings.length})
+                </button>
+                <p className="import-local-note">{t.localNote}</p>
+                <button
+                  className="secondary-button"
+                  onClick={() => chooseDrawing(DRAWINGS[0])}
+                >
+                  Explore demo answers <ArrowRight size={14} />
+                </button>
+              </div>
+            ) : (
                 response && (
                   <div
                     className={`answer-content ${asking ? 'answer-pending' : ''}`}
@@ -1898,84 +1977,81 @@ export default function App() {
                   </div>
                 )
               )}
-              <div className="question-section">
-                <div className="question-scope">
-                  <FileText size={12} />
-                  <span>
-                    {localActive
-                      ? imported?.file.name
-                      : `${drawing.code} · ${title}`}
-                  </span>
-                  <span className="scope-lock">
-                    <Check size={11} />
-                    {language === 'fi' ? 'Vain tämä näkymä' : 'This view only'}
-                  </span>
-                </div>
-                <form className="question-form" onSubmit={submit}>
-                  <textarea
-                    ref={queryRef}
-                    aria-label="Question about the drawing"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={
-                      localActive
-                        ? 'Local file preview · demo answers unavailable'
-                        : t.placeholder
-                    }
-                    disabled={localActive}
-                    rows={2}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        void ask(query);
-                      }
-                    }}
-                  />
-                  <div className="question-form-footer">
-                    <span>
-                      {localActive ? (
-                        'Preview only'
-                      ) : (
-                        <>
-                          <kbd>↵</kbd>{' '}
-                          {language === 'fi'
-                            ? 'Kysy painamalla Enter'
-                            : 'Enter to ask'}
-                        </>
-                      )}
-                    </span>
-                    <button
-                      type="submit"
-                      className="ask-submit"
-                      aria-label={t.askButton}
-                      disabled={!query.trim() || asking || localActive}
-                    >
-                      {asking ? (
-                        <span className="spinner" />
-                      ) : (
-                        <ArrowUp size={17} />
-                      )}
-                    </button>
-                  </div>
-                </form>
-                {!localActive && (
-                  <>
-                    <div className="suggestion-label">{t.try}</div>
-                    <div className="suggestion-chips">
-                      {chips.map((q, i) => (
-                        <button
-                          key={q}
-                          onClick={() => void ask(q)}
-                          disabled={asking}
-                        >
-                          {chipNames[i]}
-                          <ArrowUp size={11} className="suggestion-arrow" />
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
+            <div className="question-section">
+              <div className="question-scope">
+                <FileText size={12} />
+                <span>
+                  {localActive
+                    ? imported?.file.name
+                    : `${drawing.code} · ${title}`}
+                </span>
+                <span className="scope-lock">
+                  <Check size={11} />
+                  {language === 'fi' ? 'Vain tämä näkymä' : 'This view only'}
+                </span>
               </div>
+              <form className="question-form" onSubmit={submit}>
+                <textarea
+                  ref={queryRef}
+                  aria-label="Question about the drawing"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={localActive ? (language === 'fi' ? 'Paikanna ikkunat tässä kuvassa…' : 'Locate the windows in this drawing…') : t.placeholder}
+                  disabled={ifcActive || importing || asking}
+                  maxLength={4000}
+                  rows={2}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      void ask(query);
+                    }
+                  }}
+                />
+                <div className="question-form-footer">
+                  <span>
+                    {localActive ? (
+                      language === 'fi' ? 'Näkyvä kuva → Nemotron' : 'Displayed image → Nemotron'
+                    ) : (
+                      <>
+                        <kbd>↵</kbd>{' '}
+                        {language === 'fi'
+                          ? 'Kysy painamalla Enter'
+                          : 'Enter to ask'}
+                      </>
+                    )}
+                  </span>
+                  <button
+                    type="submit"
+                    className="ask-submit"
+                    aria-label={t.askButton}
+                    disabled={!query.trim() || asking || importing || ifcActive}
+                  >
+                    {asking ? (
+                      <span className="spinner" />
+                    ) : (
+                      <ArrowUp size={17} />
+                    )}
+                  </button>
+                </div>
+              </form>
+              {!localActive && (
+                <>
+                  <div className="suggestion-label">{t.try}</div>
+                  <div className="suggestion-chips">
+                    {chips.map((q, i) => (
+                      <button
+                        key={q}
+                        onClick={() => void ask(q)}
+                        disabled={asking}
+                      >
+                        {chipNames[i]}
+                        <ArrowUp size={11} className="suggestion-arrow" />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
 
               <div className="answer-panel-footer">
                 <button
@@ -2010,9 +2086,13 @@ export default function App() {
                 )}
                 <p>
                   <span className="tiny-demo-dot" />
-                  {language === 'fi'
-                    ? 'Havainnollistavat piirustukset ja vastaukset'
-                    : 'Illustrative drawings and prepared answers'}
+                  {imported
+                    ? language === 'fi'
+                      ? 'Tarkistettavat ehdokkaat valitusta kuvasta'
+                      : 'Candidate detections from the selected image for review'
+                    : language === 'fi'
+                      ? 'Havainnollistavat piirustukset ja vastaukset'
+                      : 'Illustrative drawings and prepared answers'}
                 </p>
               </div>
             </aside>

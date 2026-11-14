@@ -774,6 +774,95 @@ class BenchmarkCase(Contract):
     note: str | None = None
 
 
+class CandidateImage(Model):
+    """The exact submitted source and oriented inference/display frame."""
+
+    sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    inference_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    width: PositiveInt
+    height: PositiveInt
+    coordinate_system: Literal["display_pixels_top_left"] = "display_pixels_top_left"
+
+
+class ImageCandidate(Model):
+    """An unreviewed detection, not a canonical building entity or final claim."""
+
+    id: Id
+    category: Annotated[str, Field(min_length=1, max_length=120, pattern=r"\S")]
+    source_label: Annotated[str, Field(max_length=1000)] | None = None
+    geometry: BoxShape
+    uncertain: bool
+    uncertainty_reason: Annotated[str, Field(min_length=1, max_length=1000, pattern=r"\S")] | None = None
+    visual_cue: Annotated[str, Field(min_length=1, max_length=1000, pattern=r"\S")]
+
+    @model_validator(mode="after")
+    def check_candidate(self):
+        minimum, maximum = self.geometry.minimum, self.geometry.maximum
+        if len(minimum) != 2 or len(maximum) != 2:
+            raise ValueError("candidate boxes require two-dimensional display coordinates")
+        if any(a < 0 or a >= b for a, b in zip(minimum, maximum)):
+            raise ValueError("candidate boxes require nonnegative coordinates and positive area")
+        if self.uncertain != (self.uncertainty_reason is not None):
+            raise ValueError("uncertain candidates require a reason; certain candidates use null")
+        return self
+
+
+class CandidateProvenance(Model):
+    requested_model: Id
+    returned_model: Id
+    prompt_version: Id
+
+
+class CandidateMetrics(Model):
+    elapsed_ms: float = Field(ge=0)
+    prompt_tokens: NonnegativeInt | None = None
+    completion_tokens: NonnegativeInt | None = None
+
+
+class ImageCandidateResponse(Contract):
+    """Image-bound proposals; an empty list does not establish a zero count."""
+
+    request_id: Id
+    scope: Literal["submitted_image"] = "submitted_image"
+    image: CandidateImage
+    status: Literal["ok", "partial", "unreadable", "unsupported"]
+    inventory_completeness: Literal["unverified"] = "unverified"
+    candidates: list[ImageCandidate] = Field(default_factory=list, max_length=100)
+    limitations: list[Annotated[str, Field(min_length=1, max_length=2000, pattern=r"\S")]] = Field(default_factory=list, max_length=100)
+    provenance: CandidateProvenance
+    metrics: CandidateMetrics
+
+    @model_validator(mode="after")
+    def check_candidate_response(self):
+        if self.status != "ok" and not self.limitations:
+            raise ValueError("non-ok candidate outcomes require an explanation")
+        if self.status in {"unreadable", "unsupported"} and self.candidates:
+            raise ValueError("unreadable/unsupported outcomes cannot carry candidates")
+        if len(self.candidates) == 100 and self.status != "partial":
+            raise ValueError("reaching the candidate limit requires a partial outcome")
+        seen_ids = set()
+        seen_boxes = set()
+        for candidate in self.candidates:
+            if candidate.id in seen_ids:
+                raise ValueError("candidate IDs must be unique within a response")
+            seen_ids.add(candidate.id)
+            minimum, maximum = candidate.geometry.minimum, candidate.geometry.maximum
+            if maximum[0] > self.image.width or maximum[1] > self.image.height:
+                raise ValueError("candidate boxes must lie inside the declared display image")
+            key = (candidate.category, tuple(minimum), tuple(maximum))
+            if key in seen_boxes:
+                raise ValueError("duplicate category/geometry candidate records are invalid")
+            seen_boxes.add(key)
+        return self
+
+
+class ImageCandidateError(Contract):
+    request_id: Id
+    code: Id
+    message: Annotated[str, Field(min_length=1, pattern=r"\S")]
+    retryable: bool
+
+
 def walk_values(value: Value):
     """Visit nested typed values (including tables) without losing their types."""
     yield value

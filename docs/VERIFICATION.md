@@ -91,6 +91,48 @@ was introduced. The temporary servers were stopped after checks. This does not
 establish real drawing analysis, touch-device behavior, or the roadmap's human
 evidence-verification gate.
 
+## Image candidate API on Linux
+
+Checked 14 November 2026 on Linux with Python 3.12.3, FastAPI 0.162.7,
+Starlette 1.10.0, Uvicorn 0.54.0, Pillow 12.3.0, Pydantic 2.14.3,
+OpenAI SDK 2.54.0, httpx 0.28.1, and python-multipart 0.0.33. Node 24.22.3
+was used for frontend checks. The new [image API](../image_api/README.md)
+adds candidate extraction, not a final-answer planner or a wired React UI.
+
+| Check | Observed result |
+| --- | --- |
+| `.venv/bin/python -m unittest discover -s tests -v` | 138 tests passed, no skips, including the existing real IFC fixture. Provider responses in this suite are mocked. |
+| New API-specific checks within that suite | 18 HTTP/model integration tests, 5 concurrency/lifecycle tests, and 9 candidate contract tests passed. |
+| `.venv/bin/python -m pip check` | No broken installed requirements. |
+| JSON Schema generation and `--check` | All eight generated schemas current; existing six schema files unchanged. |
+| `npm --prefix frontend run generate:contracts` | New candidate/error TypeScript types generated; existing request/result types unchanged. |
+| `npm run build` | TypeScript/Vite production build passed. React components unchanged. |
+| `npm run test:frontend` | Both existing frontend test files passed. |
+| Real Uvicorn startup over localhost | `/health`, `/docs`, and `/openapi.json` returned 200; multipart candidate route documented. No inference calls made by this startup check. |
+| Synthetic example envelopes | Success, empty, partial, and error examples passed Pydantic validation. |
+
+Async checks initially stalled inside the execution sandbox, including a minimal
+independent framework/client example. The passing async suite and local TCP
+startup check ran outside that sandbox; no application logic was weakened to
+work around the restriction. A final change to the configurable question limit
+and OpenAPI metadata was followed by focused question-limit/docs checks.
+
+After explicit user approval, one live request used the already-saved pilot
+floorplan `experiments/runs/door-labeling/20261113T234605960384Z/input.png` and
+the question "Locate the doorways fitted with doors in this floorplan."
+The real Uvicorn endpoint returned HTTP 200 and `status: ok`, with five candidate
+records in the 2730 by 2048 display frame. The returned model was
+`nemotron-3.5-super-vl`; inference-stage elapsed time was 7,731 ms, with 4,411
+prompt tokens and 462 completion tokens. No final door count was generated.
+The response passed the public contract's box/bounds checks and retained
+`inventory_completeness: unverified`. This establishes live wiring on one image;
+no manual localization/recall audit or general accuracy claim is made.
+
+The live request initially required explicit payload/destination approval from
+automatic review; it ran only after the user's approval. Both temporary Uvicorn
+servers were stopped. No API images, credentials, prompts, or raw live responses
+were added to the repository. Frontend browser integration was not exercised.
+
 ## Local import library on Linux
 
 Checked 14 November 2026 with Node 24.22.3, npm 11.19.1, and the installed Firefox
@@ -119,20 +161,40 @@ and the browser required normal local network permissions in this sandbox. The
 owned browser and preview server were stopped after verification. Imports are
 tab-local previews, not persistent storage or an analysis/ingestion service.
 
-## Remaining verification gaps
+## Imported-drawing candidate UI integration
 
-- Real-device touch/virtual-keyboard behavior, Windows browser behavior, and
-  native file-save interactions still need checks on the demo devices. The Linux
-  browser checks above cover selected demo interactions and local import previews,
-  including PDF page navigation and the generated SVG export Blob.
-- The frontend uses prepared results. A real question-to-planner-to-IFC-to-viewer
-  flow, HTTP integration, and general raster extraction are not implemented.
-- Dataset-wide answer accuracy, evidence localization, multilingual robustness,
-  latency distributions, and inference cost have not been benchmarked here.
-- No fresh dependency installation, Linux backend run, live inference request,
-  or billing check was performed in these passes. The [Nemotron guide](nvidia_info.md) and saved
-  [door-labeling experiment](../experiments/door_labeling/RESULTS.md) retain their
-  earlier observations and limits.
+Checked 14 November 2026 on Linux with Node 24.22.3 and the installed Firefox
+142.0 in headless mode. This combines the latest `main` importer with the image
+candidate API branch. No new live Nemotron requests were made in this pass;
+browser checks used synthetic images and a local mocked API that echoed the
+actual uploaded PNG hash/dimensions and returned two candidate records.
+
+| Check | Observed result |
+| --- | --- |
+| Frontend tests | All five test files passed; a run with `--test-isolation=none` before the file arguments reported 31 individual tests passing. |
+| `npm run build` | TypeScript/Vite production build passed, including the PDF.js compatibility build. |
+| JSON Schemas and demo envelopes | All eight schemas current; all 28 existing demo answer envelopes still pass `QueryResult` validation. |
+| Initial workspace server rendering | Eight demo marks/evidence rows retained. Rerun outside the sandbox removed its Vite HMR-listener permission warning. |
+| Browser PNG analysis | File import enabled the question composer; the real browser request traversed Vite's `/api` proxy to the mocked service. Returned hash/dimensions matched the prepared snapshot, and two candidate marks/list rows appeared. |
+| Box placement and uncertainty | Landscape first box mapped exactly to `[235,138,84,31.5]` in the existing fitted viewport; the uncertain candidate had an amber dashed box and its reason in the list. No exhaustive-inventory claim or final object count was shown. |
+| Selection and view controls | Real pointer pan, zoom, rotation, marking toggles, row/overlay selection, image close-up, and focus worked on the imported snapshot. |
+| Exports | Captured marked SVG contained embedded PNG and candidate rectangles/colors; JSON retained the candidate response. No native save-dialog automation is claimed. |
+| Errors and result statuses | Mocked 503 displayed an error and allowed retry; empty and partial candidate responses retained their distinct meanings. |
+| SVG and stale requests | Imported SVG was rasterized and annotated; changing source during a delayed candidate request aborted/discarded the stale result. |
+| PDF pages and cancellation | A two-page synthetic PDF submitted the current landscape page at 1200 by 800 pixels and portrait page at 800 by 1200. Moving pages during a delayed request cleared/aborted the old result; the new page's boxes appeared in its own frame. |
+| Narrow layout | At 390 by 844 CSS pixels, the page had no horizontal overflow; source, two boxes, candidate rows and uncertainty remained readable in the stacked layout. |
+
+The standard PDF.js build initially failed in Firefox 142 because it invokes
+`Map.getOrInsertComputed`, absent in that browser. The importer now loads the
+bundled compatibility main and matching compatibility worker, which supply the
+needed platform polyfills. Vite prebundles the lazy compatibility reader so its
+first load does not trigger a dependency-optimization reload that loses imported
+tab state. Existing file library behavior and tests are retained.
+
+The browser harness and fixtures are temporary diagnostics, not bundled dataset
+assets or model accuracy evidence. The API's earlier approved live smoke request
+is recorded separately above. No inference credentials were used in browser
+code, and no extra dependency was added for browser automation.
 
 ## IFC viewer implementation — Linux, 14 November 2026
 
@@ -169,3 +231,44 @@ complete geometry/property coverage, QA accuracy, a 100 MiB memory guarantee,
 or verification on physical mobile/Windows devices. Backend answer integration,
 canonical-ID bridging, persistent storage, and large-model server conversion
 remain outside this implementation.
+
+## Combined IFC viewer and candidate UI merge
+
+The sections above record the independent implementation and verification passes.
+The current merge preserves the latest `main` IFC viewer alongside imported
+image/PDF candidate analysis and prepared synthetic demo answers. Checked on Linux
+with Node 24.22.3 and headless Firefox 142.0 after integrating the incoming
+`bb1a17c` IFC viewer commit:
+
+| Check | Observed result |
+| --- | --- |
+| Locked frontend install | `npm run setup:frontend` completed with dependency scripts disabled; incoming IFC versions/lockfile retained. |
+| Frontend regressions | All seven files passed; direct Node execution with `--test-isolation=none` reported 40 individual tests passing. |
+| Production build | TypeScript/Vite build passed with prepared self-hosted IFC assets. The incoming SDK's optional WebGPU export and large-chunk warnings remain; the WebGL path was exercised in the browser. |
+| Schemas, docs, and initial render | All eight schemas current; Markdown links/anchors and whitespace checks passed. Initial demo retained eight matched marks/evidence rows. |
+| Image candidates | A synthetic PNG submitted through the browser/proxy/mock API produced correctly aligned boxes. This retains the detailed image/SVG/error/export checks from the preceding candidate UI pass. |
+| Switching to IFC mid-request | A delayed PNG request was cancelled/discarded; its SVG/candidate state disappeared when selecting the IFC demo. IFC loaded cold before PDF.js's compatibility polyfills. |
+| IFC view and source inspection | Real FZK-Haus WebGL geometry/storeys appeared. STEP `#17468` selected `IFCDOOR`, original name `Innentuer-1`, GUID `1Oms875aH3Wq$l65H2ZGw`, and source dimensions height `2.01`, width `0.885`. |
+| Returning to 2D | The IFC canvas/inspector were disposed; a fresh PNG analysis produced candidates without stale IFC or earlier-candidate content. |
+| PDF pages | Landscape/portrait pages submitted 1200 by 800 and 800 by 1200 pixel snapshots. Page navigation cancelled the delayed old-page result and rendered new-page candidates. |
+
+No browser JavaScript errors were recorded. These checks used synthetic drawing
+fixtures and a local mock API, plus the bundled real IFC demo. No new external
+inference request was made; the earlier API live check is recorded separately.
+All owned test browsers, Vite listeners, and mock API servers were stopped.
+
+## Remaining verification gaps
+
+- Real-device touch/virtual-keyboard behavior, Windows browser behavior, and
+  native file-save interactions still need checks on the demo devices. The Linux
+  browser checks above cover selected demo interactions and local import previews,
+  including PDF page navigation and the generated SVG export Blob.
+- Demo sources use prepared results. Imported image/page candidate detection is
+  connected, but a final-answer planner and a question-to-IFC-to-viewer flow remain
+  unimplemented. General raster inventory/reconstruction is outside that service.
+- Dataset-wide answer accuracy, evidence localization, multilingual robustness,
+  latency distributions, and inference cost have not been benchmarked here.
+- No billing verification or dataset-wide performance benchmark was performed.
+  The [Nemotron guide](nvidia_info.md) and saved
+  [door-labeling experiment](../experiments/door_labeling/RESULTS.md) retain their
+  separately dated observations and limits.

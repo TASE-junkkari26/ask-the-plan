@@ -1,0 +1,144 @@
+"""One image/question to schema-validated, unreviewed candidate proposals."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from time import perf_counter
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+
+from contracts.models import ImageCandidateResponse
+from nemotron import AsyncNemotronClient, NemotronError, completion_text
+
+from .config import ApiSettings
+from .errors import ApiError
+from .images import PreparedImage
+
+PROMPT_VERSION = "candidate-v1"
+Coordinate = Annotated[float, Field(ge=0, le=1000, allow_inf_nan=False, strict=True)]
+Nonblank = Annotated[str, Field(min_length=1, max_length=1000)]
+
+
+class _Proposal(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    category: Annotated[str, Field(min_length=1, max_length=100)]
+    source_label: Annotated[str, Field(max_length=500)] | None = None
+    bbox_1000: tuple[Coordinate, Coordinate, Coordinate, Coordinate]
+    uncertain: bool = Field(strict=True)
+    uncertainty_reason: Nonblank | None = None
+    visual_cue: Nonblank
+
+    @model_validator(mode="after")
+    def valid_proposal(self):
+        x1, y1, x2, y2 = self.bbox_1000
+        if x1 >= x2 or y1 >= y2:
+            raise ValueError("candidate boxes must have positive area")
+        if not self.category.strip() or not self.visual_cue.strip():
+            raise ValueError("candidate category and cue must not be blank")
+        if self.uncertain:
+            if not self.uncertainty_reason or not self.uncertainty_reason.strip():
+                raise ValueError("uncertain candidates need an explanation")
+        elif self.uncertainty_reason is not None:
+            raise ValueError("certain candidates must have a null uncertainty reason")
+        return self
+
+
+class _Proposals(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    status: Literal["ok", "partial", "unreadable", "unsupported"]
+    candidates: list[_Proposal] = Field(max_length=100)
+    limitations: list[Nonblank] = Field(max_length=100)
+
+    @model_validator(mode="after")
+    def valid_result(self):
+        if any(not item.strip() for item in self.limitations):
+            raise ValueError("limitations must not be blank")
+        if self.status != "ok" and not self.limitations:
+            raise ValueError("a non-ok result requires an explanation")
+        if self.status in {"unreadable", "unsupported"} and self.candidates:
+            raise ValueError("unreadable and unsupported results must not contain candidates")
+        if len(self.candidates) == 100 and self.status != "partial":
+            raise ValueError("reaching the candidate limit requires a partial result")
+        records = [(item.category, item.bbox_1000) for item in self.candidates]
+        if len(set(records)) != len(records):
+            raise ValueError("duplicate category and geometry records")
+        return self
+
+
+class CandidateService:
+    def __init__(self, client: AsyncNemotronClient, settings: ApiSettings):
+        self.client = client
+        self.settings = settings
+        self._instruction = Path(__file__).with_name("prompt.txt").read_text(encoding="utf-8")
+
+    async def extract(self, image: PreparedImage, question: str,
+                      request_id: str) -> ImageCandidateResponse:
+        started = perf_counter()
+        schema = json.dumps(_Proposals.model_json_schema(), ensure_ascii=False)
+        system = (
+            f"{self._instruction}\n"
+            f"The submitted display image is {image.width} pixels wide and {image.height} pixels high.\n"
+            f"JSON Schema:\n{schema}"
+        )
+        try:
+            reply = await self.client.ask(
+                question,
+                system=system,
+                images=[image.path],
+                response_format={"type": "json_object"},
+                max_tokens=self.settings.max_tokens,
+            )
+        except NemotronError as exc:
+            if exc.status_code in {401, 403, 404}:
+                raise ApiError(503, "provider_configuration", "The inference provider is not configured for this service.") from None
+            if exc.retryable:
+                raise ApiError(503, "provider_unavailable", "The inference provider is temporarily unavailable.", retryable=True) from None
+            raise ApiError(502, "provider_error", "The inference provider could not complete the request.") from None
+
+        try:
+            batch = _Proposals.model_validate_json(completion_text(reply))
+            candidates = []
+            for index, proposal in enumerate(batch.candidates, start=1):
+                x1, y1, x2, y2 = proposal.bbox_1000
+                candidates.append({
+                    "id": f"candidate-{index:03d}",
+                    "category": proposal.category,
+                    "source_label": proposal.source_label,
+                    "geometry": {
+                        "kind": "box",
+                        "minimum": [x1 * image.width / 1000, y1 * image.height / 1000],
+                        "maximum": [x2 * image.width / 1000, y2 * image.height / 1000],
+                    },
+                    "uncertain": proposal.uncertain,
+                    "uncertainty_reason": proposal.uncertainty_reason,
+                    "visual_cue": proposal.visual_cue,
+                })
+            return ImageCandidateResponse.model_validate({
+                "request_id": request_id,
+                "image": {
+                    "sha256": image.sha256,
+                    "inference_sha256": image.inference_sha256,
+                    "width": image.width,
+                    "height": image.height,
+                    "coordinate_system": "display_pixels_top_left",
+                },
+                "status": batch.status,
+                "candidates": candidates,
+                "limitations": batch.limitations,
+                "provenance": {
+                    "requested_model": self.client.settings.model,
+                    "returned_model": reply.model,
+                    "prompt_version": PROMPT_VERSION,
+                },
+                "metrics": {
+                    "elapsed_ms": max(0, round((perf_counter() - started) * 1000)),
+                    "prompt_tokens": reply.usage.prompt_tokens if reply.usage else None,
+                    "completion_tokens": reply.usage.completion_tokens if reply.usage else None,
+                },
+            })
+        except (NemotronError, ValidationError, ValueError):
+            # Neither provider text nor Pydantic input dumps cross this boundary.
+            raise ApiError(502, "invalid_model_output", "The inference response was incomplete or did not contain valid candidates.") from None

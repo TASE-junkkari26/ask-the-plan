@@ -12,6 +12,8 @@ from pathlib import Path
 from .models import (
     BenchmarkCase,
     CapabilityManifest,
+    ImageCandidateError,
+    ImageCandidateResponse,
     KnowledgeBundle,
     QueryPlan,
     QueryResult,
@@ -26,6 +28,8 @@ ROOT_MODELS = (
     QueryResult,
     CapabilityManifest,
     BenchmarkCase,
+    ImageCandidateResponse,
+    ImageCandidateError,
 )
 OUTPUT_DIRECTORY = Path(__file__).resolve().parent / "jsonschema"
 DRAFT = "https://json-schema.org/draft/2020-12/schema"

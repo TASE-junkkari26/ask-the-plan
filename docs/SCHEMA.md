@@ -6,6 +6,10 @@ Current consumers are the standalone [IFC executor](IFC_ENGINE.md) and generated
 types used by the [mock frontend](../frontend/README.md). They are not integrated
 through an API yet. Use the executor's capability manifest for supported
 operations; the frontend's prepared evidence is not extracted source truth.
+The separate [image candidate API](../image_api/README.md) uses new
+`ImageCandidateResponse` and `ImageCandidateError` roots for localized, unverified
+image proposals. These are not final `QueryResult` claims. Existing IFC and
+frontend request/result contracts retain their behavior.
 
 The [project scope](PROJECT_SCOPE.md) is bounded by the supplied dataset's question
 families. The schema can represent extensions beyond that set; representability
@@ -24,6 +28,8 @@ The core distinction is **source evidence → canonical entities and facts → a
 | `QueryResult` | Typed claims, exact memberships, calculation DAG, evidence bindings, issues, and metrics | [QueryResult](../contracts/jsonschema/QueryResult.schema.json) |
 | `CapabilityManifest` | What this executor version can actually handle | [CapabilityManifest](../contracts/jsonschema/CapabilityManifest.schema.json) |
 | `BenchmarkCase` | Reference answer, source JSONL location, split/leakage group, tolerance, and adjudication | [BenchmarkCase](../contracts/jsonschema/BenchmarkCase.schema.json) |
+| `ImageCandidateResponse` | One image's candidate boxes, uncertainty, status, provenance and metrics; no final count/answer | [ImageCandidateResponse](../contracts/jsonschema/ImageCandidateResponse.schema.json) |
+| `ImageCandidateError` | Versioned safe HTTP failure with request ID, code, message and retryability | [ImageCandidateError](../contracts/jsonschema/ImageCandidateError.schema.json) |
 
 Generate the JSON Schemas from the repository root with `python -m contracts.export`. Check that they are current with `python -m contracts.export --check`. Do not edit the generated files. Draft 2020-12 schemas use internal `$defs` and stable versioned URN IDs; they require no network resolution.
 
