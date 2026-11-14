@@ -73,7 +73,7 @@ export function CandidatePanel({
     <section className="candidate-panel" aria-label={fi ? 'Tunnistetut ehdokkaat' : 'Detected candidates'}>
       <p className="candidate-question">{question}</p>
       <div className={`candidate-summary candidate-summary-${response.status}`}>
-        <span className="candidate-eyebrow"><ScanLine size={14} />{fi ? 'NEMOTRON · KUVAN EHDOKKAAT' : 'NEMOTRON · IMAGE CANDIDATES'}</span>
+        <span className="candidate-eyebrow"><ScanLine size={14} />{response.provenance.returned_model} · {fi ? 'KUVAN EHDOKKAAT' : 'IMAGE CANDIDATES'}</span>
         <h2>{response.status === 'unreadable' || response.status === 'unsupported' ? status : heading}</h2>
         <p>{status} · {fi ? 'Vain valittu kuva' : 'Selected image only'}</p>
       </div>

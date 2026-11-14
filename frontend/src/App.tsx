@@ -88,7 +88,7 @@ const copy = {
     formats: `PDF and images · Up to 35 MiB per file · IFC · Up to ${MAX_IFC_BYTES / 1024 / 1024} MiB`,
     opening: 'Opening your drawing…',
     analysisNote:
-      'Submitting sends this image or PDF page to Nemotron. Results are candidates for you to review.',
+      'Submitting sends this image or PDF page to the configured image model. Results are candidates for you to review.',
   },
   fi: {
     drawings: 'Piirustukset',
@@ -115,7 +115,7 @@ const copy = {
     formats: `PDF- ja kuvatiedostot · Enintään 35 MiB / tiedosto · IFC · Enintään ${MAX_IFC_BYTES / 1024 / 1024} MiB`,
     opening: 'Avataan piirustusta…',
     analysisNote:
-      'Kysymyksen lähettäminen lähettää tämän kuvan tai PDF-sivun Nemotronille. Tulokset ovat tarkistettavia ehdokkaita.',
+      'Kysymyksen lähettäminen lähettää tämän kuvan tai PDF-sivun määritetylle kuvamallille. Tulokset ovat tarkistettavia ehdokkaita.',
   },
 };
 
@@ -168,7 +168,7 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
         <FileImage size={17} />
         <span>
           Imports are previewed locally and cleared on refresh. Submitting a
-          drawing question sends the selected image or PDF page to Nemotron;
+          drawing question sends the selected image or PDF page to the configured image model;
           highlights are candidates for review. Asking about an IFC uploads it
           to the local backend. Nemotron plans the query, the IFC engine computes
           the answer, and matching source elements are highlighted for inspection.
@@ -1474,8 +1474,8 @@ export default function App() {
                     <div className="question-form-footer">
                       <span>
                         {language === 'fi'
-                          ? 'Näkyvä kuva → Nemotron'
-                          : 'Displayed image → Nemotron'}
+                          ? 'Näkyvä kuva → kuvamalli'
+                          : 'Displayed image → image model'}
                       </span>
                       <button
                         type="submit"
