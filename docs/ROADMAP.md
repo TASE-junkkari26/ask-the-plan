@@ -28,22 +28,24 @@ Source extraction caches can still be useful without becoming a training dataset
 
 | Available now | Work still needed |
 |---|---|
-| [React frontend](../frontend/README.md): import opening screen, dominant source viewer, searchable import picker, disabled drawing-chat composer, local IFC 3D inspection; prepared answers/evidence remain offline fixtures | Real source ingestion, backend connection, real evidence resolution, and the human verification gate |
+| [React frontend](../frontend/README.md): import opening screen, dominant source viewer, searchable import picker, image/PDF candidate analysis and close-ups, local IFC 3D inspection; prepared answers/evidence remain offline fixtures | Canonical source ingestion, final-answer planning/evidence resolution, and the human verification gate |
+| [Image candidate API](../image_api/README.md): image/question HTTP endpoint with unverified candidate boxes, uncertainty, hashes, and display coordinates | Evaluated detection completeness and accuracy; candidates alone do not establish final counts/answers |
 | [IFC engine](IFC_ENGINE.md): native extraction and structured scalar queries | Natural-language planning, HTTP integration, operations required by uncovered question families |
 | [Nemotron client](nvidia_info.md): text/image/JSON calls to the supplied endpoint | Evaluated question workflows, bounded orchestration, caching and service integration |
 | [Shared contracts](SCHEMA.md): source, scope, entities, evidence and results | Real adapters populating them; schema validity alone cannot establish source truth |
 | [One-image door pilot](../experiments/door_labeling/RESULTS.md) | Broader count, subtype, completeness and localization evaluation; the pilot had clipped boxes and a wrong subtype despite the right count |
 
-The frontend's uploads currently provide previews only. The parser, client, and
-UI are independent. Passing component tests does not establish a working
-question-to-answer product; see the [verification record](VERIFICATION.md).
+The frontend previews imports locally and submits an image/PDF page to the
+candidate API only when a question is asked. IFC inspection and the structured
+IFC query engine remain independent. Passing component tests does not establish
+a complete question-to-answer product; see the [verification record](VERIFICATION.md).
 
 ## UI direction
 
 The local workbench implements the dominant source viewport, compact import
-picker, drawing-chat layout, and IFC inspector. Contextual evidence close-ups and
-prepared answers remain offline fixtures; real evidence integration and the
-human UI gate remain outstanding.
+picker, drawing-chat layout, candidate overlays/close-ups, and IFC inspector.
+Prepared answers remain offline fixtures; final-answer evidence integration and
+the human UI gate remain outstanding.
 
 Use one source viewport and one compact answer/evidence panel. Begin with roughly
 70% drawing and 30% panel on a laptop; adjust after trying real dense drawings.

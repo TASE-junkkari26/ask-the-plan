@@ -2,9 +2,10 @@
 
 A local React/TypeScript drawing workbench. It opens on a file import screen,
 then shows an image/PDF with a chat panel on the right or an IFC model with its
-3D inspector. No demo drawings or prepared answers are shown. No backend, model
-endpoint, or credentials are used; the chat composer remains disabled until
-uploaded-file analysis is connected.
+3D inspector. No demo drawings or prepared answers are shown. Submitting a
+question about an image/PDF uses the internal Nemotron image API and shows
+candidate boxes, uncertainty, and source close-ups. Inference credentials stay
+on the Python backend; IFC inspection stays local.
 
 The [project scope](../docs/PROJECT_SCOPE.md) is the supplied dataset's question
 families. Build real integrations and evidence views for that set; unknown
@@ -13,8 +14,8 @@ demo fixtures alone do not establish dataset coverage.
 
 The frontend follows the [roadmap's UI direction](../docs/ROADMAP.md#ui-direction):
 one dominant source viewport, a searchable drawing picker, and a right-side chat
-panel with a fixed question composer. The real backend and evidence connection
-remain planned; the features below describe the current local-preview prototype.
+panel with a fixed question composer. Imported-file detection returns candidate
+proposals for review; final answers/counts and IFC question planning remain pending.
 
 ## Run
 
@@ -25,6 +26,18 @@ Install Node.js 22.12 or later (24 LTS is the tested baseline). From the
 npm.cmd run setup:frontend
 npm.cmd run dev
 ```
+
+For imported-file analysis, also start the backend in a separate terminal from
+the repository root (Linux):
+
+```sh
+.venv/bin/python -m uvicorn image_api.app:app --host 127.0.0.1 --port 8000
+```
+
+On Windows use `.\.venv\Scripts\python.exe`. First install the project's `api`
+extra and configure the backend `.env` as described in the
+[API guide](../image_api/README.md#install-and-run). Vite proxies `/api` to that
+local server; the browser never receives the inference key.
 
 On Linux, use `npm` instead of `npm.cmd`. These root scripts forward to this
 directory. The root has no dependency lockfile; do not run root `npm ci`. If
@@ -43,11 +56,11 @@ still needs verification on the target demo devices.
 - Opening screen with a keyboard-accessible file selector and drag-and-drop area. Loading and invalid-file states stay on this screen until a preview is ready.
 - Local image/SVG/PDF previews with pan, zoom, fit, quarter-turn rotation, and PDF page navigation.
 - IFC imports with a separate 3D renderer, original object properties/IDs, storey filtering, visibility controls, and sectioning. The inspector occupies the right panel for models.
-- Chat panel opens automatically after an image/PDF loads or is selected. It displays the original filename and preview details, and explains why question answering is not available yet.
+- Chat panel opens automatically after an image/PDF loads or is selected. It displays the original filename and preview details, and sends the selected image/page for candidate analysis when a question is submitted.
 - Searchable drawing picker containing only imported files, with thumbnails and removal. The native dialog supports focus containment, Escape, and the `/` or Ctrl/Cmd+K shortcuts.
 - English/Finnish core UI labels; original filenames and source text stay unchanged.
 - Current-drawing scope by default, following the organizer clarification reported on 14 November 2026. Whole-building requests do not aggregate unseen drawings.
-- Multiple local files through a file picker or drag and drop, and SVG preview export. Local files are not analysed or sent anywhere.
+- Multiple local files through a file picker or drag and drop, marked SVG export, and candidate JSON export. Importing alone makes no analysis call.
 - Cancellation on source changes, keyboard shortcuts, help dialog, and responsive styles. On narrow screens the chat panel sits below the drawing and can be hidden from the viewer toolbar.
 
 The interface uses the existing Lucide icons and a bundled Cantarell variable
@@ -92,12 +105,24 @@ focus, hide/isolate/show all, and horizontal sectioning. The inspector preserves
 original attributes, property/type/quantity links, units, GUIDs, and STEP IDs;
 metadata-only items remain inspectable. IFC has no SVG export or PDF pagination.
 
-Files stay in memory in the current tab and are cleared on refresh. They are not
-uploaded, stored on a server, or analysed; question answering is disabled. The
-chat panel opens for each selected image/PDF, including after it was manually
-hidden. Preview URLs are released when a file is
-removed, a PDF page is replaced, or the workbench unmounts. Switching sources
-cancels pending page rendering without allowing it to restore an old selection.
+Files stay in memory in the current tab and are cleared on refresh. For an
+image/PDF, submitting a question rasterizes the selected image/page onto white
+PNG and sends that snapshot and question to the API. The same frozen snapshot
+appears beneath candidate boxes. Analysis limits are 20 MiB for that PNG and 40
+megapixels; larger previews receive an explicit analysis-limit error.
+
+Select a numbered box or candidate row to inspect its original label, visual
+cue, uncertainty, and source close-up. Focus, pan, zoom, rotation, marking/label
+toggles, marked SVG export, and candidate JSON export work with these proposals.
+An empty list does not establish a true object count of zero. Partial, unreadable,
+unsupported, and error results remain distinct.
+
+The chat panel opens for each selected image/PDF, including after it was manually
+hidden. Source/page changes abort analysis, clear candidates, and discard stale
+responses. Returned image hashes/dimensions must match the submitted snapshot.
+Preview URLs are released when a file is removed, a PDF page is replaced, or the
+workbench unmounts. Switching sources cancels pending page rendering without
+allowing it to restore an old selection. IFC files are never submitted for analysis.
 Switching away from IFC cancels conversion/loading and disposes its scene and
 workers. Only the most recent converted model buffer is cached in memory.
 
@@ -109,10 +134,11 @@ from the root requires its optional dataset source.
 ## Backend integration boundary
 
 The application does not call `src/demo/engine.ts`. Its `askDemo` adapter and
-synthetic sources remain for offline fixture and contract checks. A future chat
-integration needs real uploaded-file ingestion and an API client accepting the
-generated `QuestionRequest` and returning a `QueryResult` plus resolved
-presentation evidence.
+synthetic sources remain for offline fixture and contract checks. Imported
+images/PDF pages use `/api/v1/candidates`, the generated `ImageCandidateResponse`,
+and a separate candidate overlay. Response-local candidate IDs are not canonical
+building entity IDs. Final-answer integration still needs a real planner accepting
+`QuestionRequest` and returning `QueryResult` with resolved source evidence.
 
 `src/types.ts` defines UI-only `Mark` and `DemoResponse` presentation records. They resolve the canonical entity, source geometry, label, ordinal, and calculation display. They are not additional physical facts or changes to the shared Python contracts. `src/contracts/` is generated from the committed request/result JSON Schemas.
 
@@ -127,9 +153,9 @@ Mock result IDs/anchors/coverage references are presentation fixtures. Sample en
 Preserve this separation during integration:
 
 1. The backend owns the answer, scope, inventory completeness, source identity, unit conversion, and calculation trace.
-2. Resolve source regions into the displayed source frame. Local file preview fits the original file into a fixed 1100 × 780 display frame with no evidence overlays. Real imported-file annotations must use the backend's declared frames/transforms.
+2. Resolve source regions into the displayed source frame. Local previews fit the image into a fixed 1100 × 780 frame; candidate boxes use the returned pixel dimensions and that same centered fit. Final evidence must preserve declared source frames/transforms.
 3. The frontend formats values, renders evidence, and manages selection. It must not infer the answer from the currently visible mark count.
-4. Uploaded files require a real ingestion service before question answering can be enabled for them.
+4. Candidate detections are unreviewed, response-local observations; they do not establish canonical object identities or exhaustive inventories for final answers.
 
 ## Checks
 
@@ -143,7 +169,8 @@ node scripts/smoke-render.mjs
 
 Tests cover import format/size validation, image decoding failures, preview URL
 cleanup, viewport helpers, separate IFC/2D limits, bounded converted-model caching,
-and cycle-safe property inspection. Retained offline demo tests also cover per-drawing
+cycle-safe property inspection, candidate API validation/cancellation, and pixel-to-view
+coordinate mapping. Retained offline demo tests also cover per-drawing
 scope, multilingual object consistency, logical identity across source
 appearances, area arithmetic, schedule lookup, missing information, and
 cancellation. `scripts/export-demo-fixtures.ts` emits sample result envelopes for
@@ -157,7 +184,10 @@ desktop and narrow-screen layouts, first-load errors, loading before chat opens,
 PDF navigation, mixed valid/invalid batches, reopening hidden chat on import,
 drag/drop events, and returning to the import screen after the last removal or
 refresh. Earlier library checks are retained as historical observations in the
-verification record. This is UI verification, not a real backend or dataset accuracy test.
+verification record. The combined import-first/candidate merge was checked with
+a local mock API for PNG/SVG/PDF analysis, hashes, box placement, uncertainty,
+status/error handling, exports, cancellation, IFC switching, and URL cleanup.
+These browser checks establish UI behavior, not live model or dataset accuracy.
 Actual mobile touch/keyboard behavior and Windows browser checks remain pending.
 
 Earlier IFC checks with real IFC2X3, IFC4, and IFC4.3 models, original property/ID

@@ -1,0 +1,48 @@
+{
+  "schema_version": "0.1.0",
+  "request_id": "request:test",
+  "scope": "submitted_image",
+  "image": {
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "inference_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "width": 1600,
+    "height": 1200,
+    "coordinate_system": "display_pixels_top_left"
+  },
+  "status": "partial",
+  "inventory_completeness": "unverified",
+  "candidates": [
+    {
+      "id": "candidate-001",
+      "category": "window",
+      "source_label": "121.A",
+      "geometry": {
+        "kind": "box",
+        "minimum": [
+          200.0,
+          300.0
+        ],
+        "maximum": [
+          280.0,
+          330.0
+        ]
+      },
+      "uncertain": false,
+      "uncertainty_reason": null,
+      "visual_cue": "Parallel window lines within an exterior wall."
+    }
+  ],
+  "limitations": [
+    "Synthetic example: one corner is unreadable."
+  ],
+  "provenance": {
+    "requested_model": "test-model",
+    "returned_model": "test-model-revision",
+    "prompt_version": "test-prompt-v1"
+  },
+  "metrics": {
+    "elapsed_ms": 12.5,
+    "prompt_tokens": null,
+    "completion_tokens": null
+  }
+}

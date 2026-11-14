@@ -100,9 +100,10 @@ async function previewPdf(
   page: number,
   signal?: AbortSignal,
 ): Promise<ImportedDrawing> {
-  const pdfjs = await import('pdfjs-dist');
+  // The compatibility build supplies newer JS methods on browsers such as Firefox 142.
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const { default: worker } =
-    await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+    await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url');
   signal?.throwIfAborted();
   pdfjs.GlobalWorkerOptions.workerSrc = worker;
   const data = new Uint8Array(await file.arrayBuffer());
