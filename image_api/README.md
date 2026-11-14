@@ -13,6 +13,9 @@ families. Other question-relevant candidates may be returned, but no general
 dataset coverage is claimed. See the [implementation plan](PLAN.md) and
 [Nemotron guide](../docs/nvidia_info.md).
 
+The [cropping and multiple-pass plan](CROPPING_PLAN.md) describes proposed
+Nemotron accuracy experiments; those passes are not implemented yet.
+
 ## Install and run
 
 From the repository root on Linux, with Python 3.10+ (tested with 3.12):
