@@ -1,0 +1,886 @@
+{
+  "$comment": "Generated from contracts.models; do not edit manually. JSON Schema checks structure. Pydantic and semantic validators also enforce local invariants, references, units, scope, and evidence.",
+  "$defs": {
+    "AnalysisCall": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_at": {
+          "maxLength": 40,
+          "title": "Completed At",
+          "type": "string"
+        },
+        "completion_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completion Tokens"
+        },
+        "elapsed_ms": {
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "number"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "input_height": {
+          "exclusiveMinimum": 0,
+          "title": "Input Height",
+          "type": "integer"
+        },
+        "input_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Sha256",
+          "type": "string"
+        },
+        "input_width": {
+          "exclusiveMinimum": 0,
+          "title": "Input Width",
+          "type": "integer"
+        },
+        "outcome": {
+          "enum": [
+            "completed",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "prompt_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Tokens"
+        },
+        "purpose": {
+          "enum": [
+            "routing",
+            "analysis"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "requested_model": {
+          "minLength": 1,
+          "title": "Requested Model",
+          "type": "string"
+        },
+        "returned_model": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Returned Model"
+        }
+      },
+      "required": [
+        "id",
+        "purpose",
+        "requested_model",
+        "completed_at",
+        "outcome",
+        "elapsed_ms",
+        "input_sha256",
+        "input_width",
+        "input_height"
+      ],
+      "title": "AnalysisCall",
+      "type": "object"
+    },
+    "AnalysisDecisionNode": {
+      "additionalProperties": false,
+      "properties": {
+        "call_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Call Id"
+        },
+        "criterion": {
+          "enum": [
+            "capability",
+            "route",
+            "preparation",
+            "analysis",
+            "evidence"
+          ],
+          "title": "Criterion",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id"
+        },
+        "probability": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Probability"
+        },
+        "reason_code": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "evaluated",
+            "selected",
+            "skipped",
+            "reused",
+            "completed",
+            "failed",
+            "unavailable"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threshold"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "id",
+        "criterion",
+        "state",
+        "reason_code"
+      ],
+      "title": "AnalysisDecisionNode",
+      "type": "object"
+    },
+    "BoxShape": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "box",
+          "title": "Kind",
+          "type": "string"
+        },
+        "maximum": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Maximum",
+          "type": "array"
+        },
+        "minimum": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Minimum",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "minimum",
+        "maximum"
+      ],
+      "title": "BoxShape",
+      "type": "object"
+    },
+    "CandidateImage": {
+      "additionalProperties": false,
+      "description": "The exact submitted source and oriented inference/display frame.",
+      "properties": {
+        "coordinate_system": {
+          "const": "display_pixels_top_left",
+          "default": "display_pixels_top_left",
+          "title": "Coordinate System",
+          "type": "string"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "integer"
+        },
+        "inference_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Inference Sha256",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "inference_sha256",
+        "width",
+        "height"
+      ],
+      "title": "CandidateImage",
+      "type": "object"
+    },
+    "CandidateMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "completion_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completion Tokens"
+        },
+        "elapsed_ms": {
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "number"
+        },
+        "preparation_cache_hit": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preparation Cache Hit"
+        },
+        "preparation_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preparation Ms"
+        },
+        "prompt_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Tokens"
+        }
+      },
+      "required": [
+        "elapsed_ms"
+      ],
+      "title": "CandidateMetrics",
+      "type": "object"
+    },
+    "CandidatePreparation": {
+      "additionalProperties": false,
+      "description": "Actual model image size, distinct from the unchanged display frame.",
+      "properties": {
+        "input_height": {
+          "exclusiveMinimum": 0,
+          "title": "Input Height",
+          "type": "integer"
+        },
+        "input_width": {
+          "exclusiveMinimum": 0,
+          "title": "Input Width",
+          "type": "integer"
+        },
+        "mode": {
+          "enum": [
+            "off",
+            "original",
+            "overview"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "pipeline_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pipeline Version"
+        },
+        "prepared_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prepared Id"
+        }
+      },
+      "required": [
+        "mode",
+        "input_width",
+        "input_height"
+      ],
+      "title": "CandidatePreparation",
+      "type": "object"
+    },
+    "CandidateProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "preprocessing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CandidatePreparation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "prompt_version": {
+          "minLength": 1,
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "requested_model": {
+          "minLength": 1,
+          "title": "Requested Model",
+          "type": "string"
+        },
+        "returned_model": {
+          "minLength": 1,
+          "title": "Returned Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requested_model",
+        "returned_model",
+        "prompt_version"
+      ],
+      "title": "CandidateProvenance",
+      "type": "object"
+    },
+    "ImageCandidate": {
+      "additionalProperties": false,
+      "description": "An unreviewed detection, not a canonical building entity or final claim.",
+      "properties": {
+        "category": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Category",
+          "type": "string"
+        },
+        "geometry": {
+          "$ref": "#/$defs/BoxShape"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "source_label": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Label"
+        },
+        "uncertain": {
+          "title": "Uncertain",
+          "type": "boolean"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "visual_cue": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Visual Cue",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "category",
+        "geometry",
+        "uncertain",
+        "visual_cue"
+      ],
+      "title": "ImageCandidate",
+      "type": "object"
+    },
+    "ImageCandidateError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "decision_trace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageDecisionTrace"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "message": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Message",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": "0.1.0",
+          "default": "0.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "code",
+        "message",
+        "retryable"
+      ],
+      "title": "ImageCandidateError",
+      "type": "object"
+    },
+    "ImageCandidateProgress": {
+      "additionalProperties": false,
+      "description": "Actual analyzer dispatch, sent before waiting for candidate output.",
+      "properties": {
+        "image": {
+          "$ref": "#/$defs/CandidateImage"
+        },
+        "question_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Question Sha256",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "requested_model": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Requested Model",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1.0",
+          "default": "0.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "question_sha256",
+        "image",
+        "requested_model"
+      ],
+      "title": "ImageCandidateProgress",
+      "type": "object"
+    },
+    "ImageCandidateResponse": {
+      "additionalProperties": false,
+      "description": "Image-bound proposals; an empty list does not establish a zero count.",
+      "properties": {
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/ImageCandidate"
+          },
+          "maxItems": 100,
+          "title": "Candidates",
+          "type": "array"
+        },
+        "decision_trace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageDecisionTrace"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "image": {
+          "$ref": "#/$defs/CandidateImage"
+        },
+        "inventory_completeness": {
+          "const": "unverified",
+          "default": "unverified",
+          "title": "Inventory Completeness",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Limitations",
+          "type": "array"
+        },
+        "metrics": {
+          "$ref": "#/$defs/CandidateMetrics"
+        },
+        "provenance": {
+          "$ref": "#/$defs/CandidateProvenance"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1.0",
+          "default": "0.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scope": {
+          "const": "submitted_image",
+          "default": "submitted_image",
+          "title": "Scope",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "partial",
+            "unreadable",
+            "unsupported"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "image",
+        "status",
+        "provenance",
+        "metrics"
+      ],
+      "title": "ImageCandidateResponse",
+      "type": "object"
+    },
+    "ImageDecisionTrace": {
+      "additionalProperties": false,
+      "description": "Host-recorded routing path, never a model's hidden reasoning.",
+      "properties": {
+        "assessment_probabilities": {
+          "additionalProperties": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "maxProperties": 8,
+          "propertyNames": {
+            "minLength": 1
+          },
+          "title": "Assessment Probabilities",
+          "type": "object"
+        },
+        "assessments": {
+          "additionalProperties": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxProperties": 8,
+          "propertyNames": {
+            "minLength": 1
+          },
+          "title": "Assessments",
+          "type": "object"
+        },
+        "calls": {
+          "items": {
+            "$ref": "#/$defs/AnalysisCall"
+          },
+          "maxItems": 2,
+          "title": "Calls",
+          "type": "array"
+        },
+        "capability_version": {
+          "minLength": 1,
+          "title": "Capability Version",
+          "type": "string"
+        },
+        "image": {
+          "$ref": "#/$defs/CandidateImage"
+        },
+        "mode": {
+          "enum": [
+            "off",
+            "shadow",
+            "auto"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/AnalysisDecisionNode"
+          },
+          "maxItems": 20,
+          "title": "Nodes",
+          "type": "array"
+        },
+        "policy_version": {
+          "minLength": 1,
+          "title": "Policy Version",
+          "type": "string"
+        },
+        "question_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Question Sha256",
+          "type": "string"
+        },
+        "recommended_profile": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "strong"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recommended Profile"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "selected_profile": {
+          "enum": [
+            "normal",
+            "strong",
+            "manual",
+            "pending"
+          ],
+          "title": "Selected Profile",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "question_sha256",
+        "image",
+        "mode",
+        "policy_version",
+        "capability_version",
+        "selected_profile"
+      ],
+      "title": "ImageDecisionTrace",
+      "type": "object"
+    }
+  },
+  "$id": "urn:stoa:contracts:0.1.0:ImageCandidateStreamEvent",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ImageCandidateError"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "progress": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ImageCandidateProgress"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ImageCandidateResponse"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "const": "0.1.0",
+      "default": "0.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "type": {
+      "enum": [
+        "handoff",
+        "result",
+        "error"
+      ],
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "type"
+  ],
+  "title": "ImageCandidateStreamEvent",
+  "type": "object"
+}

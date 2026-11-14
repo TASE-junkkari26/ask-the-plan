@@ -38,6 +38,10 @@ class GeminiError(RuntimeError):
         self.status_code = status_code
         self.retryable = retryable
         self.code = code
+        # Safe metadata only; populated from validated counters on decoded
+        # unsuccessful responses, without retaining raw bodies/continuation state.
+        self.usage: GeminiUsage | None = None
+        self.returned_model: str | None = None
         self.provider_code = (provider_code if isinstance(provider_code, str)
                               and provider_code in PROVIDER_ERROR_CODES else None)
 
@@ -75,7 +79,38 @@ def _counter(usage: dict[str, Any], name: str) -> int | None:
     return value
 
 
+def _parse_usage(value: dict[str, Any]) -> GeminiUsage | None:
+    usage = value.get("usage")
+    if usage is None:
+        return None
+    if not isinstance(usage, dict):
+        raise _invalid_response()
+    inputs = _counter(usage, "total_input_tokens")
+    outputs = _counter(usage, "total_output_tokens")
+    thoughts = _counter(usage, "total_thought_tokens")
+    return GeminiUsage(
+        prompt_tokens=inputs,
+        completion_tokens=outputs + thoughts if outputs is not None and thoughts is not None else None,
+        output_tokens=outputs, thought_tokens=thoughts,
+    )
+
+
 def _parse_reply(value: Any) -> GeminiReply:
+    try:
+        return _parse_completed_reply(value)
+    except GeminiError as exc:
+        if isinstance(value, dict):
+            try:
+                exc.usage = _parse_usage(value)
+            except GeminiError:
+                pass  # Malformed usage never becomes zero or a successful result.
+            model = value.get("model")
+            if model in ("gemini-4-hydrogen", "gemini-4-carbon"):
+                exc.returned_model = model
+        raise
+
+
+def _parse_completed_reply(value: Any) -> GeminiReply:
     if not isinstance(value, dict) or value.get("status") != "completed":
         raise _invalid_response()
     model = value.get("model")
@@ -106,20 +141,7 @@ def _parse_reply(value: Any) -> GeminiReply:
     text = "".join(texts).strip()
     if not text:
         raise _invalid_response()
-    usage = value.get("usage")
-    parsed_usage = None
-    if usage is not None:
-        if not isinstance(usage, dict):
-            raise _invalid_response()
-        inputs = _counter(usage, "total_input_tokens")
-        outputs = _counter(usage, "total_output_tokens")
-        thoughts = _counter(usage, "total_thought_tokens")
-        parsed_usage = GeminiUsage(
-            prompt_tokens=inputs,
-            completion_tokens=outputs + thoughts if outputs is not None and thoughts is not None else None,
-            output_tokens=outputs, thought_tokens=thoughts,
-        )
-    return GeminiReply(text=text, model=model, usage=parsed_usage)
+    return GeminiReply(text=text, model=model, usage=_parse_usage(value))
 
 
 async def _provider_error_code(response: httpx.Response) -> str | None:
