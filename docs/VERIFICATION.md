@@ -1323,3 +1323,38 @@ still reset the viewport. Synthetic SVG and PDF imports passed, with no uncaught
 JavaScript errors. Owned browser and preview processes were stopped. DXF uses
 the same 2D controls but was not separately imported in this check; Windows and
 physical mobile devices were not tested.
+
+## Common natural-language answers — 15 November 2026
+
+Checked on Linux with Python 3.12.3, Pydantic 2.14.3, IfcOpenShell 0.9.0.post1,
+FastAPI 0.162.7, Pillow 12.3.0, Shapely 2.2.0, Node 24.22.3 and Firefox 160.
+See the [runtime guide](NATURAL_LANGUAGE_ANSWERS.md) and
+[offline coverage/evaluation tools](../experiments/answers/README.md).
+
+| Check | Observed result |
+| --- | --- |
+| Python regression suite | `IFC_API_PROVIDER=nemotron .venv/bin/python -m unittest discover -s tests -q`: 702 tests run, no failures, one optional preview-model test skipped. The full-only corpus does not satisfy that preview test's exact path. Provider selection is fixed to the mocked transport so a developer's `.env` cannot redirect these checks. |
+| Common HTTP and contracts | Source registration, original/display hashes, page/layout/rotation/crop bindings, question-bound streams, actual handoff, empty versus zero, compound omission/failure isolation, direct plans, failed attempt accounting, narrative tampering and display-evidence corruption covered by synthetic fixtures. Existing endpoints retain their tests. |
+| Native PDF/table tools | Actual Node/PDF.js worker tested on rotated/cropped synthetic PDFs, repeated headers, ambiguous cells, 205-row inventories, fractions/units, row arithmetic, known exclusions, unknown filter membership, missing notes, cancellation and worker cleanup. Missing text cells remain `not_extracted`, not present empty facts. |
+| IFC arithmetic/evidence | Decimal units/dimensions, net/gross compatibility, ratios/percent, estimates/bounds, rounded division, zero division and unavailable units tested. Arithmetic operand membership is supporting evidence, not a claimed result inventory. A 3,000-door fixture retains all members in one compact evidence context; no source members are truncated to fit prose. |
+| Real IFC source regression | The full-corpus Esplanades model returned 211 model-wide door occurrences and 42 on `4.korrus`, computed by the engine. Source SHA-256: `b97db10a2cb679a6543ccf4e34cfa8e77753f14e67f51b403e6cd9a819e3748f`. This is a selected executor check, not language-planning accuracy. |
+| Real PDF source audit | Three supplied Opening Design PDFs extracted and mapped with PDF.js, including their native 90-degree rotations. [Saved audit](../experiments/answers/native_pdf_source_audit.json) records extraction only; it does not establish all 64 schedule/fixture question answers or table semantics. |
+| Family/source audit | Full classifier reconciles 127,044 rows and 234 families. The reference-free manifest hashes 8,102 referenced/companion assets into 5,847 conservative leakage groups. Bounded structural audit inspected 63 sources; seven oversized IFCs remain uninspected. All family answer outcomes remain unverified. |
+| Frontend | All 19 frontend test modules, TypeScript and production build passed. Existing ThatOpen/Three optional WebGPU export and large-chunk warnings remain. Generated schemas/types are current; Markdown links/anchors and whitespace checks passed. |
+| Firefox UI | Synthetic imported count, lookup/quantity evidence, independent compound failure, missing information, actual handoff, session reuse, cancellation, complete export and 390-pixel layout exercised. Native schedule fixture uses the real backend adapter with mocked HTTP transport; included/excluded rows, source cells, qualifications and role-labeled supporting members were inspected. Source focus survives desktop-to-mobile resizing. No horizontal overflow or uncaught app errors observed. Owned servers/browser processes were stopped. |
+| Single reviewer | One Astra-6 Max reviewer returned scoped **pass (`agent_reviewed`)** for the implemented slice after fixes, independently running 46 focused tests and targeted reproductions and inspecting desktop/mobile artifacts. Review was implementation-exposed, not blinded; it is not human ground truth or a completeness certificate. |
+
+Initial sandbox runs stalled on Python thread-wakeup sockets and rejected local
+HTTP listeners. A temporary test-runner heartbeat was used to isolate that
+restriction; the final complete run used normal local process/socket permissions
+and the ordinary unittest command. No application workaround was added. Windows
+and physical mobile devices were not retested.
+
+Full-plan acceptance remains open. Required specialist family executors,
+evaluated automatic visual completeness, comprehensive schedule associations,
+Swiss membership/measurement extraction, full-language failure realization,
+question-wide token/spend ceilings, answer caching and live full-corpus/held-out
+accuracy/cost evaluation remain unfinished. Structural audits and successful
+source extraction cannot establish source absence or close an answerable-family
+implementation gap. No paid corpus evaluation or all-question accuracy result is
+claimed.

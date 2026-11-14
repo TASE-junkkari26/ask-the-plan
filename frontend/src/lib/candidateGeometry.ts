@@ -5,7 +5,7 @@ import type {
 
 /** Match the imported <image>'s centered xMidYMid meet fit in DrawingArtwork. */
 export function candidateBounds(
-  candidate: ImageCandidate,
+  candidate: Pick<ImageCandidate, 'geometry'>,
   image: Pick<CandidateImage, 'width' | 'height'>,
 ): [number, number, number, number] {
   if (!(image.width > 0 && image.height > 0))

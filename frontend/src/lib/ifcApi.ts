@@ -26,7 +26,7 @@ export function ifcQualityLabel(value: string): string {
   const labels: Record<string, string> = { exact: '', estimated: 'Estimated', lower_bound: 'At least', upper_bound: 'At most' };
   return labels[value] ?? '';
 }
-function answerValue(value: unknown, depth = 0): boolean {
+export function answerValue(value: unknown, depth = 0): boolean {
   if (!object(value) || depth > 12) return false;
   switch (value.kind) {
     case 'count': return Number.isSafeInteger(value.value) && (value.value as number) >= 0;

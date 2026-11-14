@@ -15,9 +15,11 @@ from . import __version__
 from .catalog import CLASS_KEY, CONCEPT_CLASSES, POLICIES, RELATIONS
 from .ingest import load_ifc
 from .units import SI_TARGETS, convert, decimal_string
+from .scalar_math import ScalarArithmeticError, scalar_arithmetic
 
 EXECUTOR_VERSION = "ifc-engine/" + __version__
-OPERATIONS = ["select", "traverse", "spatial_query", "related_entities", "project", "rank", *["aggregate." + name for name in ["count", "sum", "mean", "min", "max"]]]
+OPERATIONS = ["select", "traverse", "spatial_query", "related_entities", "project", "rank", *["aggregate." + name for name in ["count", "sum", "mean", "min", "max"]],
+              *["arithmetic." + name for name in ["add", "subtract", "multiply", "divide"]]]
 
 
 class QueryError(ValueError):
@@ -112,7 +114,8 @@ class IfcQueryEngine:
                 "Single IFC revision; only source_records and modeled_objects scopes are supported.",
                 "Counts describe supported records in the supplied model, not physical building completeness.",
                 "Only scalar attributes, single-value properties and simple quantities are extracted.",
-                "Native spatial topology and bounded boundary/room geometry are supported when source prerequisites exist; metric spatial predicates, routes and arithmetic are not implemented.",
+                "Native spatial topology, bounded boundary/room geometry and scalar decimal arithmetic are supported when source prerequisites exist; metric spatial predicates and routes are not implemented.",
+                "Scalar arithmetic preserves dimensions and uncertainty; unsupported currency products, unsourced factors and offset-unit arithmetic remain unavailable.",
                 "Missing values fail explicitly; exterior-door lower-bound counts are supported, while unresolved topology aggregates and derived table-row counts are not.",
                 "Only the registered IFC occurrence, topmost-assembly and leaf policies are supported.",
                 "Ranking is bounded; ties use stable entity/row order and do not establish a unique extremum.",
@@ -241,7 +244,8 @@ class IfcQueryEngine:
             raise QueryError("unsupported_operation", "The plan requires capabilities unavailable in this executor.")
         for step in plan.steps:
             op = step.operation
-            capability = "aggregate." + op.method if op.kind == "aggregate" else op.kind
+            capability = ("aggregate." + op.method if op.kind == "aggregate"
+                          else "arithmetic." + op.operator if op.kind == "arithmetic" else op.kind)
             if capability not in OPERATIONS:
                 raise QueryError("unsupported_operation", f"Operation {capability!r} has no local executor yet.")
             if op.kind == "select" and op.count_policy not in POLICIES.values():
@@ -291,6 +295,38 @@ class IfcQueryEngine:
                                         count=len(excluded), entity_ids=sorted(excluded)))
                 state.value = m.ReferencesValue(kind="references", entity_ids=sorted(state.members))
                 inputs = []
+            elif op.kind == "arithmetic":
+                operands = [states[key] for key in op.input_step_ids]
+                if any(item.shape != "scalar" for item in operands):
+                    raise QueryError("unsupported_operation", "Arithmetic currently accepts scalar results only.")
+                try:
+                    value, quality = scalar_arithmetic([item.value for item in operands], op.operator,
+                        self.units, op.output_unit_id, ["estimated" if item.candidate_members else item.quality for item in operands])
+                except ScalarArithmeticError as exc:
+                    raise QueryError(exc.code, str(exc),
+                        sorted(set().union(*(item.members for item in operands))),
+                        sorted(set().union(*(item.facts for item in operands)))) from exc
+                policies = [item.policy for item in operands]
+                if isinstance(value, m.CountValue) and any(policy != policies[0] for policy in policies):
+                    raise QueryError("needs_clarification", "Arithmetic counts require the same counting grain and hierarchy.")
+                state = _State(value=value, members=set().union(*(item.members for item in operands)),
+                    policy=policies[0] if all(policy == policies[0] for policy in policies) else POLICIES["all_matches"],
+                    concepts=set().union(*(item.concepts for item in operands)),
+                    properties=set().union(*(item.properties for item in operands)),
+                    facts=set().union(*(item.facts for item in operands)),
+                    anchors=set().union(*(item.anchors for item in operands)), shape="scalar", quality=quality,
+                    notes=list(dict.fromkeys(note for item in operands for note in item.notes)),
+                    issues=list({issue.message.text: issue for item in operands for issue in item.issues}.values()),
+                    completeness="complete" if all(item.completeness == "complete" for item in operands) else "partial",
+                    coverage_complete=all(item.coverage_complete for item in operands),
+                    spatial_records=[record for item in operands for record in item.spatial_records],
+                    unresolved=set().union(*(item.unresolved for item in operands)),
+                    candidate_members=set().union(*(item.candidate_members for item in operands)),
+                    operation_keys=list(dict.fromkeys(key for item in operands for key in item.operation_keys)))
+                inputs = ["calculation:" + key for key in op.input_step_ids]
+                if quality != 'exact' and not state.issues:
+                    state.issues.append(m.Issue(code='incomplete_coverage', message=m.LocalizedText(
+                        text='The arithmetic result is qualified because its source inputs are uncertain or finite decimal rounding was required.')))
             else:
                 previous = states[op.input_step_id]
                 state = _State(previous.value, set(previous.members), previous.policy, set(previous.concepts),
@@ -302,7 +338,9 @@ class IfcQueryEngine:
                                candidate_members=set(previous.candidate_members), coverage_complete=previous.coverage_complete,
                                operation_keys=list(previous.operation_keys))
                 inputs = ["calculation:" + op.input_step_id]
-                if state.quality != "exact" and (op.kind != "aggregate" or op.method != "count"):
+                incomplete_membership = (state.unresolved or state.candidate_members or not state.coverage_complete
+                                         or any(issue.code == "incomplete_coverage" for issue in state.issues))
+                if state.quality != "exact" and incomplete_membership and (op.kind != "aggregate" or op.method != "count"):
                     raise QueryError("unsupported_operation", "An incomplete exterior-door selection supports occurrence counting only; other operations need complete membership.")
                 if op.kind == "spatial_query":
                     from .spatial import execute_spatial
@@ -364,6 +402,8 @@ class IfcQueryEngine:
                 elif op.kind == "rank":
                     items = list(state.value.entity_ids) if state.shape == "entities" else state.value.rows
                     ranked = [(index, item, self._required(item, op.field, state)) for index, item in enumerate(items)]
+                    if any(isinstance(value, m.QuantityValue) and value.quality != "exact" for _, _, value in ranked):
+                        raise QueryError("incomplete_coverage", "Uncertain source quantities cannot establish an exact ranking.")
                     signatures = {self._comparison_signature(value) for _, _, value in ranked}
                     if len(signatures) > 1:
                         raise QueryError("conflicting_evidence", "Ranking values have incompatible types, dimensions or quantity definitions.")
@@ -389,27 +429,30 @@ class IfcQueryEngine:
             state.anchors.update(a for e in state.members for a in self.entities[e].provenance.anchor_ids)
             if state.shape == "entities" and op.kind != "rank":
                 state.value = m.ReferencesValue(kind="references", entity_ids=sorted(state.members))
-            operation = op.method if op.kind == "aggregate" else op.kind
+            operation = op.method if op.kind == "aggregate" else op.operator if op.kind == "arithmetic" else op.kind
             if op.kind == "aggregate" and op.group_by:
                 operation = "group_by"
             for index, (converted, support) in enumerate(state.conversions):
                 node_id = f"calculation:{step.id}:convert:{index}"
                 calculations.append(m.CalculationNode(id=node_id, operation="convert_unit",
                     fact_ids=sorted(support.facts), anchor_ids=sorted(support.anchors), output=converted,
-                    quality="exact", rule_key="ifc.units.v1"))
+                    quality=converted.quality, rule_key="ifc.units.v1"))
                 inputs.append(node_id)
             calculations.append(m.CalculationNode(id="calculation:" + step.id, plan_step_id=step.id,
                 operation=operation, input_node_ids=inputs, fact_ids=sorted(state.facts),
-                included_set_id=set_id, excluded_set_id=excluded_id, anchor_ids=sorted(state.anchors), output=state.value,
-                quality="estimated" if state.candidate_members else state.quality, rule_key=state.policy.rule_key,
+                included_set_id=None if op.kind == 'arithmetic' else set_id,
+                excluded_set_id=excluded_id, anchor_ids=sorted(state.anchors), output=state.value,
+                quality="estimated" if state.candidate_members else state.quality,
+                rule_key="ifc.scalar_arithmetic.v1:" + op.operator if op.kind == "arithmetic" else state.policy.rule_key,
                 spatial_evidence=[m.SpatialEvaluation(**record) for record in state.spatial_records]))
             states[step.id] = state
         claims = []
         for output_key, step_id in plan.outputs.items():
             state = states[step_id]
+            arithmetic_output = next(step.operation.kind for step in plan.steps if step.id == step_id) == 'arithmetic'
             coverage = self._coverage(plan, state)
             bindings = [m.EvidenceBinding(calculation_id="calculation:" + step_id, fact_ids=sorted(state.facts),
-                        anchor_ids=sorted(state.anchors), entity_set_ids=["set:" + step_id],
+                        anchor_ids=sorted(state.anchors), entity_set_ids=[] if arithmetic_output else ["set:" + step_id],
                         evidence_kind="candidate" if state.candidate_members else "verified")]
             if isinstance(state.value, m.TableValue):
                 for row_index, row in enumerate(state.value.rows):
@@ -484,7 +527,10 @@ class IfcQueryEngine:
             if isinstance(present[0].value, m.QuantityValue):
                 state.anchors.update(present[0].value.unit_anchor_ids)
             if isinstance(present[0].value, m.QuantityValue) and present[0].value.quality != "exact":
-                raise QueryError("unsupported_operation", "Estimated source quantities need quality propagation before execution.")
+                quality = present[0].value.quality
+                state.quality = quality if state.quality in {"exact", quality} else "estimated"
+                state.issues.append(m.Issue(code="missing_information", entity_ids=[item], fact_ids=[fact.id for fact in present],
+                    message=m.LocalizedText(text="A source quantity is qualified as " + quality.replace("_", " ") + "; an exact quantity is unavailable.")))
             return present[0].value
         if ref.kind == "entity_id":
             return m.ReferencesValue(kind="references", entity_ids=[item])
@@ -564,6 +610,8 @@ class IfcQueryEngine:
         return self._compare(actual, expected, predicate.operator)
 
     def _compare(self, actual, expected, operator):
+        if any(isinstance(value, m.QuantityValue) and value.quality != "exact" for value in (actual, expected)):
+            raise QueryError("incomplete_coverage", "Filtering or ranking comparisons require exact values; uncertain bounds cannot establish exact membership.")
         if self._comparison_signature(actual) != self._comparison_signature(expected):
             raise QueryError("conflicting_evidence", "Cannot compare incompatible types, dimensions or quantity definitions.")
         left, right = self._scalar(actual), self._scalar(expected)
@@ -602,8 +650,8 @@ class IfcQueryEngine:
 
     def _value_key(self, value):
         if isinstance(value, m.QuantityValue) and value.unit_id is None:
-            return value.kind, value.quantity_kind, value.basis, None, Decimal(value.magnitude)
-        return self._comparison_signature(value), self._scalar(value)
+            return value.kind, value.quantity_kind, value.basis, None, Decimal(value.magnitude), value.quality
+        return (self._comparison_signature(value), self._scalar(value), value.quality) if isinstance(value, m.QuantityValue) else (self._comparison_signature(value), self._scalar(value))
 
     def _aggregate(self, state, op):
         if state.unresolved or state.candidate_members or not state.coverage_complete:
@@ -654,7 +702,7 @@ class IfcQueryEngine:
             for item, value, number in zip(items, values, numbers):
                 if value.unit_id != target.id:
                     converted = m.QuantityValue(kind="quantity", magnitude=decimal_string(number), unit_id=target.id,
-                        quantity_kind=value.quantity_kind, basis=value.basis, unit_resolution="derived")
+                        quantity_kind=value.quantity_kind, basis=value.basis, unit_resolution="derived", quality=value.quality)
                     state.conversions.append((converted, self._support(item, op.field, state)))
         else:
             numbers = [Decimal(value.value) for value in values]
@@ -669,7 +717,7 @@ class IfcQueryEngine:
             target = self.units["unit:1"]
         return m.QuantityValue(kind="quantity", magnitude=decimal_string(number), unit_id=target.id,
             quantity_kind=first.quantity_kind if isinstance(first, m.QuantityValue) else "number",
-            basis=first.basis if isinstance(first, m.QuantityValue) else "modeled", unit_resolution="derived")
+            basis=first.basis if isinstance(first, m.QuantityValue) else "modeled", unit_resolution="derived", quality=state.quality)
 
     def inspect(self) -> dict:
         classes = defaultdict(int)

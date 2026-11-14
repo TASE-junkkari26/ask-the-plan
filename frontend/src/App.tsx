@@ -41,9 +41,14 @@ import {
 } from 'lucide-react';
 import { CandidateLayer } from './components/CandidateLayer';
 import { CandidatePanel } from './components/CandidatePanel';
+import { AnswerPanel } from './components/AnswerPanel';
 import { DecisionTrace } from './components/DecisionTrace';
 import type { ImageCandidateResponse, ImageDecisionTrace } from './contracts/ImageCandidateResponse';
-import { CandidateApiError, prepareCandidateImage, requestCandidates } from './lib/candidateApi';
+import type { AnswerResponse } from './contracts/AnswerResponse';
+import type { AnswerEvidenceLocation } from './lib/answerEvidence';
+import type { RegisteredAnswerSource } from './lib/answerApi';
+import { AnswerApiError, drawingSnapshot, registerAnswerSource, releaseAnswerSource, requestAnswer, sameAnswerSnapshot } from './lib/answerApi';
+import { CandidateApiError, prepareCandidateImage } from './lib/candidateApi';
 import { candidateBounds } from './lib/candidateGeometry';
 import { modelName } from './lib/responseMetrics';
 import {
@@ -249,6 +254,9 @@ export default function App() {
     responseTimeMs: number;
     completedAt: string;
   } | null>(null);
+  const [answerResponse, setAnswerResponse] = useState<AnswerResponse | null>(null);
+  const [selectedEvidenceBox, setSelectedEvidenceBox] = useState<[number, number, number, number] | null>(null);
+  const sourceSessionRef = useRef<RegisteredAnswerSource | null>(null);
   const [candidateError, setCandidateError] = useState('');
   const [candidateErrorTrace, setCandidateErrorTrace] = useState<ImageDecisionTrace | null>(null);
   const [analysisUrl, setAnalysisUrl] = useState<string | null>(null);
@@ -269,6 +277,7 @@ export default function App() {
   const [rotation, setRotation] = useState(0);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [paperWidth, setPaperWidth] = useState(800);
+  const paperWidthRef = useRef(800);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [helpOpen, setHelpOpen] = useState(false);
@@ -282,6 +291,11 @@ export default function App() {
     localDrawings.find((source) => source.id === activeImportId) ?? null;
   const imported =
     activeSource && activeSource.kind !== 'ifc' ? activeSource : null;
+  useEffect(() => () => {
+    const session = sourceSessionRef.current;
+    sourceSessionRef.current = null;
+    if (session) void releaseAnswerSource(session.source_id);
+  }, [activeImportId, imported?.page]);
   const displayImported =
     imported && analysisUrl ? { ...imported, url: analysisUrl } : imported;
   const candidateCount = candidateResponse?.result.candidates?.length ?? 0;
@@ -323,16 +337,18 @@ export default function App() {
     if (ifcActive || !stage) return;
     const observer = new ResizeObserver(([entry]) => {
       const compact = entry.contentRect.width < 600;
-      setPaperWidth(
-        Math.max(
+      const nextWidth = Math.max(
           220,
           Math.min(
             entry.contentRect.width - (compact ? 32 : 48),
             ((entry.contentRect.height - (compact ? 80 : 88)) * 1100) / 780,
             1100,
           ),
-        ),
-      );
+        );
+      const scale = nextWidth / paperWidthRef.current;
+      paperWidthRef.current = nextWidth;
+      setPaperWidth(nextWidth);
+      setPan((position) => ({ x: position.x * scale, y: position.y * scale }));
     });
     observer.observe(stage);
     const wheel = (event: WheelEvent) => {
@@ -419,6 +435,8 @@ export default function App() {
 
   function clearCandidates() {
     setCandidateResponse(null);
+    setAnswerResponse(null);
+    setSelectedEvidenceBox(null);
     setCandidateError('');
     setCandidateErrorTrace(null);
     setCandidateProgress(null);
@@ -452,24 +470,40 @@ export default function App() {
       const snapshot = URL.createObjectURL(image.blob);
       analysisUrlRef.current = snapshot;
       setAnalysisUrl(snapshot);
+      const sourceSnapshot = await drawingSnapshot(imported, image, controller.signal);
+      let session = sourceSessionRef.current;
+      if (!session || !sameAnswerSnapshot(session.snapshot, sourceSnapshot)) {
+        if (session) void releaseAnswerSource(session.source_id);
+        session = await registerAnswerSource(imported.file, image, sourceSnapshot, controller.signal);
+        controller.signal.throwIfAborted();
+        if (requestRef.current !== controller) { void releaseAnswerSource(session.source_id); return; }
+        sourceSessionRef.current = session;
+      }
       setCandidateProgress({ phase: 'routing' });
-      const result = await requestCandidates(
-        image,
-        questionText,
-        controller.signal,
-        (progress) => {
+      const onProgress = (progress: import('./contracts/ImageCandidateStreamEvent').ImageCandidateProgress) => {
           if (requestRef.current === controller && !controller.signal.aborted)
             setCandidateProgress({ phase: 'handoff', model: progress.requested_model });
-        },
-        detailedScan,
-      );
+      };
+      let answer: AnswerResponse;
+      const sourceRequest = { source_id: session.source_id, source_sha256: session.source_sha256,
+        question: questionText, snapshot: sourceSnapshot, detail: detailedScan };
+      try {
+        answer = await requestAnswer(sourceRequest, controller.signal, image, onProgress);
+      } catch (failure) {
+        if (!(failure instanceof AnswerApiError) || ![404, 410].includes(failure.status)) throw failure;
+        session = await registerAnswerSource(imported.file, image, sourceSnapshot, controller.signal);
+        controller.signal.throwIfAborted();
+        sourceSessionRef.current = session;
+        answer = await requestAnswer({ ...sourceRequest, source_id: session.source_id }, controller.signal, image, onProgress);
+      }
       if (requestRef.current !== controller || controller.signal.aborted)
         return;
-      setCandidateResponse({
-        result, question: questionText,
+      setAnswerResponse(answer);
+      setCandidateResponse(answer.candidate_response ? {
+        result: answer.candidate_response, question: questionText,
         responseTimeMs: performance.now() - startedAt,
         completedAt: new Date().toISOString(),
-      });
+      } : null);
       setQuery('');
       resetViewport();
     } catch (error) {
@@ -500,6 +534,7 @@ export default function App() {
     const candidate = result?.candidates?.find((item) => item.id === id);
     if (!result || !candidate) return;
     setSelected(id);
+    setSelectedEvidenceBox(null);
     setShowMarks(true);
     setZoom(1.65);
     setPan(
@@ -510,6 +545,21 @@ export default function App() {
         rotation,
       ),
     );
+  }
+
+  function focusAnswerEvidence(location: AnswerEvidenceLocation) {
+    if (candidateResponse?.result.candidates?.some((candidate) => candidate.id === location.selectorValue)) {
+      focusCandidate(location.selectorValue);
+      return;
+    }
+    const box = location.box;
+    if (!box || !imported) return;
+    const bounds = candidateBounds({ geometry: { kind: 'box', minimum: [box[0], box[1]], maximum: [box[2], box[3]] } }, imported);
+    setSelected(null);
+    setSelectedEvidenceBox(box);
+    setShowMarks(true);
+    setZoom(1.65);
+    setPan(focusPan(bounds, paperWidth, 1.65, rotation));
   }
 
   function pointerDown(event: ReactPointerEvent<HTMLDivElement>) {
@@ -1037,32 +1087,23 @@ export default function App() {
                       <ArrowDownToLine size={14} />
                       {t.export}
                     </button>
-                    {candidateResponse && (
+                    {answerResponse && (
                       <button
                         className="secondary-button"
-                        aria-label="Export candidate JSON"
+                        aria-label="Export answer and evidence JSON"
                         onClick={() =>
                           downloadBlob(
                             new Blob(
                               [
                                 JSON.stringify(
-                                  imported?.dxf
-                                    ? {
-                                        source: {
-                                          filename: imported.file.name,
-                                          format: 'dxf',
-                                          ...imported.dxf,
-                                        },
-                                        candidate_response: candidateResponse.result,
-                                      }
-                                    : candidateResponse.result,
+                                  imported?.dxf ? { ...answerResponse, source_preview: imported.dxf } : answerResponse,
                                   null,
                                   2,
                                 ),
                               ],
                               { type: 'application/json' },
                             ),
-                            'drawing-candidates.json',
+                            'drawing-answer-evidence.json',
                           )
                         }
                       >
@@ -1210,6 +1251,10 @@ export default function App() {
                             }
                           />
                         )}
+                        {!asking && showMarks && selectedEvidenceBox && (() => {
+                          const [x, y, width, height] = candidateBounds({ geometry: { kind: 'box', minimum: [selectedEvidenceBox[0], selectedEvidenceBox[1]], maximum: [selectedEvidenceBox[2], selectedEvidenceBox[3]] } }, imported);
+                          return <rect x={x} y={y} width={width} height={height} fill="#147568" fillOpacity={0.12} stroke="#147568" strokeWidth={2} vectorEffect="non-scaling-stroke" />;
+                        })()}
                       </svg>
                     </div>
                     <div className="stage-corner">
@@ -1407,9 +1452,10 @@ export default function App() {
                     <PanelRightClose size={17} />
                   </button>
                 </div>
-                {candidateResponse && analysisUrl ? (
+                {answerResponse && analysisUrl ? (
                   <div className="candidate-results">
-                    <CandidatePanel
+                    <AnswerPanel response={answerResponse} language={language} onLocate={focusAnswerEvidence} imageUrl={analysisUrl} sourcePreview={imported?.dxf} />
+                    {candidateResponse && <CandidatePanel
                       response={candidateResponse.result}
                       question={candidateResponse.question}
                       responseTimeMs={candidateResponse.responseTimeMs}
@@ -1417,12 +1463,13 @@ export default function App() {
                       selected={selected}
                       onSelect={(id) => {
                         setSelected((value) => (value === id ? null : id));
+                        setSelectedEvidenceBox(null);
                         setShowMarks(true);
                       }}
                       onFocus={focusCandidate}
                       imageUrl={analysisUrl}
                       language={language}
-                    />
+                    />}
                   </div>
                 ) : (
                   <div className="local-preview-state">

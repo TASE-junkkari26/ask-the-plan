@@ -144,7 +144,7 @@ assert missing.status == "missing_information"
 
 Custom plans can combine selection, typed predicates, bounded relationship
 traversal, native-topology spatial queries, grouped aggregation, projection, and ranking of derived table
-columns. All IDs are resolved before execution. Unknown operations and count
+columns, and scalar Decimal arithmetic. All IDs are resolved before execution. Unknown operations and count
 rules are rejected; plans contain no SQL, Python, or function-evaluation strings.
 
 ### Native spatial queries
@@ -255,6 +255,17 @@ executor independently calculates answers; the validators check reference,
 scope, unit, policy, and evidence consistency. Neither layer formally validates
 the source IFC against every EXPRESS rule or establishes as-built accuracy.
 
+### Scalar arithmetic
+
+`ArithmeticOperation` accepts executed scalar step IDs and `add`, `subtract`,
+`multiply` or `divide`. Addition/subtraction require compatible dimensions and
+quantity definitions; derived results need a registered compatible unit. Ratios
+and percent use explicit dimensionless units. Inputs, facts and anchors remain
+in the calculation DAG. Estimates/bounds propagate conservatively; finite decimal
+rounding produces an estimated partial result. Missing inputs and zero division
+remain non-answers. This does not invent prices/carbon factors, convert currencies,
+implement derived row columns or execute generic `measure` operations.
+
 ## Caching and boundaries
 
 An optional JSON extraction cache is keyed by source content, resolved source
@@ -283,9 +294,9 @@ The engine remains a structured executor rather than a natural-language planner.
 
 General geometry measurements, clash detection, route finding, nearest-distance and
 orientation predicates,
-arithmetic plan steps, general partial aggregates beyond exterior-door lower
+general partial aggregates beyond supported source uncertainty and exterior-door lower
 bounds, arbitrary nested/list/table IFC
-properties, estimated-value propagation, natural-language planning, and
+properties, natural-language planning, and
 SVG/3D rendering remain explicit extension points. Ranked outputs are bounded
 and use deterministic tie order; they do not imply a unique maximum.
 

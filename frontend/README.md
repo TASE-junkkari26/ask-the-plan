@@ -13,9 +13,11 @@ IFC questions retain their separate planner and deterministic engine path.
 A local React/TypeScript drawing workbench. It opens on a file import screen,
 then shows an image/PDF/DXF with a chat panel on the right or an IFC model with its
 3D inspector. No demo drawings or prepared answers are shown. Submitting a
-question about an image/PDF/DXF uses the internal image API with its selected
-Nemotron or Gemini provider and shows candidate boxes, uncertainty, and source
-close-ups. Optional backend capability routing chooses Hydrogen or Carbon and
+question about an image/PDF/DXF registers its original bytes and displayed PNG
+with the local backend, then uses the common answer API. Answers show
+source-bound natural-language statements above candidate boxes or native source
+evidence. Visual counts stay qualified when omission or membership coverage is
+unresolved; an empty scan does not establish zero. Optional backend capability routing chooses Hydrogen or Carbon and
 records the path for the expandable explanation. While analysis is loading, the
 workbench shows image preparation, model selection and then **Handing to [model]**
 as soon as the backend dispatches the selected analyzer. Inference credentials stay
@@ -81,6 +83,7 @@ still needs verification on the target demo devices.
 - Chat panel opens automatically after an image/PDF/DXF loads or is selected. The workspace shows the original filename and preview details; the composer identifies the selected view sent for candidate analysis.
 - Loading image/PDF/DXF requests announce the backend-selected model immediately in the viewer and chat panel, in English/Finnish. A source/page change, cancellation or new request clears that status. The opt-in NDJSON response carries progress and the final result in one POST; JSON-only backends remain compatible without resubmitting analysis.
 - Completed image/PDF/DXF responses show the returned model, total response time, and estimated USD token cost, with an expandable usage and pricing breakdown. The collapsed **How this was analyzed** panel displays the recorded capability check, chosen route, preparation and execution. Failed requests retain their recorded path too; responses without a trace explicitly say so.
+- A common answer panel displays every requested part, its outcome, source scope and bound natural-language statements. Select **Show evidence** to inspect a contributing source region or IFC STEP record. Native statements and calculation inputs retain original source strings and units. Large result tables reveal additional rows in pages of 50; the JSON export includes every row and evidence member.
 - Searchable drawing picker containing only imported files, with thumbnails and removal. The native dialog supports focus containment, Escape, and the `/` or Ctrl/Cmd+K shortcuts.
 - English/Finnish core UI labels; original filenames and source text stay unchanged.
 - Image/PDF/DXF questions use the selected drawing/page/layout. IFC questions always use the entire imported model, including objects hidden in the preview. Whole-building requests do not aggregate separate imports.
@@ -141,7 +144,8 @@ metadata-only items remain inspectable. IFC has no SVG export or PDF pagination.
 
 Files stay in memory in the current tab and are cleared on refresh. For an
 image/PDF/DXF, submitting a question rasterizes the selected image/page/layout onto white
-PNG and sends that snapshot and question to the API. The same frozen snapshot
+PNG and registers the original file plus that snapshot with the local API. The
+backend selects native source tools or the existing visual analyzer. The same frozen snapshot
 appears beneath candidate boxes. Analysis limits are 20 MiB for that PNG and 40
 megapixels; larger previews receive an explicit analysis-limit error.
 
@@ -153,7 +157,9 @@ unsupported, and error results remain distinct.
 
 The chat panel opens for each selected image/PDF/DXF, including after it was manually
 hidden. Source/page/layout changes abort analysis, clear candidates, and discard stale
-responses. Returned image hashes/dimensions must match the submitted snapshot.
+responses. Returned original/display hashes, page/layout, dimensions and display
+transforms must match the submitted snapshot. PDF pages retain the actual PDF.js
+viewport transform, crop bounds and page rotation used for rendering.
 Preview URLs are released when a file is removed, a PDF page is replaced, or the
 workbench unmounts. Switching sources cancels pending page rendering without
 allowing it to restore an old selection. Asking about IFC uploads the original
@@ -201,21 +207,26 @@ same display. Gemini Decisions is estimated at $0.10 per million input tokens an
 
 The application does not call `src/demo/engine.ts`. Its `askDemo` adapter and
 synthetic sources remain for offline fixture and contract checks. Imported
-images/PDF pages/DXF layouts use `/api/v1/candidates`, the generated `ImageCandidateResponse`,
-and a separate candidate overlay. Select the image provider on the backend with
+images/PDF pages/DXF layouts register `/api/v1/sources`, then submit their bound
+question to `/api/v1/answers`. The generated `AnswerResponse` retains every
+part's `QueryResult`, executable plan and `KnowledgeBundle` evidence context.
+When visual analysis is used, its embedded `ImageCandidateResponse` feeds the
+existing separate candidate overlay. Select the image provider on the backend with
 `IMAGE_API_PROVIDER`; see [provider setup](../image_api/README.md#choose-the-image-provider).
 Response-local candidate IDs are not canonical
-building entity IDs. IFC uses `/api/ifc/models` and `/api/ifc/questions`, generated
-IFC wire contracts and the engine's `QueryResult` with source evidence. The configured
+building entity IDs. IFC registers `/api/ifc/models` and passes that existing
+model handle to `/api/v1/answers`; the common envelope embeds the IFC evidence
+response for existing 3D highlights and property inspection. The configured
 Nemotron or Hydrogen planner uses bounded source inspection before proposing
 queries; the backend validates and executes them. Exterior-door partial counts
 show “At least” and unresolved doors separately from exclusions. Select the IFC
 provider using [the independent settings](../docs/IFC_QUESTIONS.md#choose-the-ifc-planner).
-Final answers
-for image/PDF/DXF questions remain pending. DXF import uses the independent,
+Visual detections remain qualified observations rather than exact totals.
+The old candidate/detail/IFC question endpoints remain available for other clients.
+DXF import uses the independent,
 credential-free `/api/dxf/preview` endpoint and generated `DxfPreviewResponse`.
-DXF candidate exports include source/layout metadata and `candidate_response`
-as separate records, retaining the original source hash alongside the PNG hash.
+Answer exports retain source/page/layout metadata, original and display hashes,
+narrative, all structured parts, included/excluded sets and calculation inputs.
 
 `src/types.ts` defines UI-only `Mark` and `DemoResponse` presentation records. They resolve the canonical entity, source geometry, label, ordinal, and calculation display. They are not additional physical facts or changes to the shared Python contracts. `src/contracts/` is generated from the committed request/result JSON Schemas.
 
@@ -225,7 +236,11 @@ From `frontend/` (`npm` on Linux):
 npm.cmd run generate:contracts
 ```
 
-Mock result IDs/anchors/coverage references are presentation fixtures. Sample envelopes pass Pydantic `QueryResult` validation; this prototype does not provide the complete source `KnowledgeBundle` and matching plans needed for semantic `validate_result` checks, or establish real extraction completeness. The area example's geometric dimensions and subtraction are internally consistent, and matching plan/schedule doors share canonical identities.
+The retained demo result IDs/anchors/coverage references are presentation fixtures.
+Those sample envelopes pass Pydantic `QueryResult` validation without establishing
+real extraction completeness. Runtime common answers carry source evidence and
+plans for backend semantic validation; that validation still cannot establish
+that a visual scan found every depicted object.
 
 Preserve this separation during integration:
 
@@ -253,6 +268,18 @@ appearances, area arithmetic, schedule lookup, missing information, and
 cancellation. `scripts/export-demo-fixtures.ts` emits sample result envelopes for
 validation against the Python contracts. The server-rendering smoke check
 asserts that first open contains file import controls and no drawing or chat.
+Common answer tests additionally cover original/display registration, rotated
+PDF crop mappings, stale source/question/page/transform rejection, requested-part
+accounting, narrative claim/anchor references, native results without a model
+handoff, immediate visual handoff, cancellation and distinct missing-information
+versus implementation-gap labels.
+
+The common answer UI was also exercised in headless Firefox 160 on Linux with
+synthetic source-bound envelopes and a mocked local API: qualified count and
+source selection, complete evidence export, independent compound missing-area
+outcome, empty-scan uncertainty, cancellation, source-session reuse and a 390px
+layout. These checks establish browser behavior; they do not measure model
+accuracy or supplied-dataset coverage.
 
 The latest checks are recorded in the [verification record](../docs/VERIFICATION.md).
 The frontend logic checks, production build, and initial server-rendering smoke

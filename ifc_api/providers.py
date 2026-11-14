@@ -46,7 +46,7 @@ def gemini_schema(schema: dict) -> dict:
     recursive predicate/value types. The complete original schema remains in the
     system instruction and is enforced by the local Pydantic query boundary.
     """
-    keywords = {"$ref", "type", "description", "format", "required", "enum"}
+    keywords = {"$ref", "type", "format", "required", "enum"}
 
     def convert(value):
         if isinstance(value, bool):
@@ -98,7 +98,7 @@ def gemini_plan_schema(schema: dict) -> dict:
     step = resolve(properties["steps"]["items"])
     operation = step["properties"]["operation"]
     variants = operation.get("oneOf", operation.get("anyOf", []))
-    supported = {"select", "traverse", "aggregate", "spatial_query", "related_entities", "project", "rank"}
+    supported = {"select", "traverse", "aggregate", "spatial_query", "related_entities", "project", "rank", "arithmetic"}
     operations = []
     for variant in variants:
         original = resolve(variant)
@@ -108,7 +108,7 @@ def gemini_plan_schema(schema: dict) -> dict:
         for name in ("where", "exclude"):
             if name in converted.get("properties", {}):
                 converted["properties"][name] = {"type": ["object", "null"],
-                    "description": "A typed predicate from the complete source schema in the instructions, or null. Full predicate validation is local."}
+                    "description": "Typed predicate; the host validates the full schema."}
         operations.append(converted)
     if not operations:
         raise ValueError("The IFC planner schema has no registered operation kinds.")
@@ -118,7 +118,8 @@ def gemini_plan_schema(schema: dict) -> dict:
                        if key not in {"steps", "requests"}},
         "required": schema.get("required", []),
         "additionalProperties": False,
-        "$defs": {name: gemini_schema(definitions[name]) for name in ("CountPolicy", "FieldRef")},
+        "$defs": {name: gemini_schema(definitions[name]) for name in ("CountPolicy", "FieldRef", "PlannedUnavailable", "AnswerRequestedPart")
+                  if name in definitions},
     }
     compact["properties"]["steps"] = {
         "type": "array", "items": {

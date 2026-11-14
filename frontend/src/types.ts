@@ -50,6 +50,12 @@ export interface ImportedDrawing {
   pages: number;
   kind: 'image' | 'pdf' | 'dxf';
   dxf?: Omit<DxfPreviewResponse, 'svg'>;
+  /** The exact PDF.js mapping used to render this page, including its crop box. */
+  pdf?: {
+    rotation: number;
+    viewportTransform: [number, number, number, number, number, number];
+    sourceBounds: [number, number, number, number];
+  };
 }
 /** A tab-local preview identity, independent of backend source identities. */
 export interface LocalDrawing extends ImportedDrawing {

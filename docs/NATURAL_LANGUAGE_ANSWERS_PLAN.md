@@ -5,6 +5,12 @@ by this document.** Baseline: `main` at `833c5c8`. Acceptance follows the
 [challenge brief](../dataset/task.md), [repository instructions](../AGENTS.md)
 and [project scope](PROJECT_SCOPE.md).
 
+Implementation update, 15 November: the [runtime guide](NATURAL_LANGUAGE_ANSWERS.md)
+and [verification record](VERIFICATION.md) describe the delivered common answer
+slice and remaining acceptance gaps. The full corpus is present under the ignored
+dataset directory; the earlier availability observation below is historical.
+Source audits are recorded in the [answer experiments](../experiments/answers/README.md).
+
 ## 1. Deliverable and completion boundary
 
 An engineer imports a drawing or IFC model, asks a question in natural language,

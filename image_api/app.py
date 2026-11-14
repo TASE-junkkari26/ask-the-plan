@@ -39,6 +39,9 @@ from .preprocessing import ImagePreprocessor
 from .detail import DetailTools, DetailOptions
 from .service import CandidateService, GeminiCandidateProvider
 from .routing import RoutedCandidateService
+from answer_api.routes import install_answer_routes, MAX_SOURCE_BODY_BYTES
+from answer_api.service import AnswerService
+from document_engine import DocumentStore
 
 
 def _error(request_id: str, status: int, code: str, message: str,
@@ -91,7 +94,8 @@ class BodyLimitMiddleware:
         # Source uploads stream into multipart's spool instead of the image body
         # buffer. Each source format retains its own limit.
         path = scope.get("path")
-        max_bytes = (self.ifc_max_bytes if path == "/api/ifc/models"
+        max_bytes = (MAX_SOURCE_BODY_BYTES if path == "/api/v1/sources"
+                     else self.ifc_max_bytes if path == "/api/ifc/models"
                      else self.dxf_max_bytes if path == "/api/dxf/preview"
                      else self.max_bytes)
         received = 0
@@ -196,6 +200,8 @@ def create_app(settings: ApiSettings | None = None, *,
         app.state.detail_slots = asyncio.Semaphore(settings.max_concurrent)
         app.state.in_flight = 0
         app.state.preprocessor = ImagePreprocessor(settings)
+        document_directory = TemporaryDirectory(prefix='ask-plan-documents-')
+        app.state.documents = DocumentStore(Path(document_directory.name))
         try:
             try:
                 if client_factory is None:
@@ -227,6 +233,8 @@ def create_app(settings: ApiSettings | None = None, *,
                 None if ifc_configuration_error is not None else client,
                 planner=planner, settings=ifc_settings)
             app.state.ifc_service.configuration_error = ifc_configuration_error
+            app.state.answer_service = AnswerService(app.state.documents, app.state.ifc_service,
+                                                     deadline_seconds=settings.deadline_seconds)
             # Image and IFC provider choices have separate clients and budgets.
             if settings.provider == "gemini":
                 try:
@@ -279,6 +287,8 @@ def create_app(settings: ApiSettings | None = None, *,
                 if hasattr(app.state, "ifc_service"):
                     cleanup.push_async_callback(asyncio.to_thread, app.state.ifc_service.close)
                 cleanup.push_async_callback(asyncio.to_thread, app.state.preprocessor.close)
+                cleanup.callback(document_directory.cleanup)
+                cleanup.push_async_callback(asyncio.to_thread, app.state.documents.close)
 
     app = FastAPI(title="Ask the Plan analysis", version="0.1.0", lifespan=lifespan,
                   description="Image candidate regions, local DXF layout previews and model-planned, engine-computed IFC answers with source evidence.")
@@ -556,6 +566,8 @@ def create_app(settings: ApiSettings | None = None, *,
 
     install_ifc_routes(app)
     install_dxf_routes(app)
+    install_answer_routes(app, settings, prepare=prepared_input, analyze=analyze,
+                          stream_response=_CandidateStreamResponse)
     return app
 
 

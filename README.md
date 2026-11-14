@@ -21,10 +21,13 @@ optional extensions unless a supplied question needs them. See the
 
 ## Current state
 
-The next implementation phase is described in the
-[natural-language answer plan](docs/NATURAL_LANGUAGE_ANSWERS_PLAN.md): combine
-existing detection and IFC results with source facts, calculations and inspectable
-evidence. This is planned work; drawing candidates are not final answers yet.
+The workbench uses a shared [natural-language answer pipeline](docs/NATURAL_LANGUAGE_ANSWERS.md)
+with source-bound parts, deterministic wording, clickable evidence and exports.
+It reuses IFC execution, adds scalar arithmetic and independent compound outputs,
+and supports native PDF text/schedule tools. Drawing detections remain qualified
+observations. The [implementation plan](docs/NATURAL_LANGUAGE_ANSWERS_PLAN.md)
+and offline family ledger retain the remaining acceptance work; complete
+dataset-family coverage has not been established.
 
 The frontend now includes **Detailed scan** for large drawings. It uses automatic
 panel selection, native overlapping tiles and source-bound reconciliation through
@@ -102,13 +105,16 @@ Install the API extra and start the service:
 ```
 
 On Windows, use `.\.venv\Scripts\python.exe` for both commands. Open
-<http://127.0.0.1:8000/docs> to submit one image and one question. The API returns
-image-bound candidate boxes, not a final answer/count. Leave this backend running
+<http://127.0.0.1:8000/docs> for the source/answer and existing candidate routes.
+The candidate endpoint returns proposals; the common answer endpoint returns
+qualified observations or executed source-backed values. Leave this backend running
 and start `npm run dev` in a second terminal. In the UI, import a drawing, select
-its image/PDF page or DXF layout, and submit a question to see candidate boxes and a review list.
+its image/PDF page or DXF layout, and submit a question to see an answer and inspectable evidence.
 Images/PDFs preview in the browser; DXF import uploads the original to the local backend
 for layout rendering, without inference. Image/PDF/DXF questions send the
-displayed raster to the selected image provider through the backend. The backend prepares a canonical
+displayed raster to the selected image provider through the common answer coordinator,
+after registering the original and snapshot at `/api/v1/sources`. Native PDF tools
+read the registered original. The backend prepares a canonical
 upright PNG before optional raster preprocessing. Its default `original` mode
 caches preparation without changing model input; opt-in `overview` mode sends
 only the uncropped full-source overview and maps boxes back to the original
@@ -297,6 +303,8 @@ image_api/      Local image/question HTTP service returning candidate boxes
 ifc_api/        Local IFC upload, bounded source discovery and selectable planner
 dxf_api/        Local DXF layout rendering for preview and visual questions
 drawing_preprocessor/  CPU raster preparation and source-inspection tool adapter
+document_engine/  Temporary original/display sessions and native PDF/table tools
+answer_api/     Common answer coordination, budgets and deterministic wording
 experiments/    Reproducible model experiments, prompts, and findings
 contracts/      Shared models, validation, JSON Schemas, synthetic examples
 tests/          Contract, IFC, Nemotron, reporting, and documentation checks
@@ -318,6 +326,7 @@ adjust commands to the actual root rather than assuming that layout.
 |---|---|
 | [Hackathon roadmap](docs/ROADMAP.md) | Current build order, minimal evidence UI, model decision gates, and overnight-work choices |
 | [Project scope](docs/PROJECT_SCOPE.md) | Dataset-defined acceptance boundary and required work versus extensions |
+| [Natural-language answers](docs/NATURAL_LANGUAGE_ANSWERS.md) | Implemented common pipeline, native tools, evidence and remaining acceptance gaps |
 | [Verification record](docs/VERIFICATION.md) | Checks rerun for this hardening pass and remaining verification gaps |
 | [Question classification](docs/QUESTION_CLASSIFICATION.md) | Generated, exhaustive analysis taxonomy; no runtime answers |
 | [Dataset research](docs/DATASET_RESEARCH.md) | Template concentration and proposed answering pipeline |

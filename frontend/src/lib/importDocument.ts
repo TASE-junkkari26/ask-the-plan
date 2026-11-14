@@ -162,6 +162,11 @@ async function previewPdf(
         page,
         pages: pdf.numPages,
         kind: 'pdf',
+        pdf: {
+          rotation: viewport.rotation,
+          viewportTransform: [...viewport.transform] as [number, number, number, number, number, number],
+          sourceBounds: [...pdfPage.view] as [number, number, number, number],
+        },
       };
     } finally {
       canvas.width = canvas.height = 0;

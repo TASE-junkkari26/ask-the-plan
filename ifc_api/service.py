@@ -31,12 +31,19 @@ from .providers import NemotronPlanner, PlannerReply, PlannerUsage
 
 MAX_IFC_BYTES = 512 * 1024 * 1024
 MAX_IFC_BODY_BYTES = MAX_IFC_BYTES + 1024 * 1024
-PROMPT_VERSION = "ifc-plan-v4-discovery-spatial-preflight"
+PROMPT_VERSION = "ifc-plan-v5-independent-outputs-arithmetic"
 MAX_PLANNING_CHARS = 750000
 
 
 class InvalidProposal(ValueError):
     """A repairable proposal shape/reference error, without raw provider data."""
+
+
+class PlannedUnavailable(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    key: str = Field(min_length=1, max_length=100)
+    status: Literal["needs_clarification", "unsupported_operation", "missing_information", "missing_source"]
+    message: str = Field(min_length=1, max_length=2000)
 
 
 class PlanProposal(BaseModel):
@@ -54,6 +61,8 @@ class PlanProposal(BaseModel):
     output_step_id: str | None = Field(default=None, max_length=100)
     outputs: dict[str, str] = Field(default_factory=dict, max_length=8)
     requests: list[DiscoveryRequest] = Field(default_factory=list, max_length=6)
+    unavailable_parts: list[PlannedUnavailable] = Field(default_factory=list, max_length=16)
+    requested_parts: list[m.AnswerRequestedPart] = Field(default_factory=list, max_length=16)
 
     @model_validator(mode="after")
     def check_plan(self):
@@ -66,6 +75,14 @@ class PlanProposal(BaseModel):
             raise ValueError("non-answer proposals do not carry steps")
         if (self.status == "inspect") != bool(self.requests):
             raise ValueError("only inspect proposals carry nonempty discovery requests")
+        keys = [part.key for part in self.unavailable_parts]
+        if len(keys) != len(set(keys)) or set(keys) & self.outputs.keys():
+            raise ValueError("unavailable and executable output keys must be unique")
+        if self.requested_parts:
+            m.AnswerIntent(scope_label='compiled question', requested_parts=self.requested_parts)
+            expected = {part.key for part in self.requested_parts}
+            if not set(self.outputs) | set(keys) <= expected:
+                raise ValueError('outputs must reference the separately compiled requested parts')
         return self
 
 
@@ -402,7 +419,7 @@ Examples: 'How many windows are visible?' => false; 'Kuinka monta ikkunaa nykyis
 For scope=view the server already captured and will enforce the exact visible object membership. You do not need viewport coordinates, visible IDs, camera details or a floor name to plan a current-view question. Simply select the requested category and operation; do not ask clarification merely because those view details are absent from the catalog.
 Default to occurrence counting with all_matches; use topmost_matches for stair assemblies, leaves only when the question requests parts.
 For ambiguous object meaning (e.g. toilets as rooms versus sanitary fixtures), ask needs_clarification. Unknown property path means missing_information, never guess a substitute or return zero.
-Implemented: select, traverse, spatial_query, related_entities, project, rank, aggregate count/sum/mean/min/max. Use spatial_prerequisites to distinguish implemented operations from source availability. General metric spatial predicates, north/facade orientation, nearest-distance questions, routes, compliance, arbitrary arithmetic and derived dimensions are unsupported_operation.
+Implemented: select, traverse, spatial_query, related_entities, project, rank, aggregate count/sum/mean/min/max, and scalar arithmetic add/subtract/multiply/divide with input_step_ids. Arithmetic inputs must be executed scalars, with compatible dimensions/basis for addition/subtraction; provide output_unit_id for derived physical dimensions, ratios and percent where available in the catalog. Never invent prices, carbon factors, criteria or constants absent from the source. Use spatial_prerequisites to distinguish implemented operations from source availability. Generic metric spatial predicates, north/facade orientation, nearest-distance questions, routes, compliance and row-wise derived columns are unsupported_operation.
 Use spatial_query for IFC spatial evidence: containers with container_kind space/storey/building/site returns object-to-location rows; boundary_neighbors returns corresponding-boundary neighbors, geometry-checked boundary matches and qualified shared-boundary candidates; door_connections returns rooms with shared physical door/opening boundaries (a shared wall is not a door connection); outdoor_access selects rooms with recorded PHYSICAL EXTERNAL door boundaries. method=auto prefers native topology and uses bounded geometry where supported; method=native prevents geometry fallback. Begin room topology queries by selecting IfcSpace occurrences. Outdoor_access returns distinct rooms and can feed aggregate count, not a count of doors or boundaries. For 'How many doors lead outside?' select concept:door occurrences, spatial_query relation exterior_doors with exterior_basis combined, then aggregate count. exterior_basis classification means only recorded Pset_DoorCommon.IsExternal; boundary means only recorded PHYSICAL EXTERNAL door/opening relationships. Combined uses both; the executor reports unresolved classifications and conflicts. Never substitute outdoor_access room counts for exterior doors. Other spatial_query variants return tables with subject/related/via references and basis text. To count or inspect the related rooms/containers, follow with related_entities(input_step_id, column='related'), then aggregate/project/traverse. This deduplicates canonical objects; never count relationship rows or all evidence objects. Incomplete/candidate spatial selections cannot establish exact totals.
 Adjacency based only on a shared whole wall is a partial candidate answer; do not claim geometric adjacency. Missing boundaries are missing_information, never zero. External doors are not verified fire exits. For other native topology use catalog relations with their actual direction: space bounded_by element, host has_opening opening, opening filled_by door, element assigned_to_system system, element assigned_to_zone zone. Do not use shared host wall as a doorway path.
 For descriptive file/project/location/software/layout questions, query original project/site/building/space properties and labels. FILE_SCHEMA means the file's declared IFC schema; source application facts identify authoring software. Use project concept for header metadata. RefLatitude/RefLongitude preserve literal IFC compound-angle tuples in degrees/minutes/seconds[/millionths of a second], not decimal degrees; RefElevation retains length units. Do not infer history, structural quality, room layout geometry or regulations from names. A source inventory or containment description is allowed; it is not a measured layout. The server writes natural-language summaries from executed results; never supply unsupported prose facts.
@@ -433,6 +450,18 @@ The interpretation is a short human-readable statement of what the query will co
         if repair is not None:
             payload["plan_repair"] = {"reason": repair[:600], "instruction": "Correct the proposal using this same source catalog and scope. Do not invent facts or widen the scope. If it cannot be planned, return an explicit non-answer."}
         schema = self._proposal_schema
+        if context.get("answer_parts"):
+            system += ("\nThis request uses the common answer API. Record every independent requested part. "
+                       "Use named outputs for executable parts, sharing source-selection steps. "
+                       "When another part is unavailable, preserve executable outputs with status ready and "
+                       "record the unavailable part separately in unavailable_parts with a precise reason. "
+                       "First compile every requested part into requested_parts, including difficult and unavailable parts, "
+                       "then bind those keys to outputs/unavailable_parts. This intent list is independent of executable outputs. "
+                       "Do not reject an entire compound question because one independent part is unavailable. "
+                       "Unsupported executor operations are implementation gaps, not missing source data. "
+                       "Do not invent prerequisite facts or factors. Requested part keys supplied by the host are authoritative.")
+            if context.get("requested_parts"):
+                payload["requested_parts"] = context["requested_parts"]
         while len(context["replies"]) < self.settings.max_model_requests:
             payload["inspection_history"] = context["history"]
             payload["budget"] = {"model_requests_remaining": self.settings.max_model_requests - len(context["replies"]),
@@ -517,7 +546,8 @@ The interpretation is a short human-readable statement of what the query will co
             available = set(engine.capabilities.operations)
             for step in plan.steps:
                 op = step.operation
-                capability = "aggregate." + op.method if op.kind == "aggregate" else op.kind
+                capability = ("aggregate." + op.method if op.kind == "aggregate"
+                              else "arithmetic." + op.operator if op.kind == "arithmetic" else op.kind)
                 if capability not in available:
                     raise QueryError("unsupported_operation", f"The local executor does not implement {capability}.")
             try:
@@ -541,6 +571,9 @@ The interpretation is a short human-readable statement of what the query will co
         if narrative:
             result.explanation = m.LocalizedText(text=narrative)
         sets = {item.id: item for item in result.entity_sets}
+        nodes = {item.id: item for item in result.calculations}
+        roots = [nodes[binding.calculation_id] for claim in result.claims for binding in claim.evidence if not binding.value_path]
+        scalar_arithmetic_only = bool(roots) and all(node.operation in {'add', 'subtract', 'multiply', 'divide'} for node in roots)
         included, excluded, unresolved, fact_ids, anchor_ids = set(), set(), set(), set(), set()
         # Only final claim bindings contribute highlights, never all intermediate
         # candidates (e.g. a top-one rank must mark exactly that one element).
@@ -553,9 +586,9 @@ The interpretation is a short human-readable statement of what the query will co
         for node in result.calculations:
             fact_ids.update(node.fact_ids)
             anchor_ids.update(node.anchor_ids)
-            if node.excluded_set_id:
+            if node.excluded_set_id and not scalar_arithmetic_only:
                 excluded.update(sets[node.excluded_set_id].entity_ids or [])
-        if result.claims:
+        if result.claims and any(binding.entity_set_ids for claim in result.claims for binding in claim.evidence):
             # Rank operations materialize the original set; report candidates
             # that did not contribute even if no separate excluded set exists.
             all_members = {e for item in result.entity_sets for e in (item.entity_ids or [])}

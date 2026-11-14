@@ -1428,3 +1428,241 @@ class PreparedDrawing(Contract):
             if span.frame_id != self.source_frame_id or span.bbox[2] > self.source_width or span.bbox[3] > self.source_height:
                 raise ValueError("OCR spans must be bounded source-frame pixels")
         return self
+
+
+# Additive answer contracts. The candidate and IFC APIs retain their original
+# wire formats; this envelope binds their executed evidence to presentation.
+Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+AnswerStatus = Literal["answered", "partial", "needs_clarification", "missing_source", "missing_information", "incomplete_coverage", "unsupported_operation", "conflicting_evidence", "insufficient_calibration", "execution_error", "blocked"]
+
+
+class AnswerSnapshot(Model):
+    source_sha256: Sha256
+    source_revision: Id
+    display_sha256: Sha256 | None = None
+    page_index: NonnegativeInt | None = None
+    layout_name: Annotated[str, Field(min_length=1, max_length=300)] | None = None
+    rotation: Literal[0, 90, 180, 270] = 0
+    display_width: PositiveInt | None = None
+    display_height: PositiveInt | None = None
+    viewport_transform: Annotated[list[float], Field(min_length=6, max_length=6)] | None = None
+    source_bounds: Annotated[list[float], Field(min_length=4, max_length=4)] | None = None
+
+    @model_validator(mode="after")
+    def check_frame(self):
+        if (self.display_width is None) != (self.display_height is None):
+            raise ValueError("display dimensions must be supplied together")
+        if self.display_sha256 is not None and self.display_width is None:
+            raise ValueError("a displayed raster needs explicit pixel dimensions")
+        if self.source_bounds is not None:
+            x0, y0, x1, y1 = self.source_bounds
+            if x1 <= x0 or y1 <= y0:
+                raise ValueError("source bounds must have positive area")
+        if self.viewport_transform is not None:
+            a, b, c, d, _, _ = self.viewport_transform
+            if abs(a * d - b * c) < 1e-15:
+                raise ValueError("viewport transform must be invertible")
+        return self
+
+
+class AnswerSourceBinding(AnswerSnapshot):
+    source_id: Id
+    kind: Literal["image", "pdf", "svg", "dxf", "ifc"]
+    scope_label: Annotated[str, Field(min_length=1, max_length=1000)]
+
+
+class AnswerRequestedPart(Model):
+    key: Annotated[str, Field(min_length=1, max_length=100)]
+    question: Annotated[str, Field(min_length=1, max_length=4000, pattern=r"\S")]
+    operation: Annotated[str, Field(min_length=1, max_length=100)] = "auto"
+    target: Annotated[str, Field(min_length=1, max_length=1000)] | None = None
+    literal_identifiers: list[str] = Field(default_factory=list, max_length=100)
+    filters: list[str] = Field(default_factory=list, max_length=100)
+    exclusions: list[str] = Field(default_factory=list, max_length=100)
+    depends_on: list[Id] = Field(default_factory=list, max_length=16)
+
+
+class AnswerIntent(Model):
+    language: Annotated[str, Field(min_length=2, max_length=35)] = "en"
+    scope_label: Annotated[str, Field(min_length=1, max_length=1000)]
+    requested_parts: list[AnswerRequestedPart] = Field(min_length=1, max_length=16)
+    ambiguities: list[str] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def check_parts(self):
+        prior = set()
+        for part in self.requested_parts:
+            if part.key in prior or not set(part.depends_on) <= prior:
+                raise ValueError("requested parts need unique keys and earlier dependencies")
+            prior.add(part.key)
+        return self
+
+
+class AnswerRequest(Contract):
+    source_id: Annotated[str, Field(min_length=1, max_length=100)] | None = None
+    model_id: Annotated[str, Field(min_length=1, max_length=100)] | None = None
+    source_sha256: Sha256
+    question: Annotated[str, Field(min_length=1, max_length=4000, pattern=r"\S")]
+    language: Annotated[str, Field(min_length=2, max_length=35)] | None = None
+    snapshot: AnswerSnapshot | None = None
+    detail: bool = False
+    parts: list[AnswerRequestedPart] | None = Field(default=None, min_length=1, max_length=16)
+    plans: dict[Id, QueryPlan] = Field(default_factory=dict, max_length=16)
+
+    @model_validator(mode="after")
+    def check_source(self):
+        if (self.source_id is None) == (self.model_id is None):
+            raise ValueError("supply exactly one registered source or IFC model handle")
+        if self.snapshot is not None and self.snapshot.source_sha256 != self.source_sha256:
+            raise ValueError("snapshot original hash must match the requested source")
+        if self.parts is not None:
+            AnswerIntent(scope_label="validated request", requested_parts=self.parts)
+            if not self.plans.keys() <= {part.key for part in self.parts}:
+                raise ValueError("plans must identify requested part keys")
+        elif self.plans:
+            raise ValueError("direct plans require explicit requested parts")
+        return self
+
+
+class AnswerPart(Model):
+    key: Id
+    status: AnswerStatus
+    result: QueryResult | None = None
+    plan: QueryPlan | None = None
+    evidence_context_id: Id | None = None
+    message: LocalizedText | None = None
+    depends_on: list[Id] = Field(default_factory=list, max_length=16)
+
+    @model_validator(mode="after")
+    def check_part(self):
+        if self.result is not None and self.result.status != self.status:
+            raise ValueError("answer part status must preserve the executed result status")
+        if self.status in {"answered", "partial"}:
+            if self.result is None or self.plan is None or self.evidence_context_id is None:
+                raise ValueError("successful answer parts require result, plan and evidence context")
+        elif self.result is None and self.message is None:
+            raise ValueError("unavailable answer parts need an explicit reason")
+        if self.status == "blocked" and not self.depends_on:
+            raise ValueError("blocked parts must identify their dependencies")
+        return self
+
+
+class AnswerEvidenceContext(Model):
+    id: Id
+    bundle: KnowledgeBundle
+    source_snapshot: AnswerSnapshot | None = None
+
+
+class AnswerSentence(Model):
+    id: Id
+    part_key: Id
+    kind: Literal["claim", "issue"]
+    text: Annotated[str, Field(min_length=1)]
+    claim_ids: list[Id] = Field(default_factory=list)
+    value_paths: list[str] = Field(default_factory=list)
+    anchor_ids: list[Id] = Field(default_factory=list)
+    qualification: Literal["exact", "estimated", "lower_bound", "upper_bound", "unavailable"]
+
+
+class AnswerCall(Model):
+    id: Id
+    purpose: Literal["planning", "routing", "analysis", "region_proposal", "candidate_verification", "reinspection", "wording"]
+    requested_model: Id
+    returned_model: Id | None = None
+    outcome: Literal["completed", "failed", "cancelled"]
+    elapsed_ms: float = Field(default=0, ge=0)
+    completed_at: str | None = None
+    prompt_tokens: NonnegativeInt | None = None
+    completion_tokens: NonnegativeInt | None = None
+    thought_tokens: NonnegativeInt | None = None
+    input_sha256: Sha256 | None = None
+
+
+class AnswerMetrics(Model):
+    elapsed_ms: float = Field(ge=0)
+    external_attempts: Annotated[int, Field(strict=True, ge=0, le=15)] = 0
+    calls: list[AnswerCall] = Field(default_factory=list, max_length=15)
+    model_input_tokens: NonnegativeInt | None = None
+    model_output_tokens: NonnegativeInt | None = None
+    cache_hit: bool = False
+    cost_amount: DecimalString | None = None
+    cost_currency: str | None = None
+    cost_basis: Literal["marginal", "amortized", "estimated"] | None = None
+
+    @model_validator(mode="after")
+    def check_ledger(self):
+        if len(self.calls) != len({call.id for call in self.calls}):
+            raise ValueError("answer call IDs must be unique")
+        if len(self.calls) > self.external_attempts:
+            raise ValueError("recorded calls cannot exceed total external attempts")
+        ExecutionMetrics(latency_ms=self.elapsed_ms, cost_amount=self.cost_amount,
+                         cost_currency=self.cost_currency, cost_basis=self.cost_basis)
+        return self
+
+
+class AnswerResponse(Contract):
+    request_id: Id
+    question: Annotated[str, Field(min_length=1, max_length=4000, pattern=r"\S")]
+    question_sha256: Sha256
+    source: AnswerSourceBinding
+    interpretation: AnswerIntent
+    parts: list[AnswerPart] = Field(min_length=1, max_length=16)
+    narrative: list[AnswerSentence] = Field(default_factory=list)
+    evidence_contexts: list[AnswerEvidenceContext] = Field(default_factory=list, max_length=16)
+    metrics: AnswerMetrics
+    candidate_response: ImageCandidateResponse | None = None
+    ifc_response: IfcQuestionResponse | None = None
+
+    @model_validator(mode="after")
+    def check_accounting(self):
+        import hashlib
+        if hashlib.sha256(self.question.encode("utf-8")).hexdigest() != self.question_sha256:
+            raise ValueError("answer question hash does not match the captured question")
+        requested = [part.key for part in self.interpretation.requested_parts]
+        actual = [part.key for part in self.parts]
+        if len(set(actual)) != len(actual) or set(actual) != set(requested):
+            raise ValueError("every requested part must appear exactly once")
+        contexts = [context.id for context in self.evidence_contexts]
+        if len(set(contexts)) != len(contexts):
+            raise ValueError("evidence context IDs must be unique")
+        for part in self.parts:
+            if part.evidence_context_id is not None and part.evidence_context_id not in contexts:
+                raise ValueError("answer part references an unknown evidence context")
+            if part.result is not None and part.result.request_id != self.request_id:
+                raise ValueError("answer result must belong to the captured request")
+            expected = next(item for item in self.interpretation.requested_parts if item.key == part.key)
+            if part.depends_on != expected.depends_on:
+                raise ValueError("answer part dependencies must preserve the requested dependency graph")
+        if len({sentence.id for sentence in self.narrative}) != len(self.narrative):
+            raise ValueError("narrative sentence IDs must be unique")
+        if any(sentence.part_key not in actual for sentence in self.narrative):
+            raise ValueError("narrative sentence references an unknown requested part")
+        if self.candidate_response is not None:
+            candidate = self.candidate_response
+            if candidate.request_id != self.request_id or candidate.image.sha256 != self.source.display_sha256:
+                raise ValueError("candidate response must match the answer request and displayed raster")
+            if (candidate.image.width, candidate.image.height) != (self.source.display_width, self.source.display_height):
+                raise ValueError("candidate response frame differs from the captured display")
+            if candidate.decision_trace is not None and candidate.decision_trace.question_sha256 != self.question_sha256:
+                raise ValueError("candidate routing trace belongs to another question")
+        if self.ifc_response is not None:
+            if (self.ifc_response.request_id != self.request_id or self.ifc_response.question != self.question
+                    or self.ifc_response.source_sha256 != self.source.source_sha256
+                    or self.ifc_response.model_id != self.source.source_id or self.source.kind != "ifc"):
+                raise ValueError("IFC response must match the captured source and question")
+        return self
+
+
+class AnswerStreamEvent(Contract):
+    type: Literal["handoff", "result", "error"]
+    progress: ImageCandidateProgress | None = None
+    result: AnswerResponse | None = None
+    error: ImageCandidateError | None = None
+
+    @model_validator(mode="after")
+    def check_payload(self):
+        selected = {"handoff": "progress", "result": "result", "error": "error"}[self.type]
+        if any((getattr(self, field) is not None) != (field == selected)
+               for field in ("progress", "result", "error")):
+            raise ValueError("answer stream event requires exactly its matching payload")
+        return self

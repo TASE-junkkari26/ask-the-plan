@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUp, Check, CircleAlert, Download, Focus, Search, X } from 'lucide-react';
+import { ArrowUp, CircleAlert, Download, Focus, Search, X } from 'lucide-react';
 import type { IfcSource } from '../types';
 import type { IfcModelResponse } from '../contracts/IfcModelResponse';
 import type { IfcQuestionRequest } from '../contracts/IfcQuestionRequest';
 import type { EvidenceAnchor, IfcQuestionResponse } from '../contracts/IfcQuestionResponse';
 import type { Output } from '../contracts/QueryResult';
+import type { AnswerResponse } from '../contracts/AnswerResponse';
 import type { EvidenceElement, HighlightReport } from '../ifc/evidence';
 import { sourceReferenceLabel } from '../ifc/answer';
-import { askIfcQuestion, IfcApiError, ifcQualityLabel, uploadIfcModel } from '../lib/ifcApi';
+import { ifcQualityLabel, uploadIfcModel } from '../lib/ifcApi';
+import { AnswerApiError, requestAnswer } from '../lib/answerApi';
+import { AnswerPanel, exportAnswer } from './AnswerPanel';
 import './IfcQuestionPanel.css';
 
 function Value({ value, ...context }: {
@@ -100,6 +103,7 @@ export default function IfcQuestionPanel({
 }) {
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState<IfcQuestionResponse | null>(null);
+  const [answer, setAnswer] = useState<AnswerResponse | null>(null);
   const [report, setReport] = useState<HighlightReport | null>(null);
   const [phase, setPhase] = useState('');
   const [error, setError] = useState('');
@@ -114,6 +118,7 @@ export default function IfcQuestionPanel({
       controllerRef.current?.abort();
       setPhase('');
       setResponse(null);
+      setAnswer(null);
       setReport(null);
       modelRef.current = null;
     }
@@ -128,6 +133,7 @@ export default function IfcQuestionPanel({
     const { signal } = controller;
     setError('');
     setResponse(null);
+    setAnswer(null);
     setReport(null);
     clearHighlights();
     try {
@@ -140,19 +146,25 @@ export default function IfcQuestionPanel({
       }
       setPhase('Planning source query…');
       const request: IfcQuestionRequest = { model_id: model.model_id, source_sha256: sourceHash, question: text, scope: 'model', visible_step_ids: null };
-      let result: IfcQuestionResponse;
+      let envelope: AnswerResponse;
       try {
-        result = await askIfcQuestion(request, signal);
+        envelope = await requestAnswer({ model_id: request.model_id, source_sha256: sourceHash, question: text }, signal);
       } catch (failure) {
-        if (!(failure instanceof IfcApiError) || ![404, 410].includes(failure.status)) throw failure;
+        if (!(failure instanceof AnswerApiError) || ![404, 410].includes(failure.status)) throw failure;
         modelRef.current = await uploadIfcModel(source.file, sourceHash, signal);
-        result = await askIfcQuestion({ ...request, model_id: modelRef.current.model_id }, signal);
+        envelope = await requestAnswer({ model_id: modelRef.current.model_id, source_sha256: sourceHash, question: text }, signal);
       }
       signal.throwIfAborted();
+      const result = envelope.ifc_response;
+      if (!result) {
+        setAnswer(envelope);
+        return;
+      }
       const highlights = await highlight(result.included_elements ?? []);
       signal.throwIfAborted();
       setReport(highlights ?? null);
       setResponse(result);
+      setAnswer(envelope);
     } catch (failure) {
       if (!signal.aborted) setError(failure instanceof Error ? failure.message : 'The IFC question could not be answered.');
     } finally {
@@ -178,12 +190,14 @@ export default function IfcQuestionPanel({
     </form>
     {phase && <p className="ifc-question-progress" role="status"><span className="spinner" />{phase}</p>}
     {error && <p className="ifc-question-warning" role="alert"><CircleAlert size={15} />{error}</p>}
+    {answer && <AnswerPanel response={answer} language={answer.interpretation.language} onLocate={(location) => {
+      if (location.selectorKind === 'step_id' && /^\d+$/.test(location.selectorValue)) {
+        const id = Number(location.selectorValue);
+        if (Number.isSafeInteger(id) && id > 0) onSelect(id);
+      }
+    }} />}
     {response && <div className="ifc-question-answer" aria-live="polite">
-      <p className="ifc-asked-question">{response.question}</p>
-      <div className={`ifc-answer-status ${response.result.status === 'answered' ? '' : 'ifc-answer-status-incomplete'}`}>{response.result.status === 'answered' ? <Check size={14} /> : <CircleAlert size={14} />}{response.result.status.replaceAll('_', ' ')}</div>
-      {!!response.result.claims?.length && response.result.claims.map((claim) => <div className={`ifc-computed-answer ifc-computed-${claim.value.kind}`} key={claim.id}><div>{ifcQualityLabel(claim.quality) && <span>{ifcQualityLabel(claim.quality)} </span>}<Value value={claim.value} {...valueContext} /></div>{claim.count_policy && <small>{claim.count_policy.grain.replaceAll('_', ' ')} · {claim.count_policy.hierarchy.replaceAll('_', ' ')} · Each source object counted once</small>}</div>)}
-      {response.result.explanation?.text && <p className="ifc-answer-narrative">{response.result.explanation.text}</p>}
-      <p className="ifc-answer-scope"><strong>Scope</strong> {response.scope_label}</p>
+      {!!response.result.claims?.length && <details className="ifc-evidence-group"><summary>Structured IFC outputs</summary>{response.result.claims.map((claim) => <div className={`ifc-computed-answer ifc-computed-${claim.value.kind}`} key={claim.id}><div>{ifcQualityLabel(claim.quality) && <span>{ifcQualityLabel(claim.quality)} </span>}<Value value={claim.value} {...valueContext} /></div>{claim.count_policy && <small>{claim.count_policy.grain.replaceAll('_', ' ')} · {claim.count_policy.hierarchy.replaceAll('_', ' ')} · Each source object counted once</small>}</div>)}</details>}
       {response.interpretation && <p className="ifc-answer-interpretation">{response.interpretation}</p>}
       {!!response.result.issues?.length && <ul className="ifc-answer-issues">{response.result.issues.map((issue, index) => <li key={index}>{issue.message.text}{!!issue.options?.length && <ul>{issue.options.map((option, optionIndex) => <li key={optionIndex}>{option.text}</li>)}</ul>}</li>)}</ul>}
       {!!response.warnings?.length && <details className="ifc-evidence-group"><summary>Source & execution notes <span>{response.warnings.length}</span></summary><ul>{response.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul></details>}
@@ -194,7 +208,7 @@ export default function IfcQuestionPanel({
       {!!response.unresolved_elements?.length && <Elements key={`${response.request_id}:unresolved`} title="Unresolved elements" elements={response.unresolved_elements} onSelect={onSelect} />}
       {response.planning && <details className="ifc-evidence-group"><summary>Analysis details</summary><p>{response.planning.provider} · {response.planning.returned_model}{response.planning.thinking_level ? ` · ${response.planning.thinking_level} reasoning` : ''}</p><p>{response.planning.model_requests} planner requests · {response.planning.inspection_count} source inspections</p><p>Input tokens: {response.planning.prompt_tokens == null ? 'unreported' : response.planning.prompt_tokens.toLocaleString('en')} · Output and reasoning tokens: {response.planning.completion_tokens == null ? 'unreported' : response.planning.completion_tokens.toLocaleString('en')}</p></details>}
       {!!response.result.calculations?.length && <details className="ifc-evidence-group"><summary>Calculation & source inputs</summary>{response.result.calculations.map((calculation) => <div className="ifc-calculation" key={calculation.id}><strong>{calculation.operation.replaceAll('_', ' ')}</strong><div><Value value={calculation.output} {...valueContext} /></div>{calculation.rule_key && <code>{calculation.rule_key}</code>}{!!calculation.input_node_ids?.length && <p>Input steps: {calculation.input_node_ids.join(', ')}</p>}{(calculation.fact_ids ?? []).slice(0, 100).map((factId) => { const fact = facts.get(factId); return fact && <div className="ifc-calculation-input" key={factId}><code>{fact.original_property_path?.join('.') || fact.property_key}</code><div>{fact.value ? <Value value={fact.value} {...valueContext} /> : fact.status.replaceAll('_', ' ')}</div>{fact.provenance.anchor_ids?.map((anchorId) => { const anchor = anchors.get(anchorId); return anchor && <small key={anchorId}>{anchor.selector.kind}: {anchor.selector.kind === 'step_id' ? '#' : ''}{anchor.selector.value}{anchor.selector.property_path?.length ? ` · ${anchor.selector.property_path.join('.')}` : ''}</small>; })}</div>; })}{(calculation.fact_ids?.length ?? 0) > 100 && <p>First 100 inputs shown; export contains every input.</p>}<SourceAnchors anchorIds={calculation.anchor_ids ?? []} anchors={anchors} onSelect={onSelect} /></div>)}</details>}
-      <button className="text-button ifc-evidence-export" onClick={() => { const url = URL.createObjectURL(new Blob([JSON.stringify(response, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'ifc-answer-evidence.json'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }}><Download size={13} />Export answer & evidence</button>
+      <button className="text-button ifc-evidence-export" onClick={() => { if (answer) exportAnswer(answer, 'ifc-answer-evidence.json'); }}><Download size={13} />Export answer & evidence</button>
       <small className="ifc-answer-revision">Source SHA-256 <code>{response.source_sha256}</code></small>
     </div>}
   </div>;

@@ -114,6 +114,13 @@ JSON to review the complete element sets and source inputs.
 
 ## Supported behavior and limits
 
+The workbench submits model handles to the additive `/api/v1/answers` coordinator.
+It preserves requested parts and executes independent output dependency closures
+separately. Scalar arithmetic uses source-bound Decimal inputs and units. Planner
+explanations remain proposals; host-owned unavailable reasons do not claim
+uninspected data is absent. Existing `/api/ifc/questions` retains its original
+single-result behavior. See the [common answer guide](NATURAL_LANGUAGE_ANSWERS.md).
+
 The planner can compose the engine's supported selection, filtering, traversal,
 grouping, ranking, property lookup, stored-quantity aggregation and bounded
 `spatial_query` operations. `related_entities` extracts a reference column from

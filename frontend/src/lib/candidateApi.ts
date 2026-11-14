@@ -199,7 +199,7 @@ function validDetail(value: unknown, image: PreparedCandidateImage, candidateIds
 }
 
 /** Check the wire boundary before attaching server regions to a local source. */
-function validateResponse(value: unknown, submitted: PreparedCandidateImage, questionSha256: string): ImageCandidateResponse {
+export function validateCandidateResponse(value: unknown, submitted: PreparedCandidateImage, questionSha256: string): ImageCandidateResponse {
   const invalid = () => new Error('The analysis service returned invalid candidate data. Please try again.');
   if (!object(value) || value.schema_version !== '0.1.0' || value.scope !== 'submitted_image'
       || value.inventory_completeness !== 'unverified' || !text(value.request_id)
@@ -246,7 +246,7 @@ function validateResponse(value: unknown, submitted: PreparedCandidateImage, que
 const MAX_STREAM_BYTES = 4 * 1024 * 1024;
 const MAX_STREAM_LINE_CHARS = 1024 * 1024;
 
-function candidateError(value: unknown, image: PreparedCandidateImage, questionSha256: string): CandidateApiError {
+export function candidateError(value: unknown, image: PreparedCandidateImage, questionSha256: string): CandidateApiError {
   if (object(value) && value.schema_version === '0.1.0' && text(value.code)
       && text(value.request_id) && text(value.message) && value.message.length <= 2000
       && typeof value.retryable === 'boolean')
@@ -254,7 +254,7 @@ function candidateError(value: unknown, image: PreparedCandidateImage, questionS
   throw new Error('The analysis service returned an invalid error response. Please try again.');
 }
 
-function validateProgress(value: unknown, requestId: string, image: PreparedCandidateImage, questionSha256: string): ImageCandidateProgress {
+export function validateCandidateProgress(value: unknown, requestId: string, image: PreparedCandidateImage, questionSha256: string): ImageCandidateProgress {
   if (!object(value) || value.schema_version !== '0.1.0'
       || value.request_id !== requestId || value.question_sha256 !== questionSha256
       || !text(value.requested_model) || value.requested_model.length > 200
@@ -290,13 +290,13 @@ async function readCandidateStream(
         || Object.keys(frame).some((key) => !['schema_version', 'type', 'progress', 'result', 'error'].includes(key))) throw invalid();
     if (frame.type === 'handoff') {
       if (progress || frame.result != null || frame.error != null) throw invalid();
-      progress = validateProgress(frame.progress, requestId, image, questionSha256);
+      progress = validateCandidateProgress(frame.progress, requestId, image, questionSha256);
       aborted(signal);
       onProgress?.(progress);
     } else if (frame.type === 'result') {
       if (!response.ok || !progress || frame.progress != null || frame.error != null || !object(frame.result)
           || frame.result.request_id !== requestId) throw invalid();
-      const result = validateResponse(frame.result, image, questionSha256);
+      const result = validateCandidateResponse(frame.result, image, questionSha256);
       if (progress && (result.image.inference_sha256 !== progress.image.inference_sha256
           || result.provenance.requested_model !== progress.requested_model)) throw invalid();
       state.terminal = result;
@@ -387,5 +387,5 @@ export async function requestCandidates(
       throw candidateError(value, image, questionSha256);
     throw new Error('The analysis request failed. Please try again.');
   }
-  return validateResponse(value, image, questionSha256);
+  return validateCandidateResponse(value, image, questionSha256);
 }

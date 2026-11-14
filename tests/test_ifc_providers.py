@@ -207,7 +207,7 @@ class GeminiPlannerSchemaTests(unittest.TestCase):
         validator = Draft202012Validator(native)
         Draft202012Validator.check_schema(native)
         self.assertLess(len(json.dumps(native)), 6500)
-        self.assertEqual(set(native["$defs"]), {"CountPolicy", "FieldRef"})
+        self.assertEqual(set(native["$defs"]), {"CountPolicy", "FieldRef", "PlannedUnavailable", "AnswerRequestedPart"})
         wire = proposal()
         validator.validate(wire)
         PlanProposal.model_validate(wire)

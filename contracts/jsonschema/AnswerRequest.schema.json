@@ -1,0 +1,1867 @@
+{
+  "$comment": "Generated from contracts.models; do not edit manually. JSON Schema checks structure. Pydantic and semantic validators also enforce local invariants, references, units, scope, and evidence.",
+  "$defs": {
+    "AggregateOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "group_by": {
+          "items": {
+            "$ref": "#/$defs/FieldRef"
+          },
+          "title": "Group By",
+          "type": "array"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "aggregate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "count",
+            "sum",
+            "mean",
+            "min",
+            "max"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "missing_values": {
+          "default": "fail",
+          "enum": [
+            "fail",
+            "partial"
+          ],
+          "title": "Missing Values",
+          "type": "string"
+        },
+        "output_unit_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Unit Id"
+        },
+        "value_key": {
+          "default": "value",
+          "minLength": 1,
+          "title": "Value Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "method"
+      ],
+      "title": "AggregateOperation",
+      "type": "object"
+    },
+    "AnswerRequestedPart": {
+      "additionalProperties": false,
+      "properties": {
+        "depends_on": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "exclusions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Exclusions",
+          "type": "array"
+        },
+        "filters": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Filters",
+          "type": "array"
+        },
+        "key": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "literal_identifiers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Literal Identifiers",
+          "type": "array"
+        },
+        "operation": {
+          "default": "auto",
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Operation",
+          "type": "string"
+        },
+        "question": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Question",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        }
+      },
+      "required": [
+        "key",
+        "question"
+      ],
+      "title": "AnswerRequestedPart",
+      "type": "object"
+    },
+    "AnswerSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "display_height": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Height"
+        },
+        "display_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Sha256"
+        },
+        "display_width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Width"
+        },
+        "layout_name": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Layout Name"
+        },
+        "page_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Index"
+        },
+        "rotation": {
+          "default": 0,
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "title": "Rotation",
+          "type": "integer"
+        },
+        "source_bounds": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Bounds"
+        },
+        "source_revision": {
+          "minLength": 1,
+          "title": "Source Revision",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "viewport_transform": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 6,
+              "minItems": 6,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Viewport Transform"
+        }
+      },
+      "required": [
+        "source_sha256",
+        "source_revision"
+      ],
+      "title": "AnswerSnapshot",
+      "type": "object"
+    },
+    "ArithmeticOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "input_step_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Input Step Ids",
+          "type": "array"
+        },
+        "kind": {
+          "const": "arithmetic",
+          "title": "Kind",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "add",
+            "subtract",
+            "multiply",
+            "divide"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "output_unit_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Unit Id"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_ids",
+        "operator"
+      ],
+      "title": "ArithmeticOperation",
+      "type": "object"
+    },
+    "BooleanPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "all",
+            "any",
+            "not"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "operands": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "all": "#/$defs/BooleanPredicate",
+                "any": "#/$defs/BooleanPredicate",
+                "compare": "#/$defs/ComparePredicate",
+                "field_present": "#/$defs/PresentPredicate",
+                "not": "#/$defs/BooleanPredicate",
+                "related_to": "#/$defs/RelationPredicate",
+                "spatial": "#/$defs/SpatialPredicate"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ComparePredicate"
+              },
+              {
+                "$ref": "#/$defs/PresentPredicate"
+              },
+              {
+                "$ref": "#/$defs/RelationPredicate"
+              },
+              {
+                "$ref": "#/$defs/SpatialPredicate"
+              },
+              {
+                "$ref": "#/$defs/BooleanPredicate"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Operands",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "operands"
+      ],
+      "title": "BooleanPredicate",
+      "type": "object"
+    },
+    "BooleanValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "boolean",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "BooleanValue",
+      "type": "object"
+    },
+    "ComparePredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/FieldRef"
+        },
+        "kind": {
+          "const": "compare",
+          "title": "Kind",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "eq",
+            "ne",
+            "lt",
+            "lte",
+            "gt",
+            "gte",
+            "in",
+            "contains"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "value": {
+          "discriminator": {
+            "mapping": {
+              "boolean": "#/$defs/BooleanValue",
+              "count": "#/$defs/CountValue",
+              "list": "#/$defs/ListValue",
+              "quantity": "#/$defs/QuantityValue",
+              "record": "#/$defs/RecordValue",
+              "references": "#/$defs/ReferencesValue",
+              "table": "#/$defs/TableValue",
+              "text": "#/$defs/TextValue",
+              "unavailable": "#/$defs/UnavailableValue"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/QuantityValue"
+            },
+            {
+              "$ref": "#/$defs/CountValue"
+            },
+            {
+              "$ref": "#/$defs/TextValue"
+            },
+            {
+              "$ref": "#/$defs/BooleanValue"
+            },
+            {
+              "$ref": "#/$defs/ReferencesValue"
+            },
+            {
+              "$ref": "#/$defs/UnavailableValue"
+            },
+            {
+              "$ref": "#/$defs/ListValue"
+            },
+            {
+              "$ref": "#/$defs/RecordValue"
+            },
+            {
+              "$ref": "#/$defs/TableValue"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "kind",
+        "field",
+        "operator",
+        "value"
+      ],
+      "title": "ComparePredicate",
+      "type": "object"
+    },
+    "CountPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "distinct_by": {
+          "const": "canonical_entity_id",
+          "default": "canonical_entity_id",
+          "title": "Distinct By",
+          "type": "string"
+        },
+        "grain": {
+          "enum": [
+            "logical_object",
+            "occurrence",
+            "assembly",
+            "part",
+            "schedule_row"
+          ],
+          "title": "Grain",
+          "type": "string"
+        },
+        "hierarchy": {
+          "enum": [
+            "all_matches",
+            "topmost_matches",
+            "leaves"
+          ],
+          "title": "Hierarchy",
+          "type": "string"
+        },
+        "rule_key": {
+          "minLength": 1,
+          "title": "Rule Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "grain",
+        "hierarchy",
+        "rule_key"
+      ],
+      "title": "CountPolicy",
+      "type": "object"
+    },
+    "CountValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "count",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "minimum": 0,
+          "title": "Value",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "CountValue",
+      "type": "object"
+    },
+    "FieldRef": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "property",
+            "label",
+            "concept",
+            "native_identifier",
+            "entity_id",
+            "result_column"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "key"
+      ],
+      "title": "FieldRef",
+      "type": "object"
+    },
+    "ListValue": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "boolean": "#/$defs/BooleanValue",
+                "count": "#/$defs/CountValue",
+                "list": "#/$defs/ListValue",
+                "quantity": "#/$defs/QuantityValue",
+                "record": "#/$defs/RecordValue",
+                "references": "#/$defs/ReferencesValue",
+                "table": "#/$defs/TableValue",
+                "text": "#/$defs/TextValue",
+                "unavailable": "#/$defs/UnavailableValue"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/QuantityValue"
+              },
+              {
+                "$ref": "#/$defs/CountValue"
+              },
+              {
+                "$ref": "#/$defs/TextValue"
+              },
+              {
+                "$ref": "#/$defs/BooleanValue"
+              },
+              {
+                "$ref": "#/$defs/ReferencesValue"
+              },
+              {
+                "$ref": "#/$defs/UnavailableValue"
+              },
+              {
+                "$ref": "#/$defs/ListValue"
+              },
+              {
+                "$ref": "#/$defs/RecordValue"
+              },
+              {
+                "$ref": "#/$defs/TableValue"
+              }
+            ]
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "kind": {
+          "const": "list",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "items"
+      ],
+      "title": "ListValue",
+      "type": "object"
+    },
+    "LocalizedText": {
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    },
+    "MeasureOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "title": "Basis",
+          "type": "string"
+        },
+        "calibration_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Calibration Ids",
+          "type": "array"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "measure",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metric": {
+          "enum": [
+            "area",
+            "union_area",
+            "length",
+            "perimeter",
+            "volume",
+            "distance",
+            "angle"
+          ],
+          "title": "Metric",
+          "type": "string"
+        },
+        "output_unit_id": {
+          "minLength": 1,
+          "title": "Output Unit Id",
+          "type": "string"
+        },
+        "reference_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Reference Entity Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "metric",
+        "output_unit_id",
+        "basis"
+      ],
+      "title": "MeasureOperation",
+      "type": "object"
+    },
+    "NormalizedQuantity": {
+      "additionalProperties": false,
+      "properties": {
+        "magnitude": {
+          "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+          "title": "Magnitude",
+          "type": "string"
+        },
+        "unit_id": {
+          "minLength": 1,
+          "title": "Unit Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "magnitude",
+        "unit_id"
+      ],
+      "title": "NormalizedQuantity",
+      "type": "object"
+    },
+    "PlanStep": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "operation": {
+          "discriminator": {
+            "mapping": {
+              "aggregate": "#/$defs/AggregateOperation",
+              "arithmetic": "#/$defs/ArithmeticOperation",
+              "measure": "#/$defs/MeasureOperation",
+              "project": "#/$defs/ProjectOperation",
+              "rank": "#/$defs/RankOperation",
+              "related_entities": "#/$defs/RelatedEntitiesOperation",
+              "select": "#/$defs/SelectOperation",
+              "spatial_query": "#/$defs/SpatialQueryOperation",
+              "traverse": "#/$defs/TraverseOperation"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SelectOperation"
+            },
+            {
+              "$ref": "#/$defs/TraverseOperation"
+            },
+            {
+              "$ref": "#/$defs/AggregateOperation"
+            },
+            {
+              "$ref": "#/$defs/SpatialQueryOperation"
+            },
+            {
+              "$ref": "#/$defs/RelatedEntitiesOperation"
+            },
+            {
+              "$ref": "#/$defs/ProjectOperation"
+            },
+            {
+              "$ref": "#/$defs/RankOperation"
+            },
+            {
+              "$ref": "#/$defs/MeasureOperation"
+            },
+            {
+              "$ref": "#/$defs/ArithmeticOperation"
+            }
+          ],
+          "title": "Operation"
+        }
+      },
+      "required": [
+        "id",
+        "operation"
+      ],
+      "title": "PlanStep",
+      "type": "object"
+    },
+    "PresentPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/FieldRef"
+        },
+        "kind": {
+          "const": "field_present",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "field"
+      ],
+      "title": "PresentPredicate",
+      "type": "object"
+    },
+    "ProjectOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FieldRef"
+          },
+          "minItems": 1,
+          "title": "Fields",
+          "type": "array"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "project",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "fields"
+      ],
+      "title": "ProjectOperation",
+      "type": "object"
+    },
+    "QuantityValue": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "title": "Basis",
+          "type": "string"
+        },
+        "kind": {
+          "const": "quantity",
+          "title": "Kind",
+          "type": "string"
+        },
+        "magnitude": {
+          "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+          "title": "Magnitude",
+          "type": "string"
+        },
+        "normalized": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NormalizedQuantity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "quality": {
+          "default": "exact",
+          "enum": [
+            "exact",
+            "estimated",
+            "lower_bound",
+            "upper_bound"
+          ],
+          "title": "Quality",
+          "type": "string"
+        },
+        "quantity_kind": {
+          "title": "Quantity Kind",
+          "type": "string"
+        },
+        "source_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Text"
+        },
+        "source_value_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Value Type"
+        },
+        "unit_anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Unit Anchor Ids",
+          "type": "array"
+        },
+        "unit_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unit Id"
+        },
+        "unit_resolution": {
+          "enum": [
+            "explicit",
+            "project_default",
+            "calibrated",
+            "derived",
+            "unknown"
+          ],
+          "title": "Unit Resolution",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "magnitude",
+        "unit_id",
+        "quantity_kind",
+        "basis",
+        "unit_resolution"
+      ],
+      "title": "QuantityValue",
+      "type": "object"
+    },
+    "QueryPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "outputs": {
+          "additionalProperties": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minProperties": 1,
+          "title": "Outputs",
+          "type": "object"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "required_capabilities": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Required Capabilities",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "0.1.0",
+          "default": "0.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/PlanStep"
+          },
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "request_id",
+        "scope",
+        "steps",
+        "outputs"
+      ],
+      "title": "QueryPlan",
+      "type": "object"
+    },
+    "RankOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "enum": [
+            "ascending",
+            "descending"
+          ],
+          "title": "Direction",
+          "type": "string"
+        },
+        "field": {
+          "$ref": "#/$defs/FieldRef"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "rank",
+          "title": "Kind",
+          "type": "string"
+        },
+        "limit": {
+          "exclusiveMinimum": 0,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "field",
+        "direction",
+        "limit"
+      ],
+      "title": "RankOperation",
+      "type": "object"
+    },
+    "RecordValue": {
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "additionalProperties": {
+            "discriminator": {
+              "mapping": {
+                "boolean": "#/$defs/BooleanValue",
+                "count": "#/$defs/CountValue",
+                "list": "#/$defs/ListValue",
+                "quantity": "#/$defs/QuantityValue",
+                "record": "#/$defs/RecordValue",
+                "references": "#/$defs/ReferencesValue",
+                "table": "#/$defs/TableValue",
+                "text": "#/$defs/TextValue",
+                "unavailable": "#/$defs/UnavailableValue"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/QuantityValue"
+              },
+              {
+                "$ref": "#/$defs/CountValue"
+              },
+              {
+                "$ref": "#/$defs/TextValue"
+              },
+              {
+                "$ref": "#/$defs/BooleanValue"
+              },
+              {
+                "$ref": "#/$defs/ReferencesValue"
+              },
+              {
+                "$ref": "#/$defs/UnavailableValue"
+              },
+              {
+                "$ref": "#/$defs/ListValue"
+              },
+              {
+                "$ref": "#/$defs/RecordValue"
+              },
+              {
+                "$ref": "#/$defs/TableValue"
+              }
+            ]
+          },
+          "title": "Fields",
+          "type": "object"
+        },
+        "kind": {
+          "const": "record",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "fields"
+      ],
+      "title": "RecordValue",
+      "type": "object"
+    },
+    "ReferencesValue": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Entity Ids",
+          "type": "array"
+        },
+        "kind": {
+          "const": "references",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "entity_ids"
+      ],
+      "title": "ReferencesValue",
+      "type": "object"
+    },
+    "RelatedEntitiesOperation": {
+      "additionalProperties": false,
+      "description": "Deduplicate references from one table column at occurrence grain.",
+      "properties": {
+        "column": {
+          "default": "related",
+          "minLength": 1,
+          "title": "Column",
+          "type": "string"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "related_entities",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id"
+      ],
+      "title": "RelatedEntitiesOperation",
+      "type": "object"
+    },
+    "RelationPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "enum": [
+            "outgoing",
+            "incoming"
+          ],
+          "title": "Direction",
+          "type": "string"
+        },
+        "entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Entity Ids",
+          "type": "array"
+        },
+        "kind": {
+          "const": "related_to",
+          "title": "Kind",
+          "type": "string"
+        },
+        "predicate": {
+          "title": "Predicate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "predicate",
+        "direction",
+        "entity_ids"
+      ],
+      "title": "RelationPredicate",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "document_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Document Ids",
+          "type": "array"
+        },
+        "entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Entity Ids",
+          "type": "array"
+        },
+        "exact_entity_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exact Entity Ids"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "universe": {
+          "enum": [
+            "source_records",
+            "modeled_objects",
+            "depicted_objects",
+            "schedule_entries",
+            "physical_building"
+          ],
+          "title": "Universe",
+          "type": "string"
+        },
+        "view_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "View Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "project_id",
+        "document_ids",
+        "universe"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "SelectOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "concept_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Concept Ids",
+          "type": "array"
+        },
+        "count_policy": {
+          "$ref": "#/$defs/CountPolicy"
+        },
+        "entity_kinds": {
+          "items": {
+            "enum": [
+              "site",
+              "building",
+              "storey",
+              "unit",
+              "space",
+              "element",
+              "assembly",
+              "part",
+              "type",
+              "system",
+              "material",
+              "zone",
+              "site_feature",
+              "schedule_row"
+            ],
+            "type": "string"
+          },
+          "title": "Entity Kinds",
+          "type": "array"
+        },
+        "exclude": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "all": "#/$defs/BooleanPredicate",
+                  "any": "#/$defs/BooleanPredicate",
+                  "compare": "#/$defs/ComparePredicate",
+                  "field_present": "#/$defs/PresentPredicate",
+                  "not": "#/$defs/BooleanPredicate",
+                  "related_to": "#/$defs/RelationPredicate",
+                  "spatial": "#/$defs/SpatialPredicate"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/ComparePredicate"
+                },
+                {
+                  "$ref": "#/$defs/PresentPredicate"
+                },
+                {
+                  "$ref": "#/$defs/RelationPredicate"
+                },
+                {
+                  "$ref": "#/$defs/SpatialPredicate"
+                },
+                {
+                  "$ref": "#/$defs/BooleanPredicate"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exclude"
+        },
+        "kind": {
+          "const": "select",
+          "title": "Kind",
+          "type": "string"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "all": "#/$defs/BooleanPredicate",
+                  "any": "#/$defs/BooleanPredicate",
+                  "compare": "#/$defs/ComparePredicate",
+                  "field_present": "#/$defs/PresentPredicate",
+                  "not": "#/$defs/BooleanPredicate",
+                  "related_to": "#/$defs/RelationPredicate",
+                  "spatial": "#/$defs/SpatialPredicate"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/ComparePredicate"
+                },
+                {
+                  "$ref": "#/$defs/PresentPredicate"
+                },
+                {
+                  "$ref": "#/$defs/RelationPredicate"
+                },
+                {
+                  "$ref": "#/$defs/SpatialPredicate"
+                },
+                {
+                  "$ref": "#/$defs/BooleanPredicate"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Where"
+        }
+      },
+      "required": [
+        "kind",
+        "concept_ids",
+        "count_policy"
+      ],
+      "title": "SelectOperation",
+      "type": "object"
+    },
+    "SpatialPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "distance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QuantityValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "geometry_id": {
+          "minLength": 1,
+          "title": "Geometry Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "spatial",
+          "title": "Kind",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "intersects",
+            "within",
+            "contains",
+            "touches",
+            "disjoint",
+            "near"
+          ],
+          "title": "Operator",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "operator",
+        "geometry_id"
+      ],
+      "title": "SpatialPredicate",
+      "type": "object"
+    },
+    "SpatialQueryOperation": {
+      "additionalProperties": false,
+      "description": "Bounded IFC topology and supported source-geometry checks.",
+      "properties": {
+        "container_kind": {
+          "default": "storey",
+          "enum": [
+            "space",
+            "storey",
+            "building",
+            "site"
+          ],
+          "title": "Container Kind",
+          "type": "string"
+        },
+        "exterior_basis": {
+          "default": "combined",
+          "enum": [
+            "combined",
+            "classification",
+            "boundary"
+          ],
+          "title": "Exterior Basis",
+          "type": "string"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "spatial_query",
+          "title": "Kind",
+          "type": "string"
+        },
+        "method": {
+          "default": "auto",
+          "enum": [
+            "native",
+            "geometry",
+            "auto"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "relation": {
+          "enum": [
+            "containers",
+            "boundary_neighbors",
+            "door_connections",
+            "outdoor_access",
+            "exterior_doors"
+          ],
+          "title": "Relation",
+          "type": "string"
+        },
+        "tolerance_m": {
+          "default": 0.01,
+          "maximum": 0.1,
+          "minimum": 1e-06,
+          "title": "Tolerance M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "relation"
+      ],
+      "title": "SpatialQueryOperation",
+      "type": "object"
+    },
+    "TableColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/LocalizedText"
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "title": "TableColumn",
+      "type": "object"
+    },
+    "TableValue": {
+      "additionalProperties": false,
+      "properties": {
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/TableColumn"
+          },
+          "minItems": 1,
+          "title": "Columns",
+          "type": "array"
+        },
+        "kind": {
+          "const": "table",
+          "title": "Kind",
+          "type": "string"
+        },
+        "rows": {
+          "items": {
+            "additionalProperties": {
+              "discriminator": {
+                "mapping": {
+                  "boolean": "#/$defs/BooleanValue",
+                  "count": "#/$defs/CountValue",
+                  "list": "#/$defs/ListValue",
+                  "quantity": "#/$defs/QuantityValue",
+                  "record": "#/$defs/RecordValue",
+                  "references": "#/$defs/ReferencesValue",
+                  "table": "#/$defs/TableValue",
+                  "text": "#/$defs/TextValue",
+                  "unavailable": "#/$defs/UnavailableValue"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/QuantityValue"
+                },
+                {
+                  "$ref": "#/$defs/CountValue"
+                },
+                {
+                  "$ref": "#/$defs/TextValue"
+                },
+                {
+                  "$ref": "#/$defs/BooleanValue"
+                },
+                {
+                  "$ref": "#/$defs/ReferencesValue"
+                },
+                {
+                  "$ref": "#/$defs/UnavailableValue"
+                },
+                {
+                  "$ref": "#/$defs/ListValue"
+                },
+                {
+                  "$ref": "#/$defs/RecordValue"
+                },
+                {
+                  "$ref": "#/$defs/TableValue"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "title": "Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "columns",
+        "rows"
+      ],
+      "title": "TableValue",
+      "type": "object"
+    },
+    "TextValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "text",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/LocalizedText"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "TextValue",
+      "type": "object"
+    },
+    "TraverseOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "enum": [
+            "outgoing",
+            "incoming"
+          ],
+          "title": "Direction",
+          "type": "string"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "traverse",
+          "title": "Kind",
+          "type": "string"
+        },
+        "max_depth": {
+          "default": 32,
+          "exclusiveMinimum": 0,
+          "title": "Max Depth",
+          "type": "integer"
+        },
+        "predicate": {
+          "title": "Predicate",
+          "type": "string"
+        },
+        "recursive": {
+          "default": false,
+          "title": "Recursive",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "predicate",
+        "direction"
+      ],
+      "title": "TraverseOperation",
+      "type": "object"
+    },
+    "UnavailableValue": {
+      "additionalProperties": false,
+      "description": "A missing cell in a partial list/record/table; never a numeric zero.",
+      "properties": {
+        "explanation": {
+          "title": "Explanation",
+          "type": "string"
+        },
+        "kind": {
+          "const": "unavailable",
+          "title": "Kind",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "explicit_null",
+            "not_in_source",
+            "not_extracted",
+            "unknown",
+            "ambiguous"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "reason",
+        "explanation"
+      ],
+      "title": "UnavailableValue",
+      "type": "object"
+    }
+  },
+  "$id": "urn:stoa:contracts:0.1.0:AnswerRequest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "detail": {
+      "default": false,
+      "title": "Detail",
+      "type": "boolean"
+    },
+    "language": {
+      "anyOf": [
+        {
+          "maxLength": 35,
+          "minLength": 2,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Language"
+    },
+    "model_id": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model Id"
+    },
+    "parts": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/AnswerRequestedPart"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parts"
+    },
+    "plans": {
+      "additionalProperties": {
+        "$ref": "#/$defs/QueryPlan"
+      },
+      "maxProperties": 16,
+      "propertyNames": {
+        "minLength": 1
+      },
+      "title": "Plans",
+      "type": "object"
+    },
+    "question": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Question",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1.0",
+      "default": "0.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "snapshot": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AnswerSnapshot"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "source_id": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Id"
+    },
+    "source_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_sha256",
+    "question"
+  ],
+  "title": "AnswerRequest",
+  "type": "object"
+}

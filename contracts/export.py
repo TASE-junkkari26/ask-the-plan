@@ -10,6 +10,9 @@ import json
 from pathlib import Path
 
 from .models import (
+    AnswerRequest,
+    AnswerResponse,
+    AnswerStreamEvent,
     BenchmarkCase,
     CapabilityManifest,
     DxfPreviewResponse,
@@ -29,6 +32,9 @@ from .models import (
 
 
 ROOT_MODELS = (
+    AnswerRequest,
+    AnswerResponse,
+    AnswerStreamEvent,
     KnowledgeBundle,
     QuestionRequest,
     QueryPlan,

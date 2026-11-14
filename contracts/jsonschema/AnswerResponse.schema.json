@@ -1,0 +1,6621 @@
+{
+  "$comment": "Generated from contracts.models; do not edit manually. JSON Schema checks structure. Pydantic and semantic validators also enforce local invariants, references, units, scope, and evidence.",
+  "$defs": {
+    "AggregateOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "group_by": {
+          "items": {
+            "$ref": "#/$defs/FieldRef"
+          },
+          "title": "Group By",
+          "type": "array"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "aggregate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "count",
+            "sum",
+            "mean",
+            "min",
+            "max"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "missing_values": {
+          "default": "fail",
+          "enum": [
+            "fail",
+            "partial"
+          ],
+          "title": "Missing Values",
+          "type": "string"
+        },
+        "output_unit_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Unit Id"
+        },
+        "value_key": {
+          "default": "value",
+          "minLength": 1,
+          "title": "Value Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "method"
+      ],
+      "title": "AggregateOperation",
+      "type": "object"
+    },
+    "AnalysisCall": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_at": {
+          "maxLength": 40,
+          "title": "Completed At",
+          "type": "string"
+        },
+        "completion_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completion Tokens"
+        },
+        "elapsed_ms": {
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "number"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "input_height": {
+          "exclusiveMinimum": 0,
+          "title": "Input Height",
+          "type": "integer"
+        },
+        "input_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Sha256",
+          "type": "string"
+        },
+        "input_width": {
+          "exclusiveMinimum": 0,
+          "title": "Input Width",
+          "type": "integer"
+        },
+        "outcome": {
+          "enum": [
+            "completed",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "prompt_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Tokens"
+        },
+        "purpose": {
+          "enum": [
+            "routing",
+            "analysis",
+            "region_proposal",
+            "candidate_verification",
+            "reinspection"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "requested_model": {
+          "minLength": 1,
+          "title": "Requested Model",
+          "type": "string"
+        },
+        "returned_model": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Returned Model"
+        },
+        "source_box": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Box"
+        }
+      },
+      "required": [
+        "id",
+        "purpose",
+        "requested_model",
+        "completed_at",
+        "outcome",
+        "elapsed_ms",
+        "input_sha256",
+        "input_width",
+        "input_height"
+      ],
+      "title": "AnalysisCall",
+      "type": "object"
+    },
+    "AnalysisDecisionNode": {
+      "additionalProperties": false,
+      "properties": {
+        "call_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Call Id"
+        },
+        "criterion": {
+          "enum": [
+            "capability",
+            "route",
+            "preparation",
+            "analysis",
+            "evidence"
+          ],
+          "title": "Criterion",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id"
+        },
+        "probability": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Probability"
+        },
+        "reason_code": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "evaluated",
+            "selected",
+            "skipped",
+            "reused",
+            "completed",
+            "failed",
+            "unavailable"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Threshold"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "id",
+        "criterion",
+        "state",
+        "reason_code"
+      ],
+      "title": "AnalysisDecisionNode",
+      "type": "object"
+    },
+    "AnswerCall": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completed At"
+        },
+        "completion_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completion Tokens"
+        },
+        "elapsed_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "number"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "input_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Sha256"
+        },
+        "outcome": {
+          "enum": [
+            "completed",
+            "failed",
+            "cancelled"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "prompt_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Tokens"
+        },
+        "purpose": {
+          "enum": [
+            "planning",
+            "routing",
+            "analysis",
+            "region_proposal",
+            "candidate_verification",
+            "reinspection",
+            "wording"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "requested_model": {
+          "minLength": 1,
+          "title": "Requested Model",
+          "type": "string"
+        },
+        "returned_model": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Returned Model"
+        },
+        "thought_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Thought Tokens"
+        }
+      },
+      "required": [
+        "id",
+        "purpose",
+        "requested_model",
+        "outcome"
+      ],
+      "title": "AnswerCall",
+      "type": "object"
+    },
+    "AnswerEvidenceContext": {
+      "additionalProperties": false,
+      "properties": {
+        "bundle": {
+          "$ref": "#/$defs/KnowledgeBundle"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "source_snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AnswerSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "bundle"
+      ],
+      "title": "AnswerEvidenceContext",
+      "type": "object"
+    },
+    "AnswerIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "ambiguities": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Ambiguities",
+          "type": "array"
+        },
+        "language": {
+          "default": "en",
+          "maxLength": 35,
+          "minLength": 2,
+          "title": "Language",
+          "type": "string"
+        },
+        "requested_parts": {
+          "items": {
+            "$ref": "#/$defs/AnswerRequestedPart"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Requested Parts",
+          "type": "array"
+        },
+        "scope_label": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Scope Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scope_label",
+        "requested_parts"
+      ],
+      "title": "AnswerIntent",
+      "type": "object"
+    },
+    "AnswerMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_hit": {
+          "default": false,
+          "title": "Cache Hit",
+          "type": "boolean"
+        },
+        "calls": {
+          "items": {
+            "$ref": "#/$defs/AnswerCall"
+          },
+          "maxItems": 15,
+          "title": "Calls",
+          "type": "array"
+        },
+        "cost_amount": {
+          "anyOf": [
+            {
+              "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Amount"
+        },
+        "cost_basis": {
+          "anyOf": [
+            {
+              "enum": [
+                "marginal",
+                "amortized",
+                "estimated"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Basis"
+        },
+        "cost_currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Currency"
+        },
+        "elapsed_ms": {
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "number"
+        },
+        "external_attempts": {
+          "default": 0,
+          "maximum": 15,
+          "minimum": 0,
+          "title": "External Attempts",
+          "type": "integer"
+        },
+        "model_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Input Tokens"
+        },
+        "model_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Output Tokens"
+        }
+      },
+      "required": [
+        "elapsed_ms"
+      ],
+      "title": "AnswerMetrics",
+      "type": "object"
+    },
+    "AnswerPart": {
+      "additionalProperties": false,
+      "properties": {
+        "depends_on": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "evidence_context_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Context Id"
+        },
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocalizedText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QueryPlan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QueryResult"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "enum": [
+            "answered",
+            "partial",
+            "needs_clarification",
+            "missing_source",
+            "missing_information",
+            "incomplete_coverage",
+            "unsupported_operation",
+            "conflicting_evidence",
+            "insufficient_calibration",
+            "execution_error",
+            "blocked"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "status"
+      ],
+      "title": "AnswerPart",
+      "type": "object"
+    },
+    "AnswerRequestedPart": {
+      "additionalProperties": false,
+      "properties": {
+        "depends_on": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "exclusions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Exclusions",
+          "type": "array"
+        },
+        "filters": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Filters",
+          "type": "array"
+        },
+        "key": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "literal_identifiers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Literal Identifiers",
+          "type": "array"
+        },
+        "operation": {
+          "default": "auto",
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Operation",
+          "type": "string"
+        },
+        "question": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Question",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        }
+      },
+      "required": [
+        "key",
+        "question"
+      ],
+      "title": "AnswerRequestedPart",
+      "type": "object"
+    },
+    "AnswerSentence": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "claim_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Claim Ids",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "claim",
+            "issue"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "part_key": {
+          "minLength": 1,
+          "title": "Part Key",
+          "type": "string"
+        },
+        "qualification": {
+          "enum": [
+            "exact",
+            "estimated",
+            "lower_bound",
+            "upper_bound",
+            "unavailable"
+          ],
+          "title": "Qualification",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "value_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Value Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "part_key",
+        "kind",
+        "text",
+        "qualification"
+      ],
+      "title": "AnswerSentence",
+      "type": "object"
+    },
+    "AnswerSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "display_height": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Height"
+        },
+        "display_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Sha256"
+        },
+        "display_width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Width"
+        },
+        "layout_name": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Layout Name"
+        },
+        "page_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Index"
+        },
+        "rotation": {
+          "default": 0,
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "title": "Rotation",
+          "type": "integer"
+        },
+        "source_bounds": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Bounds"
+        },
+        "source_revision": {
+          "minLength": 1,
+          "title": "Source Revision",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "viewport_transform": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 6,
+              "minItems": 6,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Viewport Transform"
+        }
+      },
+      "required": [
+        "source_sha256",
+        "source_revision"
+      ],
+      "title": "AnswerSnapshot",
+      "type": "object"
+    },
+    "AnswerSourceBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "display_height": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Height"
+        },
+        "display_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Sha256"
+        },
+        "display_width": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Display Width"
+        },
+        "kind": {
+          "enum": [
+            "image",
+            "pdf",
+            "svg",
+            "dxf",
+            "ifc"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "layout_name": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Layout Name"
+        },
+        "page_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Index"
+        },
+        "rotation": {
+          "default": 0,
+          "enum": [
+            0,
+            90,
+            180,
+            270
+          ],
+          "title": "Rotation",
+          "type": "integer"
+        },
+        "scope_label": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Scope Label",
+          "type": "string"
+        },
+        "source_bounds": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Bounds"
+        },
+        "source_id": {
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_revision": {
+          "minLength": 1,
+          "title": "Source Revision",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "viewport_transform": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 6,
+              "minItems": 6,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Viewport Transform"
+        }
+      },
+      "required": [
+        "source_sha256",
+        "source_revision",
+        "source_id",
+        "kind",
+        "scope_label"
+      ],
+      "title": "AnswerSourceBinding",
+      "type": "object"
+    },
+    "ArithmeticOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "input_step_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 2,
+          "title": "Input Step Ids",
+          "type": "array"
+        },
+        "kind": {
+          "const": "arithmetic",
+          "title": "Kind",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "add",
+            "subtract",
+            "multiply",
+            "divide"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "output_unit_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Unit Id"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_ids",
+        "operator"
+      ],
+      "title": "ArithmeticOperation",
+      "type": "object"
+    },
+    "Asset": {
+      "additionalProperties": false,
+      "properties": {
+        "attribution": {
+          "title": "Attribution",
+          "type": "string"
+        },
+        "document_id": {
+          "minLength": 1,
+          "title": "Document Id",
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "ifc",
+            "dxf",
+            "dwg",
+            "pdf",
+            "svg",
+            "png",
+            "jpeg",
+            "other"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "license": {
+          "title": "License",
+          "type": "string"
+        },
+        "media_type": {
+          "title": "Media Type",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "source_collection": {
+          "title": "Source Collection",
+          "type": "string"
+        },
+        "uri": {
+          "title": "Uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "document_id",
+        "uri",
+        "sha256",
+        "format",
+        "media_type",
+        "source_collection",
+        "attribution",
+        "license"
+      ],
+      "title": "Asset",
+      "type": "object"
+    },
+    "AssetLink": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "equivalent_representation",
+            "rendered_from",
+            "converted_from",
+            "byte_duplicate"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "source_asset_id": {
+          "minLength": 1,
+          "title": "Source Asset Id",
+          "type": "string"
+        },
+        "target_asset_id": {
+          "minLength": 1,
+          "title": "Target Asset Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_asset_id",
+        "target_asset_id",
+        "kind",
+        "provenance"
+      ],
+      "title": "AssetLink",
+      "type": "object"
+    },
+    "BooleanPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "all",
+            "any",
+            "not"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "operands": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "all": "#/$defs/BooleanPredicate",
+                "any": "#/$defs/BooleanPredicate",
+                "compare": "#/$defs/ComparePredicate",
+                "field_present": "#/$defs/PresentPredicate",
+                "not": "#/$defs/BooleanPredicate",
+                "related_to": "#/$defs/RelationPredicate",
+                "spatial": "#/$defs/SpatialPredicate"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/ComparePredicate"
+              },
+              {
+                "$ref": "#/$defs/PresentPredicate"
+              },
+              {
+                "$ref": "#/$defs/RelationPredicate"
+              },
+              {
+                "$ref": "#/$defs/SpatialPredicate"
+              },
+              {
+                "$ref": "#/$defs/BooleanPredicate"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Operands",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "operands"
+      ],
+      "title": "BooleanPredicate",
+      "type": "object"
+    },
+    "BooleanValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "boolean",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "BooleanValue",
+      "type": "object"
+    },
+    "BoxShape": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "box",
+          "title": "Kind",
+          "type": "string"
+        },
+        "maximum": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Maximum",
+          "type": "array"
+        },
+        "minimum": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Minimum",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "minimum",
+        "maximum"
+      ],
+      "title": "BoxShape",
+      "type": "object"
+    },
+    "CalculationNode": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "calibration_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Calibration Ids",
+          "type": "array"
+        },
+        "excluded_set_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Excluded Set Id"
+        },
+        "fact_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "included_set_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Included Set Id"
+        },
+        "input_node_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Input Node Ids",
+          "type": "array"
+        },
+        "operation": {
+          "enum": [
+            "select",
+            "traverse",
+            "spatial_query",
+            "related_entities",
+            "project",
+            "rank",
+            "count",
+            "sum",
+            "mean",
+            "min",
+            "max",
+            "lookup",
+            "convert_unit",
+            "add",
+            "subtract",
+            "multiply",
+            "divide",
+            "measure",
+            "group_by",
+            "filter",
+            "deduplicate"
+          ],
+          "title": "Operation",
+          "type": "string"
+        },
+        "output": {
+          "discriminator": {
+            "mapping": {
+              "boolean": "#/$defs/BooleanValue",
+              "count": "#/$defs/CountValue",
+              "list": "#/$defs/ListValue",
+              "quantity": "#/$defs/QuantityValue",
+              "record": "#/$defs/RecordValue",
+              "references": "#/$defs/ReferencesValue",
+              "table": "#/$defs/TableValue",
+              "text": "#/$defs/TextValue",
+              "unavailable": "#/$defs/UnavailableValue"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/QuantityValue"
+            },
+            {
+              "$ref": "#/$defs/CountValue"
+            },
+            {
+              "$ref": "#/$defs/TextValue"
+            },
+            {
+              "$ref": "#/$defs/BooleanValue"
+            },
+            {
+              "$ref": "#/$defs/ReferencesValue"
+            },
+            {
+              "$ref": "#/$defs/UnavailableValue"
+            },
+            {
+              "$ref": "#/$defs/ListValue"
+            },
+            {
+              "$ref": "#/$defs/RecordValue"
+            },
+            {
+              "$ref": "#/$defs/TableValue"
+            }
+          ],
+          "title": "Output"
+        },
+        "plan_step_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plan Step Id"
+        },
+        "quality": {
+          "enum": [
+            "exact",
+            "estimated",
+            "lower_bound",
+            "upper_bound"
+          ],
+          "title": "Quality",
+          "type": "string"
+        },
+        "rule_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rule Key"
+        },
+        "spatial_evidence": {
+          "items": {
+            "$ref": "#/$defs/SpatialEvaluation"
+          },
+          "title": "Spatial Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "operation",
+        "output",
+        "quality"
+      ],
+      "title": "CalculationNode",
+      "type": "object"
+    },
+    "Calibration": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "native_units",
+            "dimension",
+            "scale_bar",
+            "human"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "transform_id": {
+          "minLength": 1,
+          "title": "Transform Id",
+          "type": "string"
+        },
+        "view_id": {
+          "minLength": 1,
+          "title": "View Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "view_id",
+        "transform_id",
+        "method",
+        "provenance"
+      ],
+      "title": "Calibration",
+      "type": "object"
+    },
+    "CandidateDetailTrace": {
+      "additionalProperties": false,
+      "properties": {
+        "deferred_observations": {
+          "items": {
+            "$ref": "#/$defs/DeferredDetailObservation"
+          },
+          "maxItems": 1200,
+          "title": "Deferred Observations",
+          "type": "array"
+        },
+        "membership_checks": {
+          "items": {
+            "$ref": "#/$defs/DetailMembershipCheck"
+          },
+          "maxItems": 12,
+          "title": "Membership Checks",
+          "type": "array"
+        },
+        "mode": {
+          "enum": [
+            "auto",
+            "regions",
+            "tiles"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/$defs/DetailObservation"
+          },
+          "maxItems": 100,
+          "title": "Observations",
+          "type": "array"
+        },
+        "provider_calls": {
+          "minimum": 0,
+          "title": "Provider Calls",
+          "type": "integer"
+        },
+        "regions": {
+          "items": {
+            "$ref": "#/$defs/DetailRegion"
+          },
+          "maxItems": 12,
+          "title": "Regions",
+          "type": "array"
+        },
+        "reinspection_regions": {
+          "items": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "type": "array"
+          },
+          "maxItems": 12,
+          "title": "Reinspection Regions",
+          "type": "array"
+        },
+        "reused_crops": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Reused Crops",
+          "type": "integer"
+        },
+        "selected_regions": {
+          "items": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "type": "array"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Selected Regions",
+          "type": "array"
+        },
+        "selection": {
+          "enum": [
+            "automatic",
+            "explicit"
+          ],
+          "title": "Selection",
+          "type": "string"
+        },
+        "selection_limitations": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Selection Limitations",
+          "type": "array"
+        },
+        "superseded_observation_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1200,
+          "title": "Superseded Observation Ids",
+          "type": "array"
+        },
+        "target_kind": {
+          "default": "other",
+          "title": "Target Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode",
+        "selection",
+        "selected_regions",
+        "regions",
+        "observations",
+        "provider_calls"
+      ],
+      "title": "CandidateDetailTrace",
+      "type": "object"
+    },
+    "CandidateImage": {
+      "additionalProperties": false,
+      "description": "The exact submitted source and oriented inference/display frame.",
+      "properties": {
+        "coordinate_system": {
+          "const": "display_pixels_top_left",
+          "default": "display_pixels_top_left",
+          "title": "Coordinate System",
+          "type": "string"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "integer"
+        },
+        "inference_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Inference Sha256",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "inference_sha256",
+        "width",
+        "height"
+      ],
+      "title": "CandidateImage",
+      "type": "object"
+    },
+    "CandidateMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "completion_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completion Tokens"
+        },
+        "elapsed_ms": {
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "number"
+        },
+        "preparation_cache_hit": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preparation Cache Hit"
+        },
+        "preparation_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preparation Ms"
+        },
+        "prompt_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Tokens"
+        }
+      },
+      "required": [
+        "elapsed_ms"
+      ],
+      "title": "CandidateMetrics",
+      "type": "object"
+    },
+    "CandidatePreparation": {
+      "additionalProperties": false,
+      "description": "Actual model image size, distinct from the unchanged display frame.",
+      "properties": {
+        "input_height": {
+          "exclusiveMinimum": 0,
+          "title": "Input Height",
+          "type": "integer"
+        },
+        "input_width": {
+          "exclusiveMinimum": 0,
+          "title": "Input Width",
+          "type": "integer"
+        },
+        "mode": {
+          "enum": [
+            "off",
+            "original",
+            "overview"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "pipeline_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pipeline Version"
+        },
+        "prepared_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prepared Id"
+        }
+      },
+      "required": [
+        "mode",
+        "input_width",
+        "input_height"
+      ],
+      "title": "CandidatePreparation",
+      "type": "object"
+    },
+    "CandidateProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "preprocessing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CandidatePreparation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "prompt_version": {
+          "minLength": 1,
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "requested_model": {
+          "minLength": 1,
+          "title": "Requested Model",
+          "type": "string"
+        },
+        "returned_model": {
+          "minLength": 1,
+          "title": "Returned Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requested_model",
+        "returned_model",
+        "prompt_version"
+      ],
+      "title": "CandidateProvenance",
+      "type": "object"
+    },
+    "Claim": {
+      "additionalProperties": false,
+      "properties": {
+        "concept_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Concept Ids",
+          "type": "array"
+        },
+        "count_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CountPolicy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "coverage_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Coverage Ids",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/EvidenceBinding"
+          },
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "output_key": {
+          "minLength": 1,
+          "title": "Output Key",
+          "type": "string"
+        },
+        "property_keys": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Property Keys",
+          "type": "array"
+        },
+        "quality": {
+          "enum": [
+            "exact",
+            "estimated",
+            "lower_bound",
+            "upper_bound"
+          ],
+          "title": "Quality",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "value": {
+          "discriminator": {
+            "mapping": {
+              "boolean": "#/$defs/BooleanValue",
+              "count": "#/$defs/CountValue",
+              "list": "#/$defs/ListValue",
+              "quantity": "#/$defs/QuantityValue",
+              "record": "#/$defs/RecordValue",
+              "references": "#/$defs/ReferencesValue",
+              "table": "#/$defs/TableValue",
+              "text": "#/$defs/TextValue",
+              "unavailable": "#/$defs/UnavailableValue"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/QuantityValue"
+            },
+            {
+              "$ref": "#/$defs/CountValue"
+            },
+            {
+              "$ref": "#/$defs/TextValue"
+            },
+            {
+              "$ref": "#/$defs/BooleanValue"
+            },
+            {
+              "$ref": "#/$defs/ReferencesValue"
+            },
+            {
+              "$ref": "#/$defs/UnavailableValue"
+            },
+            {
+              "$ref": "#/$defs/ListValue"
+            },
+            {
+              "$ref": "#/$defs/RecordValue"
+            },
+            {
+              "$ref": "#/$defs/TableValue"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "id",
+        "output_key",
+        "name",
+        "scope",
+        "concept_ids",
+        "value",
+        "quality",
+        "coverage_ids",
+        "evidence"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "ComparePredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/FieldRef"
+        },
+        "kind": {
+          "const": "compare",
+          "title": "Kind",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "eq",
+            "ne",
+            "lt",
+            "lte",
+            "gt",
+            "gte",
+            "in",
+            "contains"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "value": {
+          "discriminator": {
+            "mapping": {
+              "boolean": "#/$defs/BooleanValue",
+              "count": "#/$defs/CountValue",
+              "list": "#/$defs/ListValue",
+              "quantity": "#/$defs/QuantityValue",
+              "record": "#/$defs/RecordValue",
+              "references": "#/$defs/ReferencesValue",
+              "table": "#/$defs/TableValue",
+              "text": "#/$defs/TextValue",
+              "unavailable": "#/$defs/UnavailableValue"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/QuantityValue"
+            },
+            {
+              "$ref": "#/$defs/CountValue"
+            },
+            {
+              "$ref": "#/$defs/TextValue"
+            },
+            {
+              "$ref": "#/$defs/BooleanValue"
+            },
+            {
+              "$ref": "#/$defs/ReferencesValue"
+            },
+            {
+              "$ref": "#/$defs/UnavailableValue"
+            },
+            {
+              "$ref": "#/$defs/ListValue"
+            },
+            {
+              "$ref": "#/$defs/RecordValue"
+            },
+            {
+              "$ref": "#/$defs/TableValue"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "kind",
+        "field",
+        "operator",
+        "value"
+      ],
+      "title": "ComparePredicate",
+      "type": "object"
+    },
+    "Concept": {
+      "additionalProperties": false,
+      "properties": {
+        "definition": {
+          "title": "Definition",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "$ref": "#/$defs/LocalizedText"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "parent_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Parent Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "labels",
+        "definition"
+      ],
+      "title": "Concept",
+      "type": "object"
+    },
+    "CoordinateFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "axes": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Axes",
+          "type": "array"
+        },
+        "crs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crs"
+        },
+        "dimension": {
+          "enum": [
+            2,
+            3
+          ],
+          "title": "Dimension",
+          "type": "integer"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "space": {
+          "enum": [
+            "presentation",
+            "physical"
+          ],
+          "title": "Space",
+          "type": "string"
+        },
+        "unit_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Id"
+        }
+      },
+      "required": [
+        "id",
+        "asset_id",
+        "dimension",
+        "space",
+        "axes"
+      ],
+      "title": "CoordinateFrame",
+      "type": "object"
+    },
+    "CountPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "distinct_by": {
+          "const": "canonical_entity_id",
+          "default": "canonical_entity_id",
+          "title": "Distinct By",
+          "type": "string"
+        },
+        "grain": {
+          "enum": [
+            "logical_object",
+            "occurrence",
+            "assembly",
+            "part",
+            "schedule_row"
+          ],
+          "title": "Grain",
+          "type": "string"
+        },
+        "hierarchy": {
+          "enum": [
+            "all_matches",
+            "topmost_matches",
+            "leaves"
+          ],
+          "title": "Hierarchy",
+          "type": "string"
+        },
+        "rule_key": {
+          "minLength": 1,
+          "title": "Rule Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "grain",
+        "hierarchy",
+        "rule_key"
+      ],
+      "title": "CountPolicy",
+      "type": "object"
+    },
+    "CountValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "count",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "minimum": 0,
+          "title": "Value",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "CountValue",
+      "type": "object"
+    },
+    "Coverage": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Candidate Entity Ids",
+          "type": "array"
+        },
+        "completeness": {
+          "enum": [
+            "complete",
+            "partial",
+            "not_modeled",
+            "not_extracted",
+            "unknown"
+          ],
+          "title": "Completeness",
+          "type": "string"
+        },
+        "concept_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Concept Ids",
+          "type": "array"
+        },
+        "count_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CountPolicy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "examined_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Examined Entity Ids",
+          "type": "array"
+        },
+        "explanation": {
+          "title": "Explanation",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "operation_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Operation Keys",
+          "type": "array"
+        },
+        "property_keys": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Property Keys",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "unresolved_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Unresolved Entity Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "concept_ids",
+        "completeness",
+        "explanation",
+        "provenance"
+      ],
+      "title": "Coverage",
+      "type": "object"
+    },
+    "DeferredDetailObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "observation_id": {
+          "minLength": 1,
+          "title": "Observation Id",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "region_id": {
+          "minLength": 1,
+          "title": "Region Id",
+          "type": "string"
+        },
+        "source_box": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Source Box",
+          "type": "array"
+        }
+      },
+      "required": [
+        "observation_id",
+        "region_id",
+        "category",
+        "source_box",
+        "reason"
+      ],
+      "title": "DeferredDetailObservation",
+      "type": "object"
+    },
+    "DetailMembershipCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "observation_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Observation Ids",
+          "type": "array"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "region_id": {
+          "minLength": 1,
+          "title": "Region Id",
+          "type": "string"
+        },
+        "source_box": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Source Box",
+          "type": "array"
+        },
+        "verdict": {
+          "enum": [
+            "supported",
+            "rejected",
+            "ambiguous",
+            "failed"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        }
+      },
+      "required": [
+        "observation_ids",
+        "category",
+        "source_box",
+        "region_id",
+        "verdict",
+        "reason"
+      ],
+      "title": "DetailMembershipCheck",
+      "type": "object"
+    },
+    "DetailObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_id": {
+          "minLength": 1,
+          "title": "Candidate Id",
+          "type": "string"
+        },
+        "clipped": {
+          "title": "Clipped",
+          "type": "boolean"
+        },
+        "observation_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Observation Ids",
+          "type": "array"
+        },
+        "region_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Region Ids",
+          "type": "array"
+        },
+        "source_labels": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxItems": 64,
+          "title": "Source Labels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "observation_ids",
+        "region_ids",
+        "clipped"
+      ],
+      "title": "DetailObservation",
+      "type": "object"
+    },
+    "DetailRegion": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_count": {
+          "minimum": 0,
+          "title": "Candidate Count",
+          "type": "integer"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "inference_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Inference Sha256",
+          "type": "string"
+        },
+        "source_box": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Source Box",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "partial",
+            "unreadable",
+            "unsupported",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source_box",
+        "inference_sha256",
+        "status",
+        "candidate_count"
+      ],
+      "title": "DetailRegion",
+      "type": "object"
+    },
+    "Document": {
+      "additionalProperties": false,
+      "properties": {
+        "discipline": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Discipline"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "logical_key": {
+          "minLength": 1,
+          "title": "Logical Key",
+          "type": "string"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        },
+        "supersedes_document_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supersedes Document Id"
+        },
+        "title": {
+          "items": {
+            "$ref": "#/$defs/LocalizedText"
+          },
+          "title": "Title",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "logical_key",
+        "revision"
+      ],
+      "title": "Document",
+      "type": "object"
+    },
+    "Entity": {
+      "additionalProperties": false,
+      "properties": {
+        "concept_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Concept Ids",
+          "type": "array"
+        },
+        "document_id": {
+          "minLength": 1,
+          "title": "Document Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "site",
+            "building",
+            "storey",
+            "unit",
+            "space",
+            "element",
+            "assembly",
+            "part",
+            "type",
+            "system",
+            "material",
+            "zone",
+            "site_feature",
+            "schedule_row"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "$ref": "#/$defs/LocalizedText"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "id",
+        "project_id",
+        "document_id",
+        "kind",
+        "concept_ids",
+        "provenance"
+      ],
+      "title": "Entity",
+      "type": "object"
+    },
+    "EntitySet": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "minimum": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "count_policy": {
+          "$ref": "#/$defs/CountPolicy"
+        },
+        "entity_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Entity Ids"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "members_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Members Sha256"
+        },
+        "members_uri": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Members Uri"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "count_policy",
+        "count"
+      ],
+      "title": "EntitySet",
+      "type": "object"
+    },
+    "EvidenceAnchor": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "geometry_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Geometry Id"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocalizedText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "selector": {
+          "$ref": "#/$defs/NativeSelector"
+        },
+        "view_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "View Id"
+        }
+      },
+      "required": [
+        "id",
+        "asset_id",
+        "selector"
+      ],
+      "title": "EvidenceAnchor",
+      "type": "object"
+    },
+    "EvidenceBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "calculation_id": {
+          "minLength": 1,
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "entity_set_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Entity Set Ids",
+          "type": "array"
+        },
+        "evidence_kind": {
+          "default": "verified",
+          "enum": [
+            "verified",
+            "candidate",
+            "unavailable"
+          ],
+          "title": "Evidence Kind",
+          "type": "string"
+        },
+        "fact_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "value_path": {
+          "default": "",
+          "pattern": "^(?:/(?:[^~/]|~[01])*)*$",
+          "title": "Value Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "calculation_id"
+      ],
+      "title": "EvidenceBinding",
+      "type": "object"
+    },
+    "ExecutionMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_hit": {
+          "default": false,
+          "title": "Cache Hit",
+          "type": "boolean"
+        },
+        "cost_amount": {
+          "anyOf": [
+            {
+              "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Amount"
+        },
+        "cost_basis": {
+          "anyOf": [
+            {
+              "enum": [
+                "marginal",
+                "amortized",
+                "estimated"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Basis"
+        },
+        "cost_currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Currency"
+        },
+        "latency_ms": {
+          "minimum": 0,
+          "title": "Latency Ms",
+          "type": "number"
+        },
+        "model_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "title": "Model Input Tokens"
+        },
+        "model_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 0,
+          "title": "Model Output Tokens"
+        }
+      },
+      "required": [
+        "latency_ms"
+      ],
+      "title": "ExecutionMetrics",
+      "type": "object"
+    },
+    "ExtractionRun": {
+      "additionalProperties": false,
+      "properties": {
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Config Sha256",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "input_asset_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Input Asset Ids",
+          "type": "array"
+        },
+        "model_revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model Revision"
+        },
+        "output_schema_version": {
+          "const": "0.1.0",
+          "default": "0.1.0",
+          "title": "Output Schema Version",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "tool": {
+          "title": "Tool",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "tool",
+        "version",
+        "config_sha256",
+        "input_asset_ids",
+        "started_at"
+      ],
+      "title": "ExtractionRun",
+      "type": "object"
+    },
+    "Fact": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "original_property_path": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Original Property Path",
+          "type": "array"
+        },
+        "property_key": {
+          "minLength": 1,
+          "title": "Property Key",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "status": {
+          "enum": [
+            "present",
+            "explicit_null",
+            "not_in_source",
+            "not_extracted",
+            "unknown",
+            "ambiguous"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "subject_id": {
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "supersedes_fact_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Supersedes Fact Id"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "boolean": "#/$defs/BooleanValue",
+                  "count": "#/$defs/CountValue",
+                  "list": "#/$defs/ListValue",
+                  "quantity": "#/$defs/QuantityValue",
+                  "record": "#/$defs/RecordValue",
+                  "references": "#/$defs/ReferencesValue",
+                  "table": "#/$defs/TableValue",
+                  "text": "#/$defs/TextValue",
+                  "unavailable": "#/$defs/UnavailableValue"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/QuantityValue"
+                },
+                {
+                  "$ref": "#/$defs/CountValue"
+                },
+                {
+                  "$ref": "#/$defs/TextValue"
+                },
+                {
+                  "$ref": "#/$defs/BooleanValue"
+                },
+                {
+                  "$ref": "#/$defs/ReferencesValue"
+                },
+                {
+                  "$ref": "#/$defs/UnavailableValue"
+                },
+                {
+                  "$ref": "#/$defs/ListValue"
+                },
+                {
+                  "$ref": "#/$defs/RecordValue"
+                },
+                {
+                  "$ref": "#/$defs/TableValue"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "id",
+        "subject_id",
+        "property_key",
+        "status",
+        "provenance"
+      ],
+      "title": "Fact",
+      "type": "object"
+    },
+    "FieldRef": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "property",
+            "label",
+            "concept",
+            "native_identifier",
+            "entity_id",
+            "result_column"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "key"
+      ],
+      "title": "FieldRef",
+      "type": "object"
+    },
+    "Geometry": {
+      "additionalProperties": false,
+      "properties": {
+        "frame_id": {
+          "minLength": 1,
+          "title": "Frame Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "shape": {
+          "discriminator": {
+            "mapping": {
+              "box": "#/$defs/BoxShape",
+              "mesh": "#/$defs/MeshShape",
+              "multipolygon": "#/$defs/MultiPolygonShape",
+              "point": "#/$defs/PointShape",
+              "polyline": "#/$defs/PolylineShape"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PointShape"
+            },
+            {
+              "$ref": "#/$defs/PolylineShape"
+            },
+            {
+              "$ref": "#/$defs/MultiPolygonShape"
+            },
+            {
+              "$ref": "#/$defs/BoxShape"
+            },
+            {
+              "$ref": "#/$defs/MeshShape"
+            }
+          ],
+          "title": "Shape"
+        }
+      },
+      "required": [
+        "id",
+        "frame_id",
+        "shape"
+      ],
+      "title": "Geometry",
+      "type": "object"
+    },
+    "IfcElement": {
+      "additionalProperties": false,
+      "description": "Canonical entity and its original product locators for viewer verification.",
+      "properties": {
+        "entity_id": {
+          "minLength": 1,
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "guid": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Guid"
+        },
+        "ifc_class": {
+          "title": "Ifc Class",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "step_id": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Step Id"
+        }
+      },
+      "required": [
+        "entity_id",
+        "ifc_class",
+        "name"
+      ],
+      "title": "IfcElement",
+      "type": "object"
+    },
+    "IfcPlanningProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "completion_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completion Tokens"
+        },
+        "discovery_version": {
+          "title": "Discovery Version",
+          "type": "string"
+        },
+        "inspection_count": {
+          "minimum": 0,
+          "title": "Inspection Count",
+          "type": "integer"
+        },
+        "model_requests": {
+          "minimum": 0,
+          "title": "Model Requests",
+          "type": "integer"
+        },
+        "prompt_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Tokens"
+        },
+        "prompt_version": {
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "requested_model": {
+          "title": "Requested Model",
+          "type": "string"
+        },
+        "returned_model": {
+          "title": "Returned Model",
+          "type": "string"
+        },
+        "thinking_level": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Thinking Level"
+        },
+        "thought_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Thought Tokens"
+        }
+      },
+      "required": [
+        "provider",
+        "requested_model",
+        "returned_model",
+        "prompt_version",
+        "discovery_version",
+        "model_requests",
+        "inspection_count"
+      ],
+      "title": "IfcPlanningProvenance",
+      "type": "object"
+    },
+    "IfcQuestionResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "anchors": {
+          "items": {
+            "$ref": "#/$defs/EvidenceAnchor"
+          },
+          "title": "Anchors",
+          "type": "array"
+        },
+        "assets": {
+          "items": {
+            "$ref": "#/$defs/Asset"
+          },
+          "title": "Assets",
+          "type": "array"
+        },
+        "coverage": {
+          "items": {
+            "$ref": "#/$defs/Coverage"
+          },
+          "title": "Coverage",
+          "type": "array"
+        },
+        "excluded_elements": {
+          "items": {
+            "$ref": "#/$defs/IfcElement"
+          },
+          "title": "Excluded Elements",
+          "type": "array"
+        },
+        "extraction_runs": {
+          "items": {
+            "$ref": "#/$defs/ExtractionRun"
+          },
+          "title": "Extraction Runs",
+          "type": "array"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/Fact"
+          },
+          "title": "Facts",
+          "type": "array"
+        },
+        "included_elements": {
+          "items": {
+            "$ref": "#/$defs/IfcElement"
+          },
+          "title": "Included Elements",
+          "type": "array"
+        },
+        "interpretation": {
+          "title": "Interpretation",
+          "type": "string"
+        },
+        "model_id": {
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QueryPlan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "planning": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IfcPlanningProvenance"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/PropertyDefinition"
+          },
+          "title": "Properties",
+          "type": "array"
+        },
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "result": {
+          "$ref": "#/$defs/QueryResult"
+        },
+        "schema_version": {
+          "const": "0.1.0",
+          "default": "0.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "view",
+            "model"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "scope_label": {
+          "title": "Scope Label",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        },
+        "units": {
+          "items": {
+            "$ref": "#/$defs/Unit"
+          },
+          "title": "Units",
+          "type": "array"
+        },
+        "unresolved_elements": {
+          "items": {
+            "$ref": "#/$defs/IfcElement"
+          },
+          "title": "Unresolved Elements",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "request_id",
+        "model_id",
+        "source_sha256",
+        "question",
+        "scope",
+        "scope_label",
+        "interpretation",
+        "result"
+      ],
+      "title": "IfcQuestionResponse",
+      "type": "object"
+    },
+    "IfcSpaceBoundary": {
+      "additionalProperties": false,
+      "description": "A source boundary record, including unusable and virtual boundaries.",
+      "properties": {
+        "connection_geometry_step_id": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Connection Geometry Step Id"
+        },
+        "corresponding_boundary_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Corresponding Boundary Id"
+        },
+        "element_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Element Id"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "internal_or_external": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Internal Or External"
+        },
+        "native_step_id": {
+          "exclusiveMinimum": 0,
+          "title": "Native Step Id",
+          "type": "integer"
+        },
+        "parent_boundary_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Boundary Id"
+        },
+        "physical_or_virtual": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Physical Or Virtual"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "space_id": {
+          "minLength": 1,
+          "title": "Space Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "native_step_id",
+        "space_id",
+        "physical_or_virtual",
+        "internal_or_external",
+        "provenance"
+      ],
+      "title": "IfcSpaceBoundary",
+      "type": "object"
+    },
+    "ImageCandidate": {
+      "additionalProperties": false,
+      "description": "An unreviewed detection, not a canonical building entity or final claim.",
+      "properties": {
+        "category": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Category",
+          "type": "string"
+        },
+        "geometry": {
+          "$ref": "#/$defs/BoxShape"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "source_label": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Label"
+        },
+        "uncertain": {
+          "title": "Uncertain",
+          "type": "boolean"
+        },
+        "uncertainty_reason": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty Reason"
+        },
+        "visual_cue": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Visual Cue",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "category",
+        "geometry",
+        "uncertain",
+        "visual_cue"
+      ],
+      "title": "ImageCandidate",
+      "type": "object"
+    },
+    "ImageCandidateResponse": {
+      "additionalProperties": false,
+      "description": "Image-bound proposals; an empty list does not establish a zero count.",
+      "properties": {
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/ImageCandidate"
+          },
+          "maxItems": 100,
+          "title": "Candidates",
+          "type": "array"
+        },
+        "decision_trace": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImageDecisionTrace"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "detail": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CandidateDetailTrace"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "image": {
+          "$ref": "#/$defs/CandidateImage"
+        },
+        "inventory_completeness": {
+          "const": "unverified",
+          "default": "unverified",
+          "title": "Inventory Completeness",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Limitations",
+          "type": "array"
+        },
+        "metrics": {
+          "$ref": "#/$defs/CandidateMetrics"
+        },
+        "provenance": {
+          "$ref": "#/$defs/CandidateProvenance"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1.0",
+          "default": "0.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scope": {
+          "const": "submitted_image",
+          "default": "submitted_image",
+          "title": "Scope",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "partial",
+            "unreadable",
+            "unsupported"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "image",
+        "status",
+        "provenance",
+        "metrics"
+      ],
+      "title": "ImageCandidateResponse",
+      "type": "object"
+    },
+    "ImageDecisionTrace": {
+      "additionalProperties": false,
+      "description": "Host-recorded routing path, never a model's hidden reasoning.",
+      "properties": {
+        "assessment_probabilities": {
+          "additionalProperties": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "maxProperties": 8,
+          "propertyNames": {
+            "minLength": 1
+          },
+          "title": "Assessment Probabilities",
+          "type": "object"
+        },
+        "assessments": {
+          "additionalProperties": {
+            "maxLength": 120,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxProperties": 8,
+          "propertyNames": {
+            "minLength": 1
+          },
+          "title": "Assessments",
+          "type": "object"
+        },
+        "calls": {
+          "items": {
+            "$ref": "#/$defs/AnalysisCall"
+          },
+          "maxItems": 13,
+          "title": "Calls",
+          "type": "array"
+        },
+        "capability_version": {
+          "minLength": 1,
+          "title": "Capability Version",
+          "type": "string"
+        },
+        "image": {
+          "$ref": "#/$defs/CandidateImage"
+        },
+        "mode": {
+          "enum": [
+            "off",
+            "shadow",
+            "auto"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/AnalysisDecisionNode"
+          },
+          "maxItems": 20,
+          "title": "Nodes",
+          "type": "array"
+        },
+        "policy_version": {
+          "minLength": 1,
+          "title": "Policy Version",
+          "type": "string"
+        },
+        "question_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Question Sha256",
+          "type": "string"
+        },
+        "recommended_profile": {
+          "anyOf": [
+            {
+              "enum": [
+                "normal",
+                "strong"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Recommended Profile"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "selected_profile": {
+          "enum": [
+            "normal",
+            "strong",
+            "manual",
+            "pending"
+          ],
+          "title": "Selected Profile",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "question_sha256",
+        "image",
+        "mode",
+        "policy_version",
+        "capability_version",
+        "selected_profile"
+      ],
+      "title": "ImageDecisionTrace",
+      "type": "object"
+    },
+    "Issue": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "code": {
+          "enum": [
+            "needs_clarification",
+            "missing_source",
+            "missing_information",
+            "incomplete_coverage",
+            "unsupported_operation",
+            "conflicting_evidence",
+            "insufficient_calibration",
+            "execution_error"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Entity Ids",
+          "type": "array"
+        },
+        "fact_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "message": {
+          "$ref": "#/$defs/LocalizedText"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/LocalizedText"
+          },
+          "title": "Options",
+          "type": "array"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "Issue",
+      "type": "object"
+    },
+    "KnowledgeBundle": {
+      "additionalProperties": false,
+      "properties": {
+        "anchors": {
+          "items": {
+            "$ref": "#/$defs/EvidenceAnchor"
+          },
+          "title": "Anchors",
+          "type": "array"
+        },
+        "asset_links": {
+          "items": {
+            "$ref": "#/$defs/AssetLink"
+          },
+          "title": "Asset Links",
+          "type": "array"
+        },
+        "assets": {
+          "items": {
+            "$ref": "#/$defs/Asset"
+          },
+          "title": "Assets",
+          "type": "array"
+        },
+        "calibrations": {
+          "items": {
+            "$ref": "#/$defs/Calibration"
+          },
+          "title": "Calibrations",
+          "type": "array"
+        },
+        "concepts": {
+          "items": {
+            "$ref": "#/$defs/Concept"
+          },
+          "title": "Concepts",
+          "type": "array"
+        },
+        "coverage": {
+          "items": {
+            "$ref": "#/$defs/Coverage"
+          },
+          "title": "Coverage",
+          "type": "array"
+        },
+        "documents": {
+          "items": {
+            "$ref": "#/$defs/Document"
+          },
+          "title": "Documents",
+          "type": "array"
+        },
+        "entities": {
+          "items": {
+            "$ref": "#/$defs/Entity"
+          },
+          "title": "Entities",
+          "type": "array"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/Fact"
+          },
+          "title": "Facts",
+          "type": "array"
+        },
+        "features": {
+          "items": {
+            "$ref": "#/$defs/SourceFeature"
+          },
+          "title": "Features",
+          "type": "array"
+        },
+        "frames": {
+          "items": {
+            "$ref": "#/$defs/CoordinateFrame"
+          },
+          "title": "Frames",
+          "type": "array"
+        },
+        "geometries": {
+          "items": {
+            "$ref": "#/$defs/Geometry"
+          },
+          "title": "Geometries",
+          "type": "array"
+        },
+        "projects": {
+          "items": {
+            "$ref": "#/$defs/Project"
+          },
+          "title": "Projects",
+          "type": "array"
+        },
+        "properties": {
+          "items": {
+            "$ref": "#/$defs/PropertyDefinition"
+          },
+          "title": "Properties",
+          "type": "array"
+        },
+        "relations": {
+          "items": {
+            "$ref": "#/$defs/Relation"
+          },
+          "title": "Relations",
+          "type": "array"
+        },
+        "representations": {
+          "items": {
+            "$ref": "#/$defs/Representation"
+          },
+          "title": "Representations",
+          "type": "array"
+        },
+        "runs": {
+          "items": {
+            "$ref": "#/$defs/ExtractionRun"
+          },
+          "title": "Runs",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "0.1.0",
+          "default": "0.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "space_boundaries": {
+          "items": {
+            "$ref": "#/$defs/IfcSpaceBoundary"
+          },
+          "title": "Space Boundaries",
+          "type": "array"
+        },
+        "transforms": {
+          "items": {
+            "$ref": "#/$defs/Transform"
+          },
+          "title": "Transforms",
+          "type": "array"
+        },
+        "units": {
+          "items": {
+            "$ref": "#/$defs/Unit"
+          },
+          "title": "Units",
+          "type": "array"
+        },
+        "views": {
+          "items": {
+            "$ref": "#/$defs/View"
+          },
+          "title": "Views",
+          "type": "array"
+        }
+      },
+      "required": [
+        "projects",
+        "documents",
+        "assets",
+        "runs",
+        "concepts",
+        "properties",
+        "units"
+      ],
+      "title": "KnowledgeBundle",
+      "type": "object"
+    },
+    "ListValue": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "boolean": "#/$defs/BooleanValue",
+                "count": "#/$defs/CountValue",
+                "list": "#/$defs/ListValue",
+                "quantity": "#/$defs/QuantityValue",
+                "record": "#/$defs/RecordValue",
+                "references": "#/$defs/ReferencesValue",
+                "table": "#/$defs/TableValue",
+                "text": "#/$defs/TextValue",
+                "unavailable": "#/$defs/UnavailableValue"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/QuantityValue"
+              },
+              {
+                "$ref": "#/$defs/CountValue"
+              },
+              {
+                "$ref": "#/$defs/TextValue"
+              },
+              {
+                "$ref": "#/$defs/BooleanValue"
+              },
+              {
+                "$ref": "#/$defs/ReferencesValue"
+              },
+              {
+                "$ref": "#/$defs/UnavailableValue"
+              },
+              {
+                "$ref": "#/$defs/ListValue"
+              },
+              {
+                "$ref": "#/$defs/RecordValue"
+              },
+              {
+                "$ref": "#/$defs/TableValue"
+              }
+            ]
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "kind": {
+          "const": "list",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "items"
+      ],
+      "title": "ListValue",
+      "type": "object"
+    },
+    "LocalizedText": {
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    },
+    "MeasureOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "title": "Basis",
+          "type": "string"
+        },
+        "calibration_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Calibration Ids",
+          "type": "array"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "measure",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metric": {
+          "enum": [
+            "area",
+            "union_area",
+            "length",
+            "perimeter",
+            "volume",
+            "distance",
+            "angle"
+          ],
+          "title": "Metric",
+          "type": "string"
+        },
+        "output_unit_id": {
+          "minLength": 1,
+          "title": "Output Unit Id",
+          "type": "string"
+        },
+        "reference_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Reference Entity Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "metric",
+        "output_unit_id",
+        "basis"
+      ],
+      "title": "MeasureOperation",
+      "type": "object"
+    },
+    "MeshShape": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "enum": [
+            "glb",
+            "gltf",
+            "obj",
+            "other"
+          ],
+          "title": "Format",
+          "type": "string"
+        },
+        "kind": {
+          "const": "mesh",
+          "title": "Kind",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "uri": {
+          "title": "Uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "uri",
+        "sha256",
+        "format"
+      ],
+      "title": "MeshShape",
+      "type": "object"
+    },
+    "MultiPolygonShape": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "multipolygon",
+          "title": "Kind",
+          "type": "string"
+        },
+        "polygons": {
+          "items": {
+            "$ref": "#/$defs/PolygonPart"
+          },
+          "minItems": 1,
+          "title": "Polygons",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "polygons"
+      ],
+      "title": "MultiPolygonShape",
+      "type": "object"
+    },
+    "NativeSelector": {
+      "additionalProperties": false,
+      "properties": {
+        "column_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Column Index"
+        },
+        "instance_path": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Instance Path",
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "ifc_guid",
+            "step_id",
+            "dxf_handle",
+            "svg_id",
+            "pdf_span",
+            "table_cell",
+            "image_region",
+            "file_metadata"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "property_path": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Property Path",
+          "type": "array"
+        },
+        "row_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Row Index"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "NativeSelector",
+      "type": "object"
+    },
+    "NormalizedQuantity": {
+      "additionalProperties": false,
+      "properties": {
+        "magnitude": {
+          "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+          "title": "Magnitude",
+          "type": "string"
+        },
+        "unit_id": {
+          "minLength": 1,
+          "title": "Unit Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "magnitude",
+        "unit_id"
+      ],
+      "title": "NormalizedQuantity",
+      "type": "object"
+    },
+    "PlanStep": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "operation": {
+          "discriminator": {
+            "mapping": {
+              "aggregate": "#/$defs/AggregateOperation",
+              "arithmetic": "#/$defs/ArithmeticOperation",
+              "measure": "#/$defs/MeasureOperation",
+              "project": "#/$defs/ProjectOperation",
+              "rank": "#/$defs/RankOperation",
+              "related_entities": "#/$defs/RelatedEntitiesOperation",
+              "select": "#/$defs/SelectOperation",
+              "spatial_query": "#/$defs/SpatialQueryOperation",
+              "traverse": "#/$defs/TraverseOperation"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SelectOperation"
+            },
+            {
+              "$ref": "#/$defs/TraverseOperation"
+            },
+            {
+              "$ref": "#/$defs/AggregateOperation"
+            },
+            {
+              "$ref": "#/$defs/SpatialQueryOperation"
+            },
+            {
+              "$ref": "#/$defs/RelatedEntitiesOperation"
+            },
+            {
+              "$ref": "#/$defs/ProjectOperation"
+            },
+            {
+              "$ref": "#/$defs/RankOperation"
+            },
+            {
+              "$ref": "#/$defs/MeasureOperation"
+            },
+            {
+              "$ref": "#/$defs/ArithmeticOperation"
+            }
+          ],
+          "title": "Operation"
+        }
+      },
+      "required": [
+        "id",
+        "operation"
+      ],
+      "title": "PlanStep",
+      "type": "object"
+    },
+    "PointShape": {
+      "additionalProperties": false,
+      "properties": {
+        "coordinates": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 2,
+          "title": "Coordinates",
+          "type": "array"
+        },
+        "kind": {
+          "const": "point",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "coordinates"
+      ],
+      "title": "PointShape",
+      "type": "object"
+    },
+    "PolygonPart": {
+      "additionalProperties": false,
+      "properties": {
+        "holes": {
+          "items": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 3,
+              "minItems": 2,
+              "type": "array"
+            },
+            "minItems": 4,
+            "type": "array"
+          },
+          "title": "Holes",
+          "type": "array"
+        },
+        "shell": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 3,
+            "minItems": 2,
+            "type": "array"
+          },
+          "minItems": 4,
+          "title": "Shell",
+          "type": "array"
+        }
+      },
+      "required": [
+        "shell"
+      ],
+      "title": "PolygonPart",
+      "type": "object"
+    },
+    "PolylineShape": {
+      "additionalProperties": false,
+      "properties": {
+        "closed": {
+          "default": false,
+          "title": "Closed",
+          "type": "boolean"
+        },
+        "coordinates": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 3,
+            "minItems": 2,
+            "type": "array"
+          },
+          "minItems": 2,
+          "title": "Coordinates",
+          "type": "array"
+        },
+        "kind": {
+          "const": "polyline",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "coordinates"
+      ],
+      "title": "PolylineShape",
+      "type": "object"
+    },
+    "PresentPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/FieldRef"
+        },
+        "kind": {
+          "const": "field_present",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "field"
+      ],
+      "title": "PresentPredicate",
+      "type": "object"
+    },
+    "Project": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "Project",
+      "type": "object"
+    },
+    "ProjectOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FieldRef"
+          },
+          "minItems": 1,
+          "title": "Fields",
+          "type": "array"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "project",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "fields"
+      ],
+      "title": "ProjectOperation",
+      "type": "object"
+    },
+    "PropertyDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "definition": {
+          "title": "Definition",
+          "type": "string"
+        },
+        "dimension": {
+          "anyOf": [
+            {
+              "maxItems": 7,
+              "minItems": 7,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dimension"
+        },
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "$ref": "#/$defs/LocalizedText"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "quantity_kind": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quantity Kind"
+        },
+        "value_kind": {
+          "enum": [
+            "text",
+            "count",
+            "quantity",
+            "boolean",
+            "references",
+            "list",
+            "record",
+            "table"
+          ],
+          "title": "Value Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "labels",
+        "value_kind",
+        "definition"
+      ],
+      "title": "PropertyDefinition",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "method": {
+          "enum": [
+            "native",
+            "computed",
+            "ocr",
+            "detected",
+            "inferred",
+            "human"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "score_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score Name"
+        }
+      },
+      "required": [
+        "run_id",
+        "method"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "QuantityValue": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "title": "Basis",
+          "type": "string"
+        },
+        "kind": {
+          "const": "quantity",
+          "title": "Kind",
+          "type": "string"
+        },
+        "magnitude": {
+          "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+          "title": "Magnitude",
+          "type": "string"
+        },
+        "normalized": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NormalizedQuantity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "quality": {
+          "default": "exact",
+          "enum": [
+            "exact",
+            "estimated",
+            "lower_bound",
+            "upper_bound"
+          ],
+          "title": "Quality",
+          "type": "string"
+        },
+        "quantity_kind": {
+          "title": "Quantity Kind",
+          "type": "string"
+        },
+        "source_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Text"
+        },
+        "source_value_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Value Type"
+        },
+        "unit_anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Unit Anchor Ids",
+          "type": "array"
+        },
+        "unit_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unit Id"
+        },
+        "unit_resolution": {
+          "enum": [
+            "explicit",
+            "project_default",
+            "calibrated",
+            "derived",
+            "unknown"
+          ],
+          "title": "Unit Resolution",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "magnitude",
+        "unit_id",
+        "quantity_kind",
+        "basis",
+        "unit_resolution"
+      ],
+      "title": "QuantityValue",
+      "type": "object"
+    },
+    "QueryPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "outputs": {
+          "additionalProperties": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minProperties": 1,
+          "title": "Outputs",
+          "type": "object"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "required_capabilities": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Required Capabilities",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "0.1.0",
+          "default": "0.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/PlanStep"
+          },
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "request_id",
+        "scope",
+        "steps",
+        "outputs"
+      ],
+      "title": "QueryPlan",
+      "type": "object"
+    },
+    "QueryResult": {
+      "additionalProperties": false,
+      "properties": {
+        "calculations": {
+          "items": {
+            "$ref": "#/$defs/CalculationNode"
+          },
+          "title": "Calculations",
+          "type": "array"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/Claim"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "entity_sets": {
+          "items": {
+            "$ref": "#/$defs/EntitySet"
+          },
+          "title": "Entity Sets",
+          "type": "array"
+        },
+        "executor_version": {
+          "title": "Executor Version",
+          "type": "string"
+        },
+        "explanation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocalizedText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "issues": {
+          "items": {
+            "$ref": "#/$defs/Issue"
+          },
+          "title": "Issues",
+          "type": "array"
+        },
+        "metrics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExecutionMetrics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "plan_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Plan Id"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "0.1.0",
+          "default": "0.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "answered",
+            "partial",
+            "needs_clarification",
+            "missing_source",
+            "missing_information",
+            "incomplete_coverage",
+            "unsupported_operation",
+            "conflicting_evidence",
+            "insufficient_calibration",
+            "execution_error"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "request_id",
+        "status",
+        "executor_version"
+      ],
+      "title": "QueryResult",
+      "type": "object"
+    },
+    "RankOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "enum": [
+            "ascending",
+            "descending"
+          ],
+          "title": "Direction",
+          "type": "string"
+        },
+        "field": {
+          "$ref": "#/$defs/FieldRef"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "rank",
+          "title": "Kind",
+          "type": "string"
+        },
+        "limit": {
+          "exclusiveMinimum": 0,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "field",
+        "direction",
+        "limit"
+      ],
+      "title": "RankOperation",
+      "type": "object"
+    },
+    "RecordValue": {
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "additionalProperties": {
+            "discriminator": {
+              "mapping": {
+                "boolean": "#/$defs/BooleanValue",
+                "count": "#/$defs/CountValue",
+                "list": "#/$defs/ListValue",
+                "quantity": "#/$defs/QuantityValue",
+                "record": "#/$defs/RecordValue",
+                "references": "#/$defs/ReferencesValue",
+                "table": "#/$defs/TableValue",
+                "text": "#/$defs/TextValue",
+                "unavailable": "#/$defs/UnavailableValue"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/QuantityValue"
+              },
+              {
+                "$ref": "#/$defs/CountValue"
+              },
+              {
+                "$ref": "#/$defs/TextValue"
+              },
+              {
+                "$ref": "#/$defs/BooleanValue"
+              },
+              {
+                "$ref": "#/$defs/ReferencesValue"
+              },
+              {
+                "$ref": "#/$defs/UnavailableValue"
+              },
+              {
+                "$ref": "#/$defs/ListValue"
+              },
+              {
+                "$ref": "#/$defs/RecordValue"
+              },
+              {
+                "$ref": "#/$defs/TableValue"
+              }
+            ]
+          },
+          "title": "Fields",
+          "type": "object"
+        },
+        "kind": {
+          "const": "record",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "fields"
+      ],
+      "title": "RecordValue",
+      "type": "object"
+    },
+    "ReferencesValue": {
+      "additionalProperties": false,
+      "properties": {
+        "entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Entity Ids",
+          "type": "array"
+        },
+        "kind": {
+          "const": "references",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "entity_ids"
+      ],
+      "title": "ReferencesValue",
+      "type": "object"
+    },
+    "RelatedEntitiesOperation": {
+      "additionalProperties": false,
+      "description": "Deduplicate references from one table column at occurrence grain.",
+      "properties": {
+        "column": {
+          "default": "related",
+          "minLength": 1,
+          "title": "Column",
+          "type": "string"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "related_entities",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id"
+      ],
+      "title": "RelatedEntitiesOperation",
+      "type": "object"
+    },
+    "Relation": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "native_predicate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Native Predicate"
+        },
+        "object_id": {
+          "minLength": 1,
+          "title": "Object Id",
+          "type": "string"
+        },
+        "predicate": {
+          "enum": [
+            "contains",
+            "aggregates",
+            "typed_by",
+            "assigned_to_system",
+            "has_material",
+            "belongs_to_unit",
+            "adjacent_to",
+            "connected_to",
+            "hosted_by",
+            "depicts",
+            "same_as",
+            "custom",
+            "bounded_by",
+            "has_opening",
+            "filled_by",
+            "assigned_to_zone",
+            "corresponding_boundary",
+            "external_boundary"
+          ],
+          "title": "Predicate",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "subject_id": {
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "subject_id",
+        "predicate",
+        "object_id",
+        "provenance"
+      ],
+      "title": "Relation",
+      "type": "object"
+    },
+    "RelationPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "enum": [
+            "outgoing",
+            "incoming"
+          ],
+          "title": "Direction",
+          "type": "string"
+        },
+        "entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Entity Ids",
+          "type": "array"
+        },
+        "kind": {
+          "const": "related_to",
+          "title": "Kind",
+          "type": "string"
+        },
+        "predicate": {
+          "title": "Predicate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "predicate",
+        "direction",
+        "entity_ids"
+      ],
+      "title": "RelationPredicate",
+      "type": "object"
+    },
+    "Representation": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "asset_id": {
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "entity_id": {
+          "minLength": 1,
+          "title": "Entity Id",
+          "type": "string"
+        },
+        "feature_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Feature Ids",
+          "type": "array"
+        },
+        "geometry_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Geometry Ids",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "view_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "View Id"
+        }
+      },
+      "required": [
+        "id",
+        "entity_id",
+        "asset_id",
+        "provenance"
+      ],
+      "title": "Representation",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "document_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Document Ids",
+          "type": "array"
+        },
+        "entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Entity Ids",
+          "type": "array"
+        },
+        "exact_entity_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exact Entity Ids"
+        },
+        "project_id": {
+          "minLength": 1,
+          "title": "Project Id",
+          "type": "string"
+        },
+        "universe": {
+          "enum": [
+            "source_records",
+            "modeled_objects",
+            "depicted_objects",
+            "schedule_entries",
+            "physical_building"
+          ],
+          "title": "Universe",
+          "type": "string"
+        },
+        "view_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "View Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "project_id",
+        "document_ids",
+        "universe"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "SelectOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "concept_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Concept Ids",
+          "type": "array"
+        },
+        "count_policy": {
+          "$ref": "#/$defs/CountPolicy"
+        },
+        "entity_kinds": {
+          "items": {
+            "enum": [
+              "site",
+              "building",
+              "storey",
+              "unit",
+              "space",
+              "element",
+              "assembly",
+              "part",
+              "type",
+              "system",
+              "material",
+              "zone",
+              "site_feature",
+              "schedule_row"
+            ],
+            "type": "string"
+          },
+          "title": "Entity Kinds",
+          "type": "array"
+        },
+        "exclude": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "all": "#/$defs/BooleanPredicate",
+                  "any": "#/$defs/BooleanPredicate",
+                  "compare": "#/$defs/ComparePredicate",
+                  "field_present": "#/$defs/PresentPredicate",
+                  "not": "#/$defs/BooleanPredicate",
+                  "related_to": "#/$defs/RelationPredicate",
+                  "spatial": "#/$defs/SpatialPredicate"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/ComparePredicate"
+                },
+                {
+                  "$ref": "#/$defs/PresentPredicate"
+                },
+                {
+                  "$ref": "#/$defs/RelationPredicate"
+                },
+                {
+                  "$ref": "#/$defs/SpatialPredicate"
+                },
+                {
+                  "$ref": "#/$defs/BooleanPredicate"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Exclude"
+        },
+        "kind": {
+          "const": "select",
+          "title": "Kind",
+          "type": "string"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "all": "#/$defs/BooleanPredicate",
+                  "any": "#/$defs/BooleanPredicate",
+                  "compare": "#/$defs/ComparePredicate",
+                  "field_present": "#/$defs/PresentPredicate",
+                  "not": "#/$defs/BooleanPredicate",
+                  "related_to": "#/$defs/RelationPredicate",
+                  "spatial": "#/$defs/SpatialPredicate"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/ComparePredicate"
+                },
+                {
+                  "$ref": "#/$defs/PresentPredicate"
+                },
+                {
+                  "$ref": "#/$defs/RelationPredicate"
+                },
+                {
+                  "$ref": "#/$defs/SpatialPredicate"
+                },
+                {
+                  "$ref": "#/$defs/BooleanPredicate"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Where"
+        }
+      },
+      "required": [
+        "kind",
+        "concept_ids",
+        "count_policy"
+      ],
+      "title": "SelectOperation",
+      "type": "object"
+    },
+    "SourceFeature": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "asset_id": {
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "column_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Column Index"
+        },
+        "column_span": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Column Span",
+          "type": "integer"
+        },
+        "header_feature_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Header Feature Ids",
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "cad_primitive",
+            "text_span",
+            "detection",
+            "segmentation",
+            "table",
+            "table_row",
+            "table_cell",
+            "other"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "row_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Row Index"
+        },
+        "row_span": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Row Span",
+          "type": "integer"
+        },
+        "table_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Table Id"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocalizedText"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "view_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "View Id"
+        }
+      },
+      "required": [
+        "id",
+        "asset_id",
+        "kind",
+        "anchor_ids",
+        "provenance"
+      ],
+      "title": "SourceFeature",
+      "type": "object"
+    },
+    "SpatialEvaluation": {
+      "additionalProperties": false,
+      "description": "Machine-readable support and unresolved inputs for one spatial subject.",
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "method": {
+          "title": "Method",
+          "type": "string"
+        },
+        "related_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Related Ids",
+          "type": "array"
+        },
+        "relation": {
+          "enum": [
+            "containers",
+            "boundary_neighbors",
+            "door_connections",
+            "outdoor_access",
+            "exterior_doors"
+          ],
+          "title": "Relation",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "verified",
+            "candidate",
+            "unavailable",
+            "recorded_empty"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "subject_id": {
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "tolerance_m": {
+          "anyOf": [
+            {
+              "maximum": 0.1,
+              "minimum": 1e-06,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tolerance M"
+        }
+      },
+      "required": [
+        "relation",
+        "subject_id",
+        "status",
+        "method"
+      ],
+      "title": "SpatialEvaluation",
+      "type": "object"
+    },
+    "SpatialPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "distance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QuantityValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "geometry_id": {
+          "minLength": 1,
+          "title": "Geometry Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "spatial",
+          "title": "Kind",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "intersects",
+            "within",
+            "contains",
+            "touches",
+            "disjoint",
+            "near"
+          ],
+          "title": "Operator",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "operator",
+        "geometry_id"
+      ],
+      "title": "SpatialPredicate",
+      "type": "object"
+    },
+    "SpatialQueryOperation": {
+      "additionalProperties": false,
+      "description": "Bounded IFC topology and supported source-geometry checks.",
+      "properties": {
+        "container_kind": {
+          "default": "storey",
+          "enum": [
+            "space",
+            "storey",
+            "building",
+            "site"
+          ],
+          "title": "Container Kind",
+          "type": "string"
+        },
+        "exterior_basis": {
+          "default": "combined",
+          "enum": [
+            "combined",
+            "classification",
+            "boundary"
+          ],
+          "title": "Exterior Basis",
+          "type": "string"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "spatial_query",
+          "title": "Kind",
+          "type": "string"
+        },
+        "method": {
+          "default": "auto",
+          "enum": [
+            "native",
+            "geometry",
+            "auto"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "relation": {
+          "enum": [
+            "containers",
+            "boundary_neighbors",
+            "door_connections",
+            "outdoor_access",
+            "exterior_doors"
+          ],
+          "title": "Relation",
+          "type": "string"
+        },
+        "tolerance_m": {
+          "default": 0.01,
+          "maximum": 0.1,
+          "minimum": 1e-06,
+          "title": "Tolerance M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "relation"
+      ],
+      "title": "SpatialQueryOperation",
+      "type": "object"
+    },
+    "TableColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/LocalizedText"
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "title": "TableColumn",
+      "type": "object"
+    },
+    "TableValue": {
+      "additionalProperties": false,
+      "properties": {
+        "columns": {
+          "items": {
+            "$ref": "#/$defs/TableColumn"
+          },
+          "minItems": 1,
+          "title": "Columns",
+          "type": "array"
+        },
+        "kind": {
+          "const": "table",
+          "title": "Kind",
+          "type": "string"
+        },
+        "rows": {
+          "items": {
+            "additionalProperties": {
+              "discriminator": {
+                "mapping": {
+                  "boolean": "#/$defs/BooleanValue",
+                  "count": "#/$defs/CountValue",
+                  "list": "#/$defs/ListValue",
+                  "quantity": "#/$defs/QuantityValue",
+                  "record": "#/$defs/RecordValue",
+                  "references": "#/$defs/ReferencesValue",
+                  "table": "#/$defs/TableValue",
+                  "text": "#/$defs/TextValue",
+                  "unavailable": "#/$defs/UnavailableValue"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/QuantityValue"
+                },
+                {
+                  "$ref": "#/$defs/CountValue"
+                },
+                {
+                  "$ref": "#/$defs/TextValue"
+                },
+                {
+                  "$ref": "#/$defs/BooleanValue"
+                },
+                {
+                  "$ref": "#/$defs/ReferencesValue"
+                },
+                {
+                  "$ref": "#/$defs/UnavailableValue"
+                },
+                {
+                  "$ref": "#/$defs/ListValue"
+                },
+                {
+                  "$ref": "#/$defs/RecordValue"
+                },
+                {
+                  "$ref": "#/$defs/TableValue"
+                }
+              ]
+            },
+            "type": "object"
+          },
+          "title": "Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "columns",
+        "rows"
+      ],
+      "title": "TableValue",
+      "type": "object"
+    },
+    "TextValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "text",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/LocalizedText"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "TextValue",
+      "type": "object"
+    },
+    "Transform": {
+      "additionalProperties": false,
+      "properties": {
+        "from_frame_id": {
+          "minLength": 1,
+          "title": "From Frame Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "affine",
+            "homography",
+            "projection"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "matrix": {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "title": "Matrix",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "to_frame_id": {
+          "minLength": 1,
+          "title": "To Frame Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "from_frame_id",
+        "to_frame_id",
+        "kind",
+        "matrix",
+        "provenance"
+      ],
+      "title": "Transform",
+      "type": "object"
+    },
+    "TraverseOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "enum": [
+            "outgoing",
+            "incoming"
+          ],
+          "title": "Direction",
+          "type": "string"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "traverse",
+          "title": "Kind",
+          "type": "string"
+        },
+        "max_depth": {
+          "default": 32,
+          "exclusiveMinimum": 0,
+          "title": "Max Depth",
+          "type": "integer"
+        },
+        "predicate": {
+          "title": "Predicate",
+          "type": "string"
+        },
+        "recursive": {
+          "default": false,
+          "title": "Recursive",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "predicate",
+        "direction"
+      ],
+      "title": "TraverseOperation",
+      "type": "object"
+    },
+    "UnavailableValue": {
+      "additionalProperties": false,
+      "description": "A missing cell in a partial list/record/table; never a numeric zero.",
+      "properties": {
+        "explanation": {
+          "title": "Explanation",
+          "type": "string"
+        },
+        "kind": {
+          "const": "unavailable",
+          "title": "Kind",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "explicit_null",
+            "not_in_source",
+            "not_extracted",
+            "unknown",
+            "ambiguous"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "reason",
+        "explanation"
+      ],
+      "title": "UnavailableValue",
+      "type": "object"
+    },
+    "Unit": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension": {
+          "anyOf": [
+            {
+              "maxItems": 7,
+              "minItems": 7,
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dimension"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "physical",
+            "presentation"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "si_multiplier": {
+          "anyOf": [
+            {
+              "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Si Multiplier"
+        },
+        "si_offset": {
+          "default": "0",
+          "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?$",
+          "title": "Si Offset",
+          "type": "string"
+        },
+        "symbol": {
+          "title": "Symbol",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "symbol",
+        "kind"
+      ],
+      "title": "Unit",
+      "type": "object"
+    },
+    "View": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "minLength": 1,
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "boundary_geometry_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Boundary Geometry Id"
+        },
+        "depicts_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Depicts Entity Ids",
+          "type": "array"
+        },
+        "frame_id": {
+          "minLength": 1,
+          "title": "Frame Id",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "page",
+            "floor_plan",
+            "section",
+            "elevation",
+            "detail",
+            "site",
+            "schedule",
+            "legend",
+            "tile",
+            "unknown"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "labels": {
+          "items": {
+            "$ref": "#/$defs/LocalizedText"
+          },
+          "title": "Labels",
+          "type": "array"
+        },
+        "page_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Index"
+        },
+        "parent_view_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent View Id"
+        }
+      },
+      "required": [
+        "id",
+        "asset_id",
+        "frame_id",
+        "kind"
+      ],
+      "title": "View",
+      "type": "object"
+    }
+  },
+  "$id": "urn:stoa:contracts:0.1.0:AnswerResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "candidate_response": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ImageCandidateResponse"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "evidence_contexts": {
+      "items": {
+        "$ref": "#/$defs/AnswerEvidenceContext"
+      },
+      "maxItems": 16,
+      "title": "Evidence Contexts",
+      "type": "array"
+    },
+    "ifc_response": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/IfcQuestionResponse"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "interpretation": {
+      "$ref": "#/$defs/AnswerIntent"
+    },
+    "metrics": {
+      "$ref": "#/$defs/AnswerMetrics"
+    },
+    "narrative": {
+      "items": {
+        "$ref": "#/$defs/AnswerSentence"
+      },
+      "title": "Narrative",
+      "type": "array"
+    },
+    "parts": {
+      "items": {
+        "$ref": "#/$defs/AnswerPart"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Parts",
+      "type": "array"
+    },
+    "question": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Question",
+      "type": "string"
+    },
+    "question_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Question Sha256",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1.0",
+      "default": "0.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/AnswerSourceBinding"
+    }
+  },
+  "required": [
+    "request_id",
+    "question",
+    "question_sha256",
+    "source",
+    "interpretation",
+    "parts",
+    "metrics"
+  ],
+  "title": "AnswerResponse",
+  "type": "object"
+}

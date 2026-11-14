@@ -2,6 +2,13 @@
 
 Reviewed 14 November 2026 against the current source tree, documentation, and selected supplied questions. This is an implementation backlog and status assessment. It does not add an extractor or executor.
 
+15 November implementation update: the [common answer pipeline](NATURAL_LANGUAGE_ANSWERS.md)
+adds original/display source sessions, native PDF text/table tools, scalar IFC
+arithmetic and independent compound outputs with bound deterministic prose.
+The older row-level assessments below remain a dated backlog. Visual completeness,
+automatic calibrated room extraction and the remaining specialist IFC operations
+are still gaps; the new tools do not establish full-family accuracy.
+
 The system needs reusable capabilities that compose into answers. A question such as "Which floor has the largest total bedroom area, excluding balconies?" combines scope resolution, room classification, area acquisition, exclusions, grouping, summation, and ranking. It should not require a dedicated model for that sentence.
 
 The backend [Nemotron adapter](nvidia_info.md) now supports sync/async text,

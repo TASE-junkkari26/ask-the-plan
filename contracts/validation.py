@@ -891,3 +891,72 @@ def validate_result(result: QueryResult, bundle: KnowledgeBundle,
                     _fail("claim/entity-set count policies disagree")
         if not root_bound:
             _fail("claim needs a root evidence binding for its complete output")
+
+
+def validate_answer(answer) -> None:
+    """Validate the common answer envelope against its actual typed evidence.
+
+    Source truth remains the extractor/executor's responsibility. In particular,
+    this rejects fluent unsupported prose by regenerating presentation from the
+    results instead of treating a string/JSON check as entailment validation.
+    """
+    from .models import AnswerResponse
+    from answer_api.realize import realize_answer
+
+    # model_copy() is convenient for construction but bypasses Pydantic checks.
+    answer = AnswerResponse.model_validate(answer.model_dump(mode="python"))
+    contexts = {context.id: context.bundle for context in answer.evidence_contexts}
+    parts = {part.key: part for part in answer.parts}
+    for evidence_context in answer.evidence_contexts:
+        bundle = evidence_context.bundle
+        validate_bundle(bundle)
+        original = [asset for asset in bundle.assets if asset.sha256 == answer.source.source_sha256]
+        if not original:
+            _fail("answer evidence does not contain the captured original source hash")
+        documents = {document.id: document for document in bundle.documents}
+        if not any(documents[asset.document_id].revision == answer.source.source_revision for asset in original):
+            _fail("answer evidence belongs to another source revision")
+        reachable = _reachable(_Context(bundle).asset_neighbors, [asset.id for asset in original])
+        if any(asset.id not in reachable for asset in bundle.assets):
+            _fail("answer evidence contains an unlinked source asset")
+        if answer.source.display_sha256 is not None:
+            from .models import AnswerSnapshot
+            captured = AnswerSnapshot(**{key: getattr(answer.source, key) for key in AnswerSnapshot.model_fields})
+            if evidence_context.source_snapshot != captured:
+                _fail('answer evidence snapshot differs from its captured source/page/layout/frame')
+            display_assets = {asset.id for asset in bundle.assets if asset.sha256 == answer.source.display_sha256}
+            if not display_assets:
+                _fail('answer evidence does not contain the captured displayed-raster hash')
+            for view in bundle.views:
+                if view.asset_id in display_assets and view.page_index != captured.page_index:
+                    _fail('display evidence view belongs to another source page/layout')
+    for part in answer.parts:
+        dependencies = [parts[key] for key in part.depends_on]
+        failed = [item for item in dependencies if item.status != "answered"]
+        if failed and part.status not in {"blocked", "partial"}:
+            _fail("dependent output cannot succeed when a required input is unavailable")
+        if part.status == "blocked" and not failed:
+            _fail("blocked output requires an unavailable dependency")
+        if failed and part.result and any(claim.quality == "exact" for claim in part.result.claims):
+            _fail("dependent output cannot promote partial input to an exact claim")
+        bundle = contexts.get(part.evidence_context_id)
+        if part.plan is not None:
+            if bundle is None:
+                _fail("an executable answer plan requires an evidence context")
+            if part.plan.request_id != answer.request_id:
+                _fail("answer plan belongs to another request")
+            validate_plan(part.plan, bundle)
+        if part.result is not None:
+            if bundle is None and (part.result.claims or part.result.calculations or part.result.entity_sets):
+                _fail("answer claims require an evidence context")
+            if bundle is not None:
+                validate_result(part.result, bundle, part.plan)
+            for claim in part.result.claims:
+                if claim.quality in {"exact", "lower_bound"} and any(
+                        binding.evidence_kind == "candidate" for binding in claim.evidence):
+                    _fail("unverified candidates cannot establish exact totals or lower bounds")
+    expected = realize_answer(answer)
+    if answer.narrative != expected:
+        _fail("answer narrative differs from the validated deterministic claim realization")
+    if {sentence.part_key for sentence in answer.narrative} != set(parts):
+        _fail("every requested part requires a visible answer or unavailability reason")

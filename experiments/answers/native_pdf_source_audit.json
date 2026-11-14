@@ -1,0 +1,414 @@
+{
+  "recorded_date": "2026-11-15",
+  "review_kind": "programmatic_source_extraction_audit",
+  "qa_reference_answers_read": false,
+  "model_calls": 0,
+  "rendering": "local Node PDF.js with installed @napi-rs/canvas; first page; frontend scale policy",
+  "limitations": [
+    "Source-only extraction checks do not establish table associations, complete semantic inventories, question accuracy or browser rendering.",
+    "Font metric boxes are approximate, not exact glyph outlines.",
+    "Selected three sources; this is not all64-question evaluation or independent source manual review."
+  ],
+  "sources": [
+    {
+      "source_path": "dataset/junction-dataset/data/opening_design/CTR/Most Current Set/Full size sheets/A700 - SCHEDULES.pdf",
+      "source_sha256": "7844425d1ce81869d94f71f325d4ae2211d6f91e74563e3f251db3d19de90cee",
+      "display_sha256": "dd5d185e702bda8ae06588b7595bdfe6c4e363569031a0bc721126f867e010e1",
+      "source_bytes": 642795,
+      "display_width": 3347,
+      "display_height": 2391,
+      "pages": 1,
+      "rotation": 90,
+      "source_bounds": [
+        0.0,
+        0.0,
+        2160.0,
+        3024.0
+      ],
+      "mapping_verified": true,
+      "text_enumeration_complete": true,
+      "text_spans": 1020,
+      "unique_texts": 344,
+      "font_metric_boxes_outside_page": 0,
+      "nonhorizontal_spans": 2,
+      "native_header_candidates": [
+        {
+          "id": "pdf:p0:text120",
+          "text": "Count",
+          "display_bbox": [
+            148.60676462084186,
+            1002.3093837625881,
+            179.57809202626282,
+            1012.5643129469107
+          ]
+        },
+        {
+          "id": "pdf:p0:text124",
+          "text": "Type",
+          "display_bbox": [
+            392.70915059379905,
+            1002.3093837625881,
+            415.8420302341529,
+            1012.5643129469107
+          ]
+        },
+        {
+          "id": "pdf:p0:text126",
+          "text": "Width",
+          "display_bbox": [
+            575.1820944072361,
+            1002.3093837625881,
+            603.4820936305126,
+            1012.5643129469107
+          ]
+        },
+        {
+          "id": "pdf:p0:text128",
+          "text": "Height",
+          "display_bbox": [
+            640.3890710184302,
+            1002.3093837625881,
+            672.6846140042762,
+            1012.5643129469107
+          ]
+        },
+        {
+          "id": "pdf:p0:text132",
+          "text": "Type",
+          "display_bbox": [
+            776.2345431277308,
+            1001.9110848752853,
+            799.3674220502397,
+            1012.1660140596077
+          ]
+        },
+        {
+          "id": "pdf:p0:text613",
+          "text": "Type",
+          "display_bbox": [
+            272.2465303598979,
+            131.51956018346698,
+            295.37941000025177,
+            141.77448936778936
+          ]
+        },
+        {
+          "id": "pdf:p0:text620",
+          "text": "Type",
+          "display_bbox": [
+            503.85564879831236,
+            144.13523310146314,
+            526.9885277208213,
+            154.39016228578555
+          ]
+        },
+        {
+          "id": "pdf:p0:text622",
+          "text": "Width",
+          "display_bbox": [
+            626.8324666959293,
+            144.13523310146314,
+            655.1324659192061,
+            154.39016228578555
+          ]
+        },
+        {
+          "id": "pdf:p0:text624",
+          "text": "Height",
+          "display_bbox": [
+            691.6410393083123,
+            144.13523310146314,
+            723.9365822941586,
+            154.39016228578555
+          ]
+        },
+        {
+          "id": "pdf:p0:text1770",
+          "text": "Type",
+          "display_bbox": [
+            2393.113403456273,
+            124.12811357281562,
+            2416.692784459982,
+            134.20508648851256
+          ]
+        },
+        {
+          "id": "pdf:p0:text1773",
+          "text": "Type",
+          "display_bbox": [
+            2522.862293907841,
+            136.6118941137846,
+            2546.44167491155,
+            146.68886702948151
+          ]
+        },
+        {
+          "id": "pdf:p0:text1775",
+          "text": "Count",
+          "display_bbox": [
+            2652.4756147196786,
+            136.6118941137846,
+            2682.721993659386,
+            146.68886702948151
+          ]
+        },
+        {
+          "id": "pdf:p0:text1777",
+          "text": "Width",
+          "display_bbox": [
+            2704.6677260449205,
+            136.6118941137846,
+            2732.630335319542,
+            146.68886702948151
+          ]
+        },
+        {
+          "id": "pdf:p0:text1779",
+          "text": "Height",
+          "display_bbox": [
+            2755.5342870596296,
+            136.6118941137846,
+            2787.770886288739,
+            146.68886702948151
+          ]
+        }
+      ],
+      "warnings": [
+        "Native text enumeration does not establish table reconstruction, depicted-object completeness or text correctness.",
+        "Text bounding boxes use source font metrics and may differ from exact glyph outlines."
+      ],
+      "status": "extracted",
+      "elapsed_ms": 1325.8501359960064
+    },
+    {
+      "source_path": "dataset/junction-dataset/data/opening_design/Sports_Complex/Sheets - Current Set/A-801 - Door and Finish Schedules & Wall Types.pdf",
+      "source_sha256": "0c6bc07e4e413738cb8db95cffd3356664b25719fa1f2648f99599a3db92f36c",
+      "display_sha256": "e8854ca452792e668165c81d66e395384f92334af4cb9aee38b11340dde5d2de",
+      "source_bytes": 440698,
+      "display_width": 3347,
+      "display_height": 2391,
+      "pages": 1,
+      "rotation": 90,
+      "source_bounds": [
+        0.0,
+        0.0,
+        2160.0,
+        3024.0
+      ],
+      "mapping_verified": true,
+      "text_enumeration_complete": true,
+      "text_spans": 1060,
+      "unique_texts": 457,
+      "font_metric_boxes_outside_page": 0,
+      "nonhorizontal_spans": 7,
+      "native_header_candidates": [
+        {
+          "id": "pdf:p0:text357",
+          "text": "Number",
+          "display_bbox": [
+            156.4421747016495,
+            176.33384873928017,
+            204.81940354005184,
+            190.00383397366429
+          ]
+        },
+        {
+          "id": "pdf:p0:text360",
+          "text": "Room",
+          "display_bbox": [
+            351.39680839915957,
+            161.06171259420586,
+            387.75095413687876,
+            174.73169782858997
+          ]
+        },
+        {
+          "id": "pdf:p0:text361",
+          "text": "Number",
+          "display_bbox": [
+            345.4200231677325,
+            176.33385759282586,
+            393.79726608621985,
+            190.00384282720998
+          ]
+        },
+        {
+          "id": "pdf:p0:text371",
+          "text": "Width",
+          "display_bbox": [
+            415.8055122999035,
+            176.86508804208293,
+            450.63070504761913,
+            190.53507327646705
+          ]
+        },
+        {
+          "id": "pdf:p0:text373",
+          "text": "Height",
+          "display_bbox": [
+            477.0286768338858,
+            176.86508804208293,
+            516.4201457915445,
+            190.53507327646705
+          ]
+        },
+        {
+          "id": "pdf:p0:text375",
+          "text": "Type",
+          "display_bbox": [
+            531.7427441854453,
+            176.3339859692386,
+            561.6542005927265,
+            190.0039712036227
+          ]
+        },
+        {
+          "id": "pdf:p0:text381",
+          "text": "Type",
+          "display_bbox": [
+            715.808070015166,
+            176.3339948227843,
+            745.7195264224472,
+            190.0039800571684
+          ]
+        },
+        {
+          "id": "pdf:p0:text1182",
+          "text": "No.",
+          "display_bbox": [
+            2862.5726643451703,
+            1261.8722346955976,
+            2894.319073923845,
+            1282.437029315328
+          ]
+        },
+        {
+          "id": "pdf:p0:text1214",
+          "text": "Area",
+          "display_bbox": [
+            176.76103995562156,
+            923.7503983049987,
+            205.47731287647858,
+            937.4203835393828
+          ]
+        },
+        {
+          "id": "pdf:p0:text1215",
+          "text": "Room",
+          "display_bbox": [
+            245.81880710647795,
+            907.9471512335342,
+            282.172952844197,
+            921.6171364679184
+          ]
+        },
+        {
+          "id": "pdf:p0:text1216",
+          "text": "Number",
+          "display_bbox": [
+            239.84291829655328,
+            923.2192962321543,
+            288.2201612150405,
+            936.8892814665384
+          ]
+        },
+        {
+          "id": "pdf:p0:text1222",
+          "text": "Finish",
+          "display_bbox": [
+            666.6717479453896,
+            923.2193050856998,
+            702.9577780604837,
+            936.889290320084
+          ]
+        },
+        {
+          "id": "pdf:p0:text1232",
+          "text": "Finish",
+          "display_bbox": [
+            1099.4787129913727,
+            923.219316152632,
+            1135.7647988800065,
+            936.8893013870162
+          ]
+        },
+        {
+          "id": "pdf:p0:text1661",
+          "text": "Room",
+          "display_bbox": [
+            154.3173015991227,
+            1389.491834014664,
+            190.67144733684177,
+            1403.1618192490482
+          ]
+        },
+        {
+          "id": "pdf:p0:text1685",
+          "text": "Room",
+          "display_bbox": [
+            154.3173015991227,
+            1442.8791572795976,
+            190.67144733684177,
+            1456.549142513982
+          ]
+        },
+        {
+          "id": "pdf:p0:text1780",
+          "text": "Finish",
+          "display_bbox": [
+            165.8711787412256,
+            1616.4521460969756,
+            202.15723660638972,
+            1630.12213133136
+          ]
+        }
+      ],
+      "warnings": [
+        "Native text enumeration does not establish table reconstruction, depicted-object completeness or text correctness.",
+        "Text bounding boxes use source font metrics and may differ from exact glyph outlines."
+      ],
+      "status": "extracted",
+      "elapsed_ms": 1357.137180006248
+    },
+    {
+      "source_path": "dataset/junction-dataset/data/opening_design/Sports_Complex/Models/2D/Sports Complex - Sheet - A-101 - First Floor Plan.pdf",
+      "source_sha256": "9bd37ecb63e2783e45063b0377dc5ecdb949ed10e63b09713d22e50388b5a495",
+      "display_sha256": "eb6bb939cf5b25c12a7a3ed0d32eb66245602801820d9f8940afc92ff62134c8",
+      "source_bytes": 1869817,
+      "display_width": 3347,
+      "display_height": 2391,
+      "pages": 1,
+      "rotation": 0,
+      "source_bounds": [
+        0.0,
+        0.0,
+        3024.0,
+        2160.0
+      ],
+      "mapping_verified": true,
+      "text_enumeration_complete": true,
+      "text_spans": 116,
+      "unique_texts": 86,
+      "font_metric_boxes_outside_page": 0,
+      "nonhorizontal_spans": 3,
+      "native_header_candidates": [
+        {
+          "id": "pdf:p0:text188",
+          "text": "No.",
+          "display_bbox": [
+            2862.5726643451703,
+            1259.4809742570214,
+            2894.31239057124,
+            1280.045768876752
+          ]
+        }
+      ],
+      "warnings": [
+        "Native text enumeration does not establish table reconstruction, depicted-object completeness or text correctness.",
+        "Text bounding boxes use source font metrics and may differ from exact glyph outlines."
+      ],
+      "status": "extracted",
+      "elapsed_ms": 2301.1444940057117
+    }
+  ]
+}

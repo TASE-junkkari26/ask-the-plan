@@ -22,6 +22,7 @@ import ifcopenshell.guid
 from contracts import models as m
 from contracts.validation import validate_plan, validate_result
 from ifc_engine.catalog import attribute_key, POLICIES
+from ifc_api.config import IfcSettings
 from image_api.app import create_app
 from image_api.config import ApiSettings
 from nemotron import AsyncNemotronClient, ConfigurationError, NemotronSettings
@@ -89,7 +90,7 @@ class IfcApiTests(unittest.IsolatedAsyncioTestCase):
             if not configured:
                 raise ConfigurationError("synthetic unconfigured")
             return sdk
-        app = create_app(ApiSettings(), client_factory=factory)
+        app = create_app(ApiSettings(), client_factory=factory, ifc_settings=IfcSettings(provider='nemotron'))
         async with app.router.lifespan_context(app):
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://test") as client:
                 yield client, app
