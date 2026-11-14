@@ -9,6 +9,8 @@ import { RenderedFaces } from '@thatopen/fragments';
 import fragmentWorkerUrl from '@thatopen/fragments/worker?url';
 import * as THREE from 'three';
 import { readSourceProperties } from './properties';
+import { clippingRange, renderPixelRatio, styleIfcSurface } from './rendering';
+import { FrameTask, TaskQueue } from './tasks';
 
 export interface ModelNode {
   id: number | null;
@@ -41,12 +43,15 @@ export function createIfcAdapter(
   host: HTMLDivElement,
   onSelection: (selection: ModelSelection | null) => void,
   onError: (error: unknown) => void,
+  onFatalError: (error: Error) => void = onError,
 ) {
   const components = new OBC.Components();
   let disposed = false;
   let selectionVersion = 0;
   let model: FragmentsModel | undefined;
   let geometryIds = new Set<number>();
+  let bounds: THREE.Box3 | undefined;
+  let disposePromise: Promise<void> | null = null;
   const worlds = components.get(OBC.Worlds);
   const world = worlds.create<
     OBC.SimpleScene,
@@ -60,9 +65,11 @@ export function createIfcAdapter(
     world.renderer = new OBC.SimpleRenderer(components, host, {
       antialias: true,
       alpha: false,
+      reversedDepthBuffer: true,
     });
     world.renderer.showLogo = false;
-    world.renderer.three.setPixelRatio(Math.min(devicePixelRatio, 2));
+    world.renderer.mode = OBC.RendererMode.MANUAL;
+    world.renderer.needsUpdate = true;
     world.camera = new OBC.OrthoPerspectiveCamera(components);
     components.init();
   } catch (error) {
@@ -88,12 +95,53 @@ export function createIfcAdapter(
         opacity: 0.85,
         transparent: true,
         renderedFaces: RenderedFaces.TWO,
+        depthWrite: false,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
       },
     });
     highlighter.multiple = 'none';
     highlighter.zoomToSelection = false;
     const hider = components.get(OBC.Hider);
     const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+    const visibility = new TaskQueue();
+    const selectionTasks = new TaskQueue();
+    const requestRender = () => {
+      if (!disposed) world.renderer!.needsUpdate = true;
+    };
+    const sectionUpdates = new FrameTask(async () => {
+      if (!disposed) {
+        await fragments.core.update(true);
+        requestRender();
+      }
+    });
+    const materialAdded = ({ value }: { value: THREE.Material }) => {
+      styleIfcSurface(value);
+      requestRender();
+    };
+    fragments.core.models.materials.list.onItemSet.add(materialAdded);
+    const updateClipping = () => {
+      if (!bounds || disposed) return;
+      const range = clippingRange(world.camera.three.position, bounds);
+      for (const camera of [world.camera.threePersp, world.camera.threeOrtho]) {
+        camera.near = range.near;
+        camera.far = range.far;
+        camera.updateProjectionMatrix();
+      }
+    };
+    const updateResolution = () => {
+      if (disposed) return;
+      const ratio = renderPixelRatio(
+        host.clientWidth,
+        host.clientHeight,
+        devicePixelRatio,
+      );
+      if (world.renderer!.three.getPixelRatio() !== ratio)
+        world.renderer!.three.setPixelRatio(ratio);
+      requestRender();
+    };
+    world.renderer!.onResize.add(updateResolution);
+    updateResolution();
     const safe = (promise: Promise<unknown>) => {
       void promise.catch((error) => {
         if (
@@ -104,28 +152,26 @@ export function createIfcAdapter(
       });
     };
     const update = () => {
-      if (!disposed) safe(fragments.core.update());
+      if (!disposed) {
+        updateClipping();
+        requestRender();
+        safe(fragments.core.update());
+      }
     };
     world.camera.controls.addEventListener('update', update);
     const cameraChanged = () => {
       if (!disposed && model) {
+        updateClipping();
         model.useCamera(world.camera.three);
+        requestRender();
         safe(fragments.core.update(true));
       }
     };
     world.camera.projection.onChanged.add(cameraChanged);
-    const resize = new ResizeObserver(() => {
-      if (!disposed) {
-        world.renderer!.resize();
-        world.camera.updateAspect();
-        update();
-      }
-    });
-    resize.observe(host);
     const contextLost = (event: Event) => {
       event.preventDefault();
       if (!disposed)
-        onError(
+        onFatalError(
           new Error(
             'The graphics context was lost. Reopen the model to retry.',
           ),
@@ -146,6 +192,7 @@ export function createIfcAdapter(
         if (disposed || version !== selectionVersion)
           throw new DOMException('Selection changed.', 'AbortError');
       };
+      onSelection(null);
       const [properties, guids] = await Promise.all([
         readSourceProperties(model, [id], check),
         model.getGuidsByLocalIds([id]),
@@ -167,9 +214,13 @@ export function createIfcAdapter(
     highlighter.events.select.onHighlight.add((map) => {
       const id = Object.values(map)[0]?.values().next().value;
       safe(inspect(typeof id === 'number' ? id : null));
+      requestRender();
     });
     highlighter.events.select.onClear.add(() => {
-      if (!disposed) safe(inspect(null));
+      if (!disposed) {
+        safe(inspect(null));
+        requestRender();
+      }
     });
 
     const map = (ids: number[]): OBC.ModelIdMap =>
@@ -229,6 +280,18 @@ export function createIfcAdapter(
           if (disposed) throw new DOMException('Viewer closed.', 'AbortError');
           model.useCamera(world.camera.three);
           world.scene.three.add(model.object);
+          model.object.updateMatrixWorld(true);
+          bounds = model.box;
+          const range = clippingRange(world.camera.three.position, bounds);
+          world.camera.controls.minDistance = Math.min(
+            0.1,
+            Math.max(0.005, range.radius * 0.0001),
+          );
+          model.onViewUpdated.add(requestRender);
+          model.tiles.onItemSet.add(requestRender);
+          model.tiles.onBeforeDelete.add(requestRender);
+          updateClipping();
+          requestRender();
           const [tree, ids, projects] = await Promise.all([
             model.getSpatialStructure(),
             model.getItemsIdsWithGeometry(),
@@ -289,6 +352,7 @@ export function createIfcAdapter(
           signal.throwIfAborted();
           await fit();
           await fragments.core.update(true);
+          requestRender();
           signal.throwIfAborted();
           return {
             hasGeometry: ids.length > 0 && !model.box.isEmpty(),
@@ -303,37 +367,63 @@ export function createIfcAdapter(
         }
       },
       fit,
-      async select(id: number | null) {
-        if (disposed || !model) return;
-        if (id !== null && geometryIds.has(id))
-          await highlighter.highlightByID('select', map([id]), true, false);
-        else {
-          await highlighter.clear('select');
-          if (!disposed) await inspect(id);
-        }
+      select(id: number | null) {
+        return selectionTasks.run(async () => {
+          if (disposed || !model) return;
+          if (id !== null && geometryIds.has(id))
+            await highlighter.highlightByID('select', map([id]), true, false);
+          else {
+            await highlighter.clear('select');
+            if (!disposed) await inspect(id);
+          }
+          requestRender();
+        });
       },
       async setStorey(node: ModelNode | null) {
         if (disposed || !model) return;
-        if (!node) {
-          await hider.set(true);
-          return;
-        }
+        if (!node)
+          return visibility.run(async () => {
+            if (!disposed) {
+              await hider.set(true);
+              requestRender();
+            }
+          });
         const ids: number[] = [];
         const collect = (n: ModelNode) => {
           if (n.id !== null) ids.push(n.id);
           n.children.forEach(collect);
         };
         collect(node);
-        await hider.isolate(map(ids));
+        return visibility.run(async () => {
+          if (!disposed) {
+            await hider.isolate(map(ids));
+            requestRender();
+          }
+        });
       },
       async hide(id: number) {
-        if (!disposed) await hider.set(false, map([id]));
+        return visibility.run(async () => {
+          if (!disposed) {
+            await hider.set(false, map([id]));
+            requestRender();
+          }
+        });
       },
       async isolate(id: number) {
-        if (!disposed) await hider.isolate(map([id]));
+        return visibility.run(async () => {
+          if (!disposed) {
+            await hider.isolate(map([id]));
+            requestRender();
+          }
+        });
       },
       async showAll() {
-        if (!disposed) await hider.set(true);
+        return visibility.run(async () => {
+          if (!disposed) {
+            await hider.set(true);
+            requestRender();
+          }
+        });
       },
       async projection(orthographic: boolean) {
         if (!disposed)
@@ -348,13 +438,21 @@ export function createIfcAdapter(
         if (disposed) return;
         plane.constant = height ?? 0;
         world.renderer!.setPlane(height !== null, plane);
-        await fragments.core.update(true);
+        requestRender();
+        await sectionUpdates.request();
       },
-      async dispose() {
-        if (disposed) return;
+      dispose() {
+        if (disposePromise) return disposePromise;
         disposed = true;
         selectionVersion++;
-        resize.disconnect();
+        sectionUpdates.dispose();
+        visibility.dispose();
+        selectionTasks.dispose();
+        world.renderer!.onResize.remove(updateResolution);
+        fragments.core.models.materials.list.onItemSet.remove(materialAdded);
+        model?.onViewUpdated.remove(requestRender);
+        model?.tiles.onItemSet.remove(requestRender);
+        model?.tiles.onBeforeDelete.remove(requestRender);
         world.camera.controls.removeEventListener('update', update);
         world.camera.projection.onChanged.remove(cameraChanged);
         world.renderer!.three.domElement.removeEventListener(
@@ -364,14 +462,28 @@ export function createIfcAdapter(
         // Components disposes only this adapter's canvas. Never clear the host:
         // StrictMode may already have mounted a replacement renderer there.
         components.enabled = false;
-        try {
-          await highlighter.dispose();
-          await fragments.core.dispose();
-        } finally {
-          components.dispose();
+        disposePromise = (async () => {
+          // Release every resource even if an earlier SDK cleanup step fails.
+          try {
+            await highlighter.dispose();
+          } catch {
+            /* continue cleanup */
+          }
+          try {
+            await fragments.core.dispose();
+          } catch {
+            /* continue cleanup */
+          }
+          try {
+            components.dispose();
+          } catch {
+            /* partially initialized/disposed world */
+          }
           model = undefined;
+          bounds = undefined;
           geometryIds.clear();
-        }
+        })();
+        return disposePromise;
       },
     };
   } catch (error) {

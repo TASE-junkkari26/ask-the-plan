@@ -16,7 +16,7 @@ npm run dev
 
 Use `npm.cmd` in Windows PowerShell. Select or drop one or more `.ifc` files on the
 opening screen, or use **Import drawings** after opening a file. IFC files may be up to
-**100 MiB each**; images/PDFs retain their **35 MiB** limit. IFCZIP and binary IFC
+**512 MiB each**; images/PDFs retain their **35 MiB** limit. IFCZIP and binary IFC
 are not supported. Files register in the existing searchable import library;
 conversion starts only when a model is selected. Other successful imports remain
 available if one file fails. Failed model entries retain their error and can be
@@ -48,7 +48,9 @@ screen.
 
 Properties follow only forward property/type/unit links. Inverse IFC graphs can
 be cyclic and very large; the inspector limits a property read to 512 items and
-8 reference levels and reports truncation. This is an extracted preview, not a
+8 reference levels and reports truncation. Very wide relations are bounded before
+copying or expanding them, and hierarchy branches show 100 children at a time
+with a **Show next** control. Closed property groups are mounted only when opened. This is an extracted preview, not a
 complete IFC inventory. Missing properties are not displayed as zero. The SDK's
 supported class/geometry set can omit or fail to draw source items.
 
@@ -71,10 +73,14 @@ Three.js 0.184.0, web-ifc 0.0.77, and camera-controls 3.1.2.
 - [Property reader](../frontend/src/ifc/properties.ts) constructs a bounded,
   acyclic inspection tree from source attributes and allowed relation names.
 - [Loader](../frontend/src/ifc/load.ts) hashes files and runs IFC-to-Fragments
-  conversion in a dedicated module worker. Cancel terminates that worker; source
+  conversion in a dedicated module worker. Source reading and SHA-256 hashing also
+  run inside that worker, with progress messages limited to ten per second. Cancel terminates that worker; source
   switches also abort in-flight Fragment loading and discard late results.
 - A single in-memory converted buffer is keyed by source hash and converter/
-  configuration identity. It is evicted when another model is converted. Inactive
+  configuration identity. A weak `File` identity cache lets the most recently
+  converted file reopen without rereading, rehashing, or starting a conversion
+  worker. Identical revisions share the converted buffer; removal tracks every
+  source using it. The buffer is evicted when another model is converted. Inactive
   library entries retain the original `File` and lightweight status only.
 
 Both workers and WASM are served from the application origin. `dev` and `build`
@@ -86,9 +92,44 @@ worker and respects its configured base URL.
 
 The 3D library and WASM are not requested during a 2D-only session. The 3D bundle
 is substantially larger than the initial workbench bundle. WebGL 2 and sufficient
-browser memory are required; 100 MiB is an input limit, not a guarantee that every
+browser memory are required; 512 MiB is a desktop input ceiling, not a guarantee that every
 model will fit a device's memory. Failed loading, unavailable graphics, and missing
 runtime assets produce a recoverable viewer error. The file picker remains usable.
+
+## Depth precision and rendering performance
+
+The viewer now uses camera/model-aware near and far planes for both camera
+projections, rather than the SDK's fixed range. Close inspection also replaces
+the SDK's six-metre camera minimum with a model-scaled distance. Reverse depth
+is enabled on WebGL implementations supporting `EXT_clip_control`; other devices
+use the normal depth buffer with the adaptive clipping planes.
+
+Coplanar surface materials receive small, stable, material-specific polygon
+offsets. Transparent glass/space/selection materials do not write depth, and
+selection has its own forward bias. LOD line materials retain their SDK behavior.
+This follows the SDK's [coplanar surface handling](https://docs.thatopen.com/Tutorials/Components/Front/Highlighter)
+using deterministic offsets instead of random ones. The source geometry and
+properties are retained; raster depth bias does not repair overlapping objects
+or conflicting geometry in a source file.
+
+The renderer draws on camera, model, selection, visibility, clipping, or resize
+changes. It does not draw continuously while idle. The drawing buffer is limited
+to approximately three million pixels and at most 1.5 device pixels per CSS pixel;
+React controls keep their normal resolution. Clipping updates coalesce at frame
+boundaries, and visibility operations run in order so a delayed floor isolation
+cannot override a later **Show all** action. A lost graphics context produces a
+recoverable error with **Retry**.
+
+[Rendering policy](../frontend/src/ifc/rendering.ts) and
+[update scheduling](../frontend/src/ifc/tasks.ts) have focused regression tests.
+The required copy before passing cached fragments to the SDK is retained because
+the SDK transfers and detaches its input buffer.
+
+The worker still holds the complete source and WebCrypto can temporarily copy
+it while hashing. web-ifc geometry/WASM and rendering require additional memory,
+often several times the input size. The higher cap admits the supplied 326.8 MiB
+model but does not establish that every 512 MiB model fits every device. See the
+[verification record](VERIFICATION.md) for measured large-model checks.
 
 ## Prepared demo and attribution
 

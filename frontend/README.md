@@ -81,10 +81,10 @@ On first open, click **Select files** or drop files onto the import screen.
 After loading, use **Import drawings** in the header or drawing picker, or drop
 files anywhere on the workbench. Select multiple files at once. Supported previews are **PDF,
 PNG, JPEG, WebP, SVG, GIF, and BMP**, with a **35 MiB limit per file**. **IFC** models
-have a separate **100 MiB limit** and are converted locally when selected. The importer
+have a separate **512 MiB limit** and are converted locally when selected. The importer
 also recognizes supported filename extensions when the browser omits the MIME
 type. DWG/DXF drawings need a PDF or SVG export. IFCZIP and binary IFC are not supported.
-Model conversion has progress, cancellation, retry, and removal controls.
+Model conversion has progress, cancellation, retry, and removal controls. Source reading/hashing and conversion run in a worker; reopening the most recent model reuses its converted buffer. The size cap is a desktop input target, with actual memory use depending on model complexity.
 
 Open **Drawings** to search imported filenames, select a thumbnail, or remove a
 file. The library contains only your imports. The last successfully imported file

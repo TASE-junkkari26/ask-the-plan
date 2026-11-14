@@ -31,10 +31,14 @@ test('IFC routing precedes the 2D size limit and accepts uppercase desktop filen
   assert.ok(SOURCE_ACCEPT.includes('.ifc'));
 });
 
-test('100 MiB applies only to IFC; invalid and empty files fail independently', () => {
+test('512 MiB applies only to IFC and admits the largest supplied models', () => {
   assert.throws(
     () => sourceKind(sizedFile('large.ifc', MAX_IFC_BYTES + 1)),
-    /100 MiB/,
+    /512 MiB/,
+  );
+  assert.equal(
+    sourceKind(sizedFile('sixty5_arc.ifc', 327 * 1024 * 1024)),
+    'ifc',
   );
   assert.throws(() => sourceKind(sizedFile('empty.ifc', 0)), /empty/);
   assert.throws(
@@ -43,6 +47,40 @@ test('100 MiB applies only to IFC; invalid and empty files fail independently', 
   );
   assert.equal(sourceKind(sizedFile('sheet.PDF', 35 * 1024 * 1024)), 'pdf');
   assert.throws(() => sourceKind(new File(['x'], 'sheet.dwg')), /PDF or SVG/);
+});
+
+test('reopening an immutable File reuses its hash without retaining source bytes', () => {
+  const cache = new SingleModelCache();
+  const file = sizedFile('model.ifc', 200);
+  cache.rememberFileHash(file, 'source-hash');
+  assert.equal(cache.getFileHash(file), 'source-hash');
+  assert.equal(cache.getFileHash(sizedFile('model.ifc', 200)), undefined);
+  cache.clear();
+  assert.equal(cache.getFileHash(file), undefined);
+});
+
+test('removal and new loads invalidate pending cache writes, including unmount', () => {
+  const cache = new SingleModelCache();
+  const first = cache.beginLoad('first');
+  const second = cache.beginLoad('second');
+  assert.equal(cache.isCurrent(first), false);
+  assert.equal(cache.isCurrent(second), true);
+  cache.forget('second');
+  assert.equal(cache.isCurrent(second), false);
+  const third = cache.beginLoad('third');
+  cache.clear();
+  assert.equal(cache.isCurrent(third), false);
+});
+
+test('duplicate-source cache reuse survives until the last owning import is removed', () => {
+  const cache = new SingleModelCache();
+  const bytes = new Uint8Array([1]);
+  cache.set('first', 'same-hash', bytes);
+  assert.equal(cache.get('same-hash', 'second'), bytes);
+  cache.forget('first');
+  assert.equal(cache.get('same-hash'), bytes);
+  cache.forget('second');
+  assert.equal(cache.get('same-hash'), undefined);
 });
 
 test('a cancelled IFC registration never creates a library entry', async () => {

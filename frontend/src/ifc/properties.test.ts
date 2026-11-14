@@ -70,8 +70,10 @@ test('selection changes stop further source-property requests', async () => {
 
 test('shared references cannot expand a small source graph into an unbounded UI tree', async () => {
   const model = reader({
-    1: { HasProperties: [2, 2, 2, 2, 2] },
-    2: { Unit: [3] },
+    1: { HasProperties: [2, 3, 4] },
+    2: { Unit: [5] },
+    3: { Unit: [5] },
+    4: { Unit: [5] },
   });
   const result = await readSourceProperties(model, [1], () => {}, 6);
   assert.equal(result.truncated, true);
@@ -86,4 +88,24 @@ test('shared references cannot expand a small source graph into an unbounded UI 
       0,
     );
   assert.ok(count(result.data) <= 6);
+});
+
+test('very wide source relations cannot overflow the JS stack or bypass the fetch budget', async () => {
+  const model = reader({
+    1: {
+      HasProperties: Array.from({ length: 200_000 }, (_, index) => index + 2),
+    },
+  });
+  const result = await readSourceProperties(model, [1], () => {}, 8);
+  assert.equal(model.fetched.length, 8);
+  assert.equal(result.truncated, true);
+  assert.equal((result.data[0].HasProperties as ItemData[]).length, 7);
+});
+
+test('duplicate source references are fetched and shown once', async () => {
+  const model = reader({ 1: { HasProperties: [2, 2, 2] } });
+  const result = await readSourceProperties(model, [1], () => {});
+  assert.deepEqual(model.fetched, [1, 2]);
+  assert.equal((result.data[0].HasProperties as ItemData[]).length, 1);
+  assert.equal(result.truncated, false);
 });
