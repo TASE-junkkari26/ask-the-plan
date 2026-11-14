@@ -1,6 +1,7 @@
 import * as OBC from '@thatopen/components';
 import * as OBF from '@thatopen/components-front';
 import type {
+  BIMMaterial,
   FragmentsModel,
   ItemData,
   SpatialTreeItem,
@@ -90,11 +91,13 @@ export function createIfcAdapter(
     const fragments = components.get(OBC.FragmentsManager);
     fragments.init(fragmentWorkerUrl, { maxWorkers: 2 });
     const highlighter = components.get(OBF.Highlighter);
+    const selectionColor = new THREE.Color('#74aa48');
+    const answerColor = new THREE.Color('#2680c2');
     highlighter.setup({
       world,
       autoHighlightOnClick: true,
       selectMaterialDefinition: {
-        color: new THREE.Color('#74aa48'),
+        color: selectionColor,
         opacity: 0.85,
         transparent: true,
         renderedFaces: RenderedFaces.TWO,
@@ -106,7 +109,7 @@ export function createIfcAdapter(
     highlighter.multiple = 'none';
     highlighter.zoomToSelection = false;
     highlighter.styles.set('answer', {
-      color: new THREE.Color('#2680c2'),
+      color: answerColor,
       opacity: 0.9,
       transparent: true,
       renderedFaces: RenderedFaces.TWO,
@@ -122,17 +125,81 @@ export function createIfcAdapter(
     const requestRender = () => {
       if (!disposed) world.renderer!.needsUpdate = true;
     };
+    const createPulse = (baseColor: THREE.Color, peakColor: string) => ({
+      baseColor,
+      peakColor: new THREE.Color(peakColor),
+      color: baseColor.clone(),
+      materials: new Set<BIMMaterial>(),
+      startedAt: 0,
+    });
+    const highlightPulses = new Map([
+      ['select', createPulse(selectionColor, '#c2df78')],
+      ['answer', createPulse(answerColor, '#82c9ed')],
+    ]);
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let lastPulseUpdate = 0;
+    const colorHighlightMaterial = (material: BIMMaterial, pulseColor: THREE.Color) => {
+      const color =
+        'isLodMaterial' in material ? material.lodColor : material.color;
+      color.copy(pulseColor);
+    };
+    const resetHighlightPulse = (name: string) => {
+      const pulse = highlightPulses.get(name)!;
+      pulse.startedAt = performance.now();
+      lastPulseUpdate = 0;
+      pulse.color.copy(pulse.baseColor);
+      pulse.materials.forEach((material) => colorHighlightMaterial(material, pulse.color));
+      requestRender();
+    };
+    const resetHighlightPulses = () => {
+      for (const name of highlightPulses.keys()) resetHighlightPulse(name);
+    };
+    const hasVisibleHighlight = (name: string) => {
+      for (const ids of Object.values(highlighter.selection[name]))
+        for (const id of ids)
+          if (visibleIds.has(id)) return true;
+      return false;
+    };
+    const updateHighlightPulses = () => {
+      if (disposed || document.hidden || reducedMotion.matches) return;
+      const now = performance.now();
+      if (now - lastPulseUpdate < 1000 / 30) return;
+      lastPulseUpdate = now;
+      for (const [name, pulse] of highlightPulses) {
+        if (!pulse.materials.size || !hasVisibleHighlight(name)) continue;
+        const blend =
+          (1 - Math.cos(((now - pulse.startedAt) * 2 * Math.PI) / 4000)) / 2;
+        pulse.color.lerpColors(pulse.baseColor, pulse.peakColor, blend);
+        // Recolor the live materials; re-highlighting would rebuild worker state each frame.
+        pulse.materials.forEach((material) => colorHighlightMaterial(material, pulse.color));
+        requestRender();
+      }
+    };
+    for (const name of highlightPulses.keys()) {
+      const reset = () => { if (!disposed) resetHighlightPulse(name); };
+      highlighter.events[name].onHighlight.add(reset);
+      highlighter.events[name].onClear.add(reset);
+    }
     const sectionUpdates = new FrameTask(async () => {
       if (!disposed) {
         await fragments.core.update(true);
         requestRender();
       }
     });
-    const materialAdded = ({ value }: { value: THREE.Material }) => {
+    const materialAdded = ({ value }: { value: BIMMaterial }) => {
       styleIfcSurface(value);
+      const pulse = highlightPulses.get(value.userData.customId);
+      if (pulse) {
+        pulse.materials.add(value);
+        colorHighlightMaterial(value, pulse.color);
+      }
       requestRender();
     };
+    const materialRemoved = ({ value }: { value: BIMMaterial }) => {
+      for (const pulse of highlightPulses.values()) pulse.materials.delete(value);
+    };
     fragments.core.models.materials.list.onItemSet.add(materialAdded);
+    fragments.core.models.materials.list.onBeforeDelete.add(materialRemoved);
     const updateClipping = () => {
       if (!bounds || disposed) return;
       const range = clippingRange(world.camera.three.position, bounds);
@@ -225,14 +292,13 @@ export function createIfcAdapter(
         });
     }
     highlighter.events.select.onHighlight.add((map) => {
+      if (disposed) return;
       const id = Object.values(map)[0]?.values().next().value;
       safe(inspect(typeof id === 'number' ? id : null));
-      requestRender();
     });
     highlighter.events.select.onClear.add(() => {
       if (!disposed) {
         safe(inspect(null));
-        requestRender();
       }
     });
 
@@ -262,6 +328,9 @@ export function createIfcAdapter(
       }
       update();
     }
+    world.onBeforeUpdate.add(updateHighlightPulses);
+    reducedMotion.addEventListener('change', resetHighlightPulses);
+    document.addEventListener('visibilitychange', resetHighlightPulses);
     return {
       async load(
         bytes: Uint8Array,
@@ -508,8 +577,13 @@ export function createIfcAdapter(
         sectionUpdates.dispose();
         visibility.dispose();
         selectionTasks.dispose();
+        world.onBeforeUpdate.remove(updateHighlightPulses);
+        reducedMotion.removeEventListener('change', resetHighlightPulses);
+        document.removeEventListener('visibilitychange', resetHighlightPulses);
+        for (const pulse of highlightPulses.values()) pulse.materials.clear();
         world.renderer!.onResize.remove(updateResolution);
         fragments.core.models.materials.list.onItemSet.remove(materialAdded);
+        fragments.core.models.materials.list.onBeforeDelete.remove(materialRemoved);
         model?.onViewUpdated.remove(requestRender);
         model?.tiles.onItemSet.remove(requestRender);
         model?.tiles.onBeforeDelete.remove(requestRender);
