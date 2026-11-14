@@ -191,7 +191,7 @@ class IfcSpatialApiTests(unittest.IsolatedAsyncioTestCase):
             await self.ask(client, model, "Where is Panel-01 relative to Büro?")
             message = next(message for message in self.provider_requests[0]["messages"] if message["role"] == "user")
             catalog = json.loads(message["content"])["catalog"]
-            self.assertEqual(set(catalog["spatial_queries"]), {"containers", "boundary_neighbors", "door_connections", "outdoor_access"})
+            self.assertEqual(set(catalog["spatial_queries"]), {"containers", "boundary_neighbors", "door_connections", "outdoor_access", "exterior_doors"})
             self.assertTrue({"bounded_by", "external_boundary", "has_opening", "filled_by"} <= set(catalog["relations"]))
             self.assertIn("concept:project", catalog["concepts"])
             self.assertTrue(any(entity["labels"] == ["1B07", "Büro"] for entity in catalog["entities"]))

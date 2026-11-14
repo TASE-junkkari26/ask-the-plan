@@ -230,9 +230,10 @@ export type MissingValues = 'fail' | 'partial';
 export type OutputUnitId = string | null;
 export type ValueKey = string;
 export type ContainerKind = 'space' | 'storey' | 'building' | 'site';
+export type ExteriorBasis = 'combined' | 'classification' | 'boundary';
 export type InputStepId2 = string;
 export type Kind19 = 'spatial_query';
-export type Relation = 'containers' | 'boundary_neighbors' | 'door_connections' | 'outdoor_access';
+export type Relation = 'containers' | 'boundary_neighbors' | 'door_connections' | 'outdoor_access' | 'exterior_doors';
 /**
  * @minItems 1
  */
@@ -257,6 +258,17 @@ export type InputStepIds = [string, string, ...string[]];
 export type Kind23 = 'arithmetic';
 export type Operator2 = 'add' | 'subtract' | 'multiply' | 'divide';
 export type OutputUnitId2 = string | null;
+export type CompletionTokens = number | null;
+export type DiscoveryVersion = string;
+export type InspectionCount = number;
+export type ModelRequests = number;
+export type PromptTokens = number | null;
+export type PromptVersion = string;
+export type Provider = string;
+export type RequestedModel = string;
+export type ReturnedModel = string;
+export type ThinkingLevel = string | null;
+export type ThoughtTokens = number | null;
 export type Definition = string;
 export type Dimension = [unknown, unknown, unknown, unknown, unknown, unknown, unknown] | null;
 export type Key2 = string;
@@ -365,8 +377,8 @@ export type CostAmount = string | null;
 export type CostBasis = ('marginal' | 'amortized' | 'estimated') | null;
 export type CostCurrency = string | null;
 export type LatencyMs = number;
-export type ModelInputTokens = number;
-export type ModelOutputTokens = number;
+export type ModelInputTokens = number | null;
+export type ModelOutputTokens = number | null;
 export type PlanId = string | null;
 export type RequestId2 = string;
 export type SchemaVersion1 = '0.1.0';
@@ -392,6 +404,7 @@ export type SiMultiplier = string | null;
 export type SiOffset = string;
 export type Symbol = string;
 export type Units = Unit[];
+export type UnresolvedElements = IfcElement[];
 export type Warnings = string[];
 
 export interface IfcQuestionResponse {
@@ -405,6 +418,7 @@ export interface IfcQuestionResponse {
   interpretation: Interpretation;
   model_id: ModelId;
   plan?: QueryPlan | null;
+  planning?: IfcPlanningProvenance | null;
   properties?: Properties;
   question: Question;
   request_id: RequestId1;
@@ -414,6 +428,7 @@ export interface IfcQuestionResponse {
   scope_label: ScopeLabel;
   source_sha256: SourceSha256;
   units?: Units;
+  unresolved_elements?: UnresolvedElements;
   warnings?: Warnings;
 }
 export interface EvidenceAnchor {
@@ -655,6 +670,7 @@ export interface AggregateOperation {
  */
 export interface SpatialQueryOperation {
   container_kind?: ContainerKind;
+  exterior_basis?: ExteriorBasis;
   input_step_id: InputStepId2;
   kind: Kind19;
   relation: Relation;
@@ -685,6 +701,19 @@ export interface ArithmeticOperation {
   kind: Kind23;
   operator: Operator2;
   output_unit_id?: OutputUnitId2;
+}
+export interface IfcPlanningProvenance {
+  completion_tokens?: CompletionTokens;
+  discovery_version: DiscoveryVersion;
+  inspection_count: InspectionCount;
+  model_requests: ModelRequests;
+  prompt_tokens?: PromptTokens;
+  prompt_version: PromptVersion;
+  provider: Provider;
+  requested_model: RequestedModel;
+  returned_model: ReturnedModel;
+  thinking_level?: ThinkingLevel;
+  thought_tokens?: ThoughtTokens;
 }
 export interface PropertyDefinition {
   definition: Definition;

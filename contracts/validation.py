@@ -665,7 +665,7 @@ def validate_plan(plan: QueryPlan, bundle: KnowledgeBundle,
         elif op.kind == "spatial_query":
             if shape != "entities":
                 _fail("native spatial queries require an entity-set input")
-            if op.relation != "outdoor_access":
+            if op.relation not in {"outdoor_access", "exterior_doors"}:
                 shape = "table"
                 result_columns[step.id] = {
                     "subject": ("references", None), "related": ("references", None),

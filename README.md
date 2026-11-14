@@ -27,7 +27,7 @@ optional extensions unless a supplied question needs them. See the
 | IFC engine | CPU extraction, native project/file metadata, bounded spatial topology, structured selection/traversal, scalar properties/quantities, counts, grouping/ranking, exact view scopes, evidence and caching | Independent Python/CLI executor, also used by the IFC question API. Shared-element adjacency remains explicitly partial; no metric geometry, orientation or route engine. |
 | Shared contracts | Pydantic models, generated JSON Schemas/TypeScript, reference/unit/scope/evidence validation | Validation cannot prove source completeness or correctness. |
 | Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI, bounded IFC question planning | The IFC engine computes answers from validated plans; image detections remain candidate proposals. Credentials stay on the backend. |
-| IFC question API | Revision-bound temporary uploads, Nemotron query planning, engine execution, source element/fact evidence and deterministic natural-language summaries | Uses the same local server as image analysis. Current-view scope defaults to exact enabled objects; whole-model scope is explicit. Summaries use executed values without another inference call. Unsupported operations remain non-answers. |
+| IFC question API | Revision-bound temporary uploads, independently selected Nemotron/Gemini planning with bounded source discovery, exterior-door queries, engine execution and source evidence | Uses the same local server as image analysis. Exact view scope and explicit model scope remain authoritative. Unknown classifications stay separate; partial counts show lower bounds. No geometry inference or route engine. |
 | Image candidate API | Local HTTP image/question endpoint returning candidate boxes from Nemotron or Gemini Hydrogen-low, with uncertainty, image hashes and display coordinates | Connected to imported 2D drawings; one selected image provider per request, candidate proposals only, with no final counts/answers or IFC analysis. |
 | Raster preprocessing | Standalone source/crop/overview artifacts, coordinate transforms, optional local Tesseract OCR, inspection-tool adapter, and bounded image-API session preparation | API defaults to unchanged model input with OCR off; optional full-source overview mode preserves page layout. No semantic room segmentation, physical calibration, or agent tool loop. |
 | Perception | Research plans and a saved one-image door-labeling experiment | No evaluated general raster inventory/reconstruction or model routing. Standalone optional OCR is documented separately. |
@@ -69,7 +69,9 @@ IMAGE_API_PROVIDER=gemini
 
 Gemini image analysis uses `gemini-4-hydrogen` with low thinking. The default
 provider is `nemotron`, which uses the existing `VERDA_*` settings. IFC questions
-continue to use Nemotron regardless of this image-only selector. Preserve both
+use the separate `IFC_API_PROVIDER` selector, defaulting to Nemotron. To use
+Hydrogen for IFC planning, set `IFC_API_PROVIDER=gemini`; its independent
+`IFC_GEMINI_THINKING_LEVEL` defaults to `high`. Preserve both
 keys and existing settings; see [provider setup](image_api/README.md#choose-the-image-provider).
 
 Install the API extra and start the service:
@@ -91,7 +93,7 @@ caches preparation without changing model input; opt-in `overview` mode sends
 only the uncropped full-source overview and maps boxes back to the original
 display coordinates. OCR stays off in this path. IFC questions use separate
 `/api/ifc` endpoints on this same server: the local backend extracts the original
-model, Nemotron proposes a query, and the IFC engine returns the answer and
+model, the selected IFC planner proposes a query, and the IFC engine returns the answer and
 highlightable source elements. See [IFC questions](docs/IFC_QUESTIONS.md) and
 [image API usage and UI handoff](image_api/README.md) for multipart
 examples, generated types, coordinates, limits, and errors.
@@ -269,9 +271,9 @@ Python source models rather than editing the generated output.
 frontend/       Browser prototype and generated TypeScript wire types
 ifc_engine/     Local IFC extraction and structured query execution
 nemotron/       Backend Verda text/vision client and connection-check CLI
-gemini/         Backend Gemini Hydrogen-low image candidate client
+gemini/         Backend Gemini Hydrogen image and structured-text transport
 image_api/      Local image/question HTTP service returning candidate boxes
-ifc_api/        Local IFC upload, Nemotron planner and engine/evidence HTTP adapter
+ifc_api/        Local IFC upload, bounded source discovery and selectable planner
 drawing_preprocessor/  CPU raster preparation and source-inspection tool adapter
 experiments/    Reproducible model experiments, prompts, and findings
 contracts/      Shared models, validation, JSON Schemas, synthetic examples
@@ -299,7 +301,8 @@ adjust commands to the actual root rather than assuming that layout.
 | [Dataset research](docs/DATASET_RESEARCH.md) | Template concentration and proposed answering pipeline |
 | [Schema](docs/SCHEMA.md) | Contract structure, invariants, query/result types, and validation boundaries |
 | [IFC viewer](docs/IFC_VIEWER.md) | Browser 3D viewing, local conversion, inspector, controls, assets, and limits |
-| [IFC questions](docs/IFC_QUESTIONS.md) | Nemotron planning, exact view scopes, engine answers, highlights and source evidence |
+| [IFC questions](docs/IFC_QUESTIONS.md) | Independent planner settings, source discovery, exterior doors, exact scopes and engine evidence |
+| [IFC planner comparison](experiments/ifc_planners/README.md) | Credential-free 24-case replay and explicit live provider comparison |
 | [IFC engine](docs/IFC_ENGINE.md) | Current backend/CLI behavior and supported operations |
 | [Frontend](frontend/README.md) | Current local-preview UI, startup, testing, and integration boundary |
 | [Computational capabilities](docs/COMPUTATIONAL_CAPABILITIES.md) | Capability backlog with implemented versus planned status |

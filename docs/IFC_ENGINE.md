@@ -3,8 +3,14 @@
 The initial implementation reads an IFC into the shared `KnowledgeBundle`,
 executes validated `QueryPlan` operations, and returns a `QueryResult` with
 materialized entity sets, source anchors, facts, and calculation nodes. It runs
-locally on a CPU. The [IFC question API](IFC_QUESTIONS.md) now uses Nemotron to
+locally on a CPU. The [IFC question API](IFC_QUESTIONS.md) uses a Nemotron or Hydrogen planner to
 produce validated plans and returns the engine's answer with source evidence.
+
+The `exterior_doors` spatial operation selects door occurrences using recorded
+exterior classifications and/or physical external door/filled-opening boundaries.
+It preserves unknown membership, lower bounds and source proofs, separately from
+the room-valued `outdoor_access` operation. See [the query guide](IFC_QUESTIONS.md#supported-behavior-and-limits)
+for basis selection, scope and physical-completeness limits.
 
 The [project scope](PROJECT_SCOPE.md) is the supplied dataset's known question
 families. Extend this executor for uncovered supplied IFC questions, not for

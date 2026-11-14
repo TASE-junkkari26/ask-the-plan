@@ -6,8 +6,9 @@ JSON-object output with Pydantic validation, tool-call transport, bounded retrie
 and request timeouts. A CLI sends a connection check or a text/image request.
 
 The IFC CLI remains independent. The [IFC question API](IFC_QUESTIONS.md) uses
-this transport for bounded natural-language planning, then executes validated
-plans with the existing CPU engine. It sends a compact source catalog rather
+this transport by default for bounded natural-language planning; Hydrogen is an
+independent IFC option. Both execute validated plans with the existing CPU engine.
+The planner receives bounded source metadata and inspection results rather
 than model geometry. The transport itself does not implement an object detector
 or annotation batch job.
 The separate [image candidate API](../image_api/README.md) now wraps this client

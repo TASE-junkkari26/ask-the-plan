@@ -1036,16 +1036,30 @@
           "type": "number"
         },
         "model_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 0,
-          "minimum": 0,
-          "title": "Model Input Tokens",
-          "type": "integer"
+          "title": "Model Input Tokens"
         },
         "model_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "default": 0,
-          "minimum": 0,
-          "title": "Model Output Tokens",
-          "type": "integer"
+          "title": "Model Output Tokens"
         }
       },
       "required": [
@@ -1314,6 +1328,103 @@
         "name"
       ],
       "title": "IfcElement",
+      "type": "object"
+    },
+    "IfcPlanningProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "completion_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completion Tokens"
+        },
+        "discovery_version": {
+          "title": "Discovery Version",
+          "type": "string"
+        },
+        "inspection_count": {
+          "minimum": 0,
+          "title": "Inspection Count",
+          "type": "integer"
+        },
+        "model_requests": {
+          "minimum": 0,
+          "title": "Model Requests",
+          "type": "integer"
+        },
+        "prompt_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Tokens"
+        },
+        "prompt_version": {
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "requested_model": {
+          "title": "Requested Model",
+          "type": "string"
+        },
+        "returned_model": {
+          "title": "Returned Model",
+          "type": "string"
+        },
+        "thinking_level": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Thinking Level"
+        },
+        "thought_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Thought Tokens"
+        }
+      },
+      "required": [
+        "provider",
+        "requested_model",
+        "returned_model",
+        "prompt_version",
+        "discovery_version",
+        "model_requests",
+        "inspection_count"
+      ],
+      "title": "IfcPlanningProvenance",
       "type": "object"
     },
     "Issue": {
@@ -2587,6 +2698,16 @@
           "title": "Container Kind",
           "type": "string"
         },
+        "exterior_basis": {
+          "default": "combined",
+          "enum": [
+            "combined",
+            "classification",
+            "boundary"
+          ],
+          "title": "Exterior Basis",
+          "type": "string"
+        },
         "input_step_id": {
           "minLength": 1,
           "title": "Input Step Id",
@@ -2602,7 +2723,8 @@
             "containers",
             "boundary_neighbors",
             "door_connections",
-            "outdoor_access"
+            "outdoor_access",
+            "exterior_doors"
           ],
           "title": "Relation",
           "type": "string"
@@ -2969,6 +3091,17 @@
       ],
       "default": null
     },
+    "planning": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/IfcPlanningProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "properties": {
       "items": {
         "$ref": "#/$defs/PropertyDefinition"
@@ -3016,6 +3149,13 @@
         "$ref": "#/$defs/Unit"
       },
       "title": "Units",
+      "type": "array"
+    },
+    "unresolved_elements": {
+      "items": {
+        "$ref": "#/$defs/IfcElement"
+      },
+      "title": "Unresolved Elements",
       "type": "array"
     },
     "warnings": {

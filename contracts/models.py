@@ -557,8 +557,15 @@ class SpatialQueryOperation(Model):
 
     kind: Literal["spatial_query"]
     input_step_id: Id
-    relation: Literal["containers", "boundary_neighbors", "door_connections", "outdoor_access"]
+    relation: Literal["containers", "boundary_neighbors", "door_connections", "outdoor_access", "exterior_doors"]
     container_kind: Literal["space", "storey", "building", "site"] = "storey"
+    exterior_basis: Literal["combined", "classification", "boundary"] = "combined"
+
+    @model_validator(mode="after")
+    def check_exterior_basis(self):
+        if self.relation != "exterior_doors" and self.exterior_basis != "combined":
+            raise ValueError("exterior_basis applies only to exterior_doors")
+        return self
 
 
 class ProjectOperation(Model):
@@ -707,8 +714,8 @@ class Issue(Model):
 
 class ExecutionMetrics(Model):
     latency_ms: float = Field(ge=0)
-    model_input_tokens: NonnegativeInt = 0
-    model_output_tokens: NonnegativeInt = 0
+    model_input_tokens: NonnegativeInt | None = 0
+    model_output_tokens: NonnegativeInt | None = 0
     cache_hit: bool = False
     cost_amount: DecimalString | None = None
     cost_currency: str | None = None
@@ -795,6 +802,20 @@ class IfcQuestionRequest(Contract):
         return self
 
 
+class IfcPlanningProvenance(Model):
+    provider: str
+    requested_model: str
+    returned_model: str
+    thinking_level: str | None = None
+    prompt_version: str
+    discovery_version: str
+    model_requests: NonnegativeInt
+    inspection_count: NonnegativeInt
+    prompt_tokens: NonnegativeInt | None = None
+    completion_tokens: NonnegativeInt | None = None
+    thought_tokens: NonnegativeInt | None = None
+
+
 class IfcQuestionResponse(Contract):
     request_id: Id
     model_id: Id
@@ -807,6 +828,8 @@ class IfcQuestionResponse(Contract):
     plan: QueryPlan | None = None
     included_elements: list[IfcElement] = Field(default_factory=list)
     excluded_elements: list[IfcElement] = Field(default_factory=list)
+    unresolved_elements: list[IfcElement] = Field(default_factory=list)
+    planning: IfcPlanningProvenance | None = None
     facts: list[Fact] = Field(default_factory=list)
     anchors: list[EvidenceAnchor] = Field(default_factory=list)
     units: list[Unit] = Field(default_factory=list)

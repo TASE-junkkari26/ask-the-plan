@@ -7,7 +7,7 @@ question about an image/PDF uses the internal image API with its selected
 Nemotron or Gemini Hydrogen-low provider and shows
 candidate boxes, uncertainty, and source close-ups. Inference credentials stay
 on the Python backend. IFC viewing stays local until a question uploads the model
-to that backend for Nemotron planning and CPU engine execution.
+to that backend for the independently selected IFC planner and CPU engine execution.
 
 The [project scope](../docs/PROJECT_SCOPE.md) is the supplied dataset's question
 families. Build real integrations and evidence views for that set; unknown
@@ -181,8 +181,12 @@ and a separate candidate overlay. Select the image provider on the backend with
 `IMAGE_API_PROVIDER`; see [provider setup](../image_api/README.md#choose-the-image-provider).
 Response-local candidate IDs are not canonical
 building entity IDs. IFC uses `/api/ifc/models` and `/api/ifc/questions`, generated
-IFC wire contracts and the engine's `QueryResult` with source evidence. Nemotron
-proposes bounded queries; the backend validates and executes them. Final answers
+IFC wire contracts and the engine's `QueryResult` with source evidence. The configured
+Nemotron or Hydrogen planner uses bounded source inspection before proposing
+queries; the backend validates and executes them. Exterior-door partial counts
+show “At least” and unresolved doors separately from exclusions. Select the IFC
+provider using [the independent settings](../docs/IFC_QUESTIONS.md#choose-the-ifc-planner).
+Final answers
 for image/PDF questions remain pending.
 
 `src/types.ts` defines UI-only `Mark` and `DemoResponse` presentation records. They resolve the canonical entity, source geometry, label, ordinal, and calculation display. They are not additional physical facts or changes to the shared Python contracts. `src/contracts/` is generated from the committed request/result JSON Schemas.

@@ -11,6 +11,9 @@ def execute_spatial(engine, state, operation, scope_members):
 
     if state.shape != "entities":
         raise QueryError("unsupported_operation", "Native spatial queries require source objects.")
+    if operation.relation == "exterior_doors":
+        from .exterior import execute_exterior
+        return execute_exterior(engine, state, operation, scope_members)
     origins = sorted(state.members)
     if not origins:
         raise QueryError("missing_information", "No source objects match this spatial question in the selected scope.")

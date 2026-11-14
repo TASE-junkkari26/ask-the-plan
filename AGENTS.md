@@ -30,10 +30,10 @@ component guide before changing behavior.
 
 - `frontend/`: React/TypeScript/Vite workbench that opens on local import;
   synthetic sources and the mock adapter `src/demo/engine.ts` remain offline
-  fixtures. Imported images/PDFs can submit their displayed raster/page to
-  `image_api/` and render unverified candidate boxes. IFC imports use local 3D
-  viewing and source-property inspection, without Nemotron analysis. Final-answer
-  planning remains pending. See [the viewer guide](docs/IFC_VIEWER.md).
+  fixtures. Imported images/PDFs submit their displayed raster/page to `image_api/`
+  and render unverified candidate boxes. IFC imports render locally; asking uploads
+  the original model to `ifc_api/` for source-backed query execution and evidence.
+  See [the viewer guide](docs/IFC_VIEWER.md).
 - `image_api/`: internal HTTP adapter for one image and one question, using the
   selected Nemotron or Gemini image provider. Returns candidate regions, not
   final counts/answers.
@@ -44,12 +44,20 @@ component guide before changing behavior.
 - `ifc_engine/`: independent CPU IFC extractor/structured query executor. See
   [its guide](docs/IFC_ENGINE.md) for supported operations and limitations. It is
   not an HTTP service or natural-language planner.
+- `ifc_api/`: revision-bound temporary source sessions, bounded metadata
+  discovery/inspection, independently selected Nemotron or Hydrogen planning,
+  and deterministic engine answers. Preserve exact captured view scope and
+  distinct doors/rooms/counting grain. Exterior-door unknowns remain unresolved;
+  partial membership produces lower bounds, never an exact total or physical zero.
 - `nemotron/`: backend-only sync/async Verda client and text/image/JSON CLI.
   See [its guide](docs/nvidia_info.md). Loads local `.env` settings; model outputs
-  are proposals, not validated source evidence or a connected frontend planner.
-- `gemini/`: backend-only native Gemini Interactions client for image candidates.
-  Uses `GEMINI_API_KEY`, `gemini-4-hydrogen`, and low thinking. The image provider
-  selector does not affect IFC planning, which continues to use Nemotron.
+  are proposals, not validated source evidence. IFC planning uses this client by
+  default; the native executor computes the answer.
+- `gemini/`: backend-only native Gemini Interactions transport. Images use low
+  thinking; independently configured IFC planning uses `IFC_API_PROVIDER` and
+  `IFC_GEMINI_THINKING_LEVEL`. Keep image/IFC settings and client lifetimes separate.
+  Use the same source discovery, plan validation, executor and evidence for both
+  planners. Never interpret top-k search results as a complete count inventory.
 - `contracts/models.py`: source of truth for shared wire contracts.
   `contracts/validation.py` checks consistency, not source truth or all geometry.
 - `drawing_preprocessor/`: standalone raster preparation, optional local OCR,

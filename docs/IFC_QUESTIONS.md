@@ -1,8 +1,8 @@
 # Questions about IFC models
 
-Implemented 14 November 2026. The IFC workbench connects the existing Nemotron
-client to the CPU [IFC query engine](IFC_ENGINE.md). Nemotron proposes a structured
-query; the engine executes it against the uploaded source. The language model
+Implemented 14 November 2026. The IFC workbench connects an independently selected
+Nemotron or Gemini Hydrogen planner to the CPU [IFC query engine](IFC_ENGINE.md).
+The planner proposes a structured query; the engine executes it against the uploaded source. The language model
 does not supply the final count or calculate quantities from a screenshot.
 
 ## Run and ask
@@ -21,10 +21,47 @@ question panel, and ask, for example, “How many windows are there?”
 
 Opening a model continues to use local conversion and rendering. Asking uploads
 the original IFC to the local Python backend for extraction. Only the question
-and a bounded source catalog are sent to the configured Nemotron provider.
+and bounded source metadata are sent to the configured IFC planner provider.
 Credentials stay on the backend. Uploaded files and extracted model sessions are
 temporary and bounded; they are removed when the backend shuts down. Browser
 imports remain in memory until refresh.
+
+## Choose the IFC planner
+
+Set the independent IFC option in the existing backend `.env` or process environment:
+
+```dotenv
+IFC_API_PROVIDER=gemini
+IFC_GEMINI_THINKING_LEVEL=high
+```
+
+Gemini uses the existing `GEMINI_API_KEY`, `GEMINI_MODEL=gemini-4-hydrogen` and
+network timeout. Its IFC reasoning level is independent of image analysis's low
+thinking setting. Keep `GEMINI_THINKING_LEVEL=low` for the image client. Default
+IFC planning remains `nemotron`, using `VERDA_*`. Restart the backend after changing
+settings. `IMAGE_API_PROVIDER` continues to control image candidates separately;
+there is no automatic provider fallback.
+
+| Setting | Default / supported range |
+| --- | --- |
+| `IFC_API_PROVIDER` | `nemotron`; `nemotron` or `gemini` |
+| `IFC_GEMINI_THINKING_LEVEL` | `high`; `low`, `medium`, `high`, `xhigh` |
+| `IFC_GEMINI_MAX_OUTPUT_TOKENS` | `65536`; 1–65536, including thinking |
+| `IFC_API_MAX_TOKENS` | `6000`; 1–65536, Nemotron planning output |
+| `IFC_API_DEADLINE_SECONDS` | `180`; greater than zero, at most 600 |
+| `IFC_API_MAX_MODEL_REQUESTS` | `3`; 1–3 planning/discovery requests total |
+| `IFC_API_MAX_INSPECTIONS` | `6`; 0–6 source actions total |
+
+Missing or invalid IFC configuration produces a safe IFC error while independent
+image analysis remains available. Each result exports actual planner/model,
+reasoning configuration, request/inspection counts and reported token usage in
+`planning`; unreported usage stays null. The panel shows these in secondary
+diagnostics. Transport retries are disabled. These settings enable comparison;
+they do not establish that either provider is more accurate on supplied questions.
+Hydrogen constrains a compact native JSON envelope (status, scope flag, steps and
+inspection arguments). The complete plan schema is supplied in instructions and
+validated locally before execution; the native envelope alone does not validate
+every operation field or establish source truth.
 
 ## Scope and verification
 
@@ -61,7 +98,7 @@ necessary for quantity or filtered answers.
   An explicit empty list stays empty. Cached handles may expire; resubmit the
   source when needed.
 - Responses contain the validated query plan and `QueryResult`, included and
-  excluded element identities, source facts, anchors, units, source revision
+  excluded element identities, separately unresolved element identities, source facts, anchors, units, source revision
   assets, property definitions, coverage and extraction-run metadata. Shared
   wire models are defined in [contracts/models.py](../contracts/models.py);
   JSON Schemas and TypeScript are generated from them.
@@ -86,11 +123,16 @@ concepts. Count results retain occurrence or hierarchy policy; quantities retain
 units and net/gross basis. Missing properties and unsupported operations produce
 explicit non-answer outcomes instead of fabricated values.
 
-The current planner uses one bounded catalog request, with limited literal
-name/ID matching rather than an interactive object-search loop. See the
-[object discovery investigation](IFC_OBJECT_DISCOVERY.md) for reproduced lookup
-gaps and a proposed metadata-search/refinement design. That design is not yet
-implemented.
+The planner starts with a bounded catalog and source-only metadata search/value
+facets. It can request validated `search`, `properties`, `facets` and `inspect`
+actions before producing a plan, within the shared request/action/deadline caps.
+Partial names can retrieve original labels; facts retain literal property paths,
+values, status and anchors. Inspections and relationship endpoints are restricted
+to the captured scope. Samples are explicitly truncated suggestions, not complete
+object inventories; the executor evaluates final predicates over the authorized
+source objects. See the [discovery investigation](IFC_OBJECT_DISCOVERY.md) for
+remaining proposed extensions such as exhaustive-selection handles. This is a
+metadata loop, without arbitrary model-generated code, SQL or geometry tools.
 
 The topology operations distinguish several questions that need different evidence:
 
@@ -100,6 +142,26 @@ The topology operations distinguish several questions that need different eviden
 | Which rooms are adjacent? | `boundary_neighbors` uses corresponding native space-boundary pairs when available. Rooms sharing a boundary element are explicitly partial candidates when paired boundaries are unavailable; a long shared wall does not prove exact adjacency. |
 | Which rooms are directly connected? | `door_connections` requires a shared physical boundary door, or a shared boundary opening filled by a door. Sharing a wall alone does not establish a connection. |
 | Which rooms have direct outdoor access? | `outdoor_access` returns room occurrences with a native PHYSICAL, EXTERNAL door boundary. A subsequent count counts those rooms once, rather than counting doors or boundary records. This does not identify certified fire exits. |
+| How many doors lead outside? | Select door occurrences, then `exterior_doors`, then count. Distinct doors remain separate from room/boundary counts; unknown classifications produce a lower bound or missing-information outcome. |
+
+`exterior_doors` accepts `exterior_basis`:
+
+- `combined` (default): recorded `Pset_DoorCommon.IsExternal` classification plus
+  explicit PHYSICAL EXTERNAL door/door-filled-opening paths. Type inheritance and
+  occurrence overrides apply. A positive path can resolve a missing flag; a missing
+  path alone cannot classify a door as interior. Contradictory evidence produces
+  `conflicting_evidence`.
+- `classification`: evaluate only the recorded boolean property.
+- `boundary`: enumerate recorded external-boundary door paths, explicitly qualified
+  as source relationships. Missing source topology cannot establish zero outdoor
+  doors. Boundary paths can describe fewer doors than exterior classifications.
+
+Partial classifications preserve a `lower_bound` claim and partial coverage. The
+answer panel says **At least**, and unresolved doors are listed separately from
+excluded doors. Counts retain one occurrence per doorway, including a double-leaf
+door modeled as one occurrence. Properties, boundary/fill relationships and
+negative classifications remain inspectable source inputs. Source classification
+does not independently verify physical access, traversability or fire-exit rules.
 
 Source, intermediate and result objects must all belong to the captured scope.
 If topology needed for an answer lies outside the current view, the result is
@@ -155,3 +217,8 @@ families; they do not establish complete family coverage or benchmark accuracy.
 
 See the [verification record](VERIFICATION.md) for checks actually performed and
 the [viewer guide](IFC_VIEWER.md) for rendering and property-inspection limits.
+The [paired planner evaluator](../experiments/ifc_planners/README.md) provides a
+24-question, six-model synthetic replay with zero inference by default and an
+explicit optional live provider comparison. Replay checks do not measure language
+interpretation accuracy. [Hydrogen assessment](GEMINI_IFC_ASSESSMENT.md) records
+the source-data investigation and remaining model-quality comparison.

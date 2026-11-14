@@ -18,6 +18,8 @@ from starlette.responses import JSONResponse
 
 from contracts.models import ImageCandidateError, ImageCandidateResponse
 from gemini import AsyncGeminiClient
+from ifc_api.config import IfcSettings
+from ifc_api.providers import GeminiPlanner, NemotronPlanner, Planner
 from ifc_api.routes import install_ifc_routes
 from ifc_api.service import IfcService, MAX_IFC_BODY_BYTES
 from nemotron import AsyncNemotronClient, ConfigurationError, NemotronSettings
@@ -117,9 +119,24 @@ _REQUEST_BODY = {
 
 def create_app(settings: ApiSettings | None = None, *,
                client_factory: Callable[[], AsyncNemotronClient] | None = None,
-               gemini_client_factory: Callable[[], AsyncGeminiClient] | None = None) -> FastAPI:
-    """Build the app; injection keeps HTTP tests independent of keys/network."""
+               gemini_client_factory: Callable[[], AsyncGeminiClient] | None = None,
+               ifc_settings: IfcSettings | None = None,
+               ifc_planner_factory: Callable[[], Planner] | None = None,
+               ifc_gemini_client_factory: Callable[[], AsyncGeminiClient] | None = None) -> FastAPI:
+    """Build the app; injection keeps HTTP tests independent of keys/network.
+
+    Client factories transfer client ownership to the app. A planner factory
+    injects an externally owned adapter; its caller retains transport ownership.
+    """
     settings = settings if settings is not None else ApiSettings.from_env()
+    ifc_configuration_error = None
+    try:
+        ifc_settings = ifc_settings if ifc_settings is not None else IfcSettings.from_env()
+    except ConfigurationError:
+        # Retain image readiness. Structural defaults are never used to plan a
+        # request after an invalid IFC setting; the explicit error blocks IFC.
+        ifc_settings = IfcSettings()
+        ifc_configuration_error = "Invalid IFC planner settings. Check IFC_API_* and IFC_GEMINI_* values on the backend."
     request_body = deepcopy(_REQUEST_BODY)
     request_body["requestBody"]["content"]["multipart/form-data"]["schema"]["properties"]["question"]["maxLength"] = settings.max_question_chars
 
@@ -127,6 +144,7 @@ def create_app(settings: ApiSettings | None = None, *,
     async def lifespan(app: FastAPI):
         client = None
         gemini_client = None
+        ifc_gemini_client = None
         app.state.service = None
         app.state.in_flight = 0
         app.state.preprocessor = ImagePreprocessor(settings)
@@ -142,8 +160,26 @@ def create_app(settings: ApiSettings | None = None, *,
             except ConfigurationError:
                 # Keep health/docs available to diagnose missing local setup.
                 pass
-            app.state.ifc_service = IfcService(client)
-            # IFC always retains its Nemotron client, regardless of image provider.
+            planner = None
+            try:
+                if ifc_configuration_error is not None:
+                    pass
+                elif ifc_planner_factory is not None:
+                    planner = ifc_planner_factory()
+                elif ifc_settings.provider == "nemotron" and client is not None:
+                    planner = NemotronPlanner(client, ifc_settings)
+                elif ifc_settings.provider == "gemini":
+                    ifc_gemini_client = (ifc_gemini_client_factory() if ifc_gemini_client_factory is not None
+                                         else AsyncGeminiClient())
+                    planner = GeminiPlanner(ifc_gemini_client, ifc_settings)
+            except ConfigurationError:
+                # IFC provider configuration is independent of image readiness.
+                pass
+            app.state.ifc_service = IfcService(
+                None if ifc_configuration_error is not None else client,
+                planner=planner, settings=ifc_settings)
+            app.state.ifc_service.configuration_error = ifc_configuration_error
+            # Image and IFC provider choices have separate clients and budgets.
             if settings.provider == "gemini":
                 try:
                     gemini_client = (gemini_client_factory() if gemini_client_factory is not None
@@ -161,14 +197,18 @@ def create_app(settings: ApiSettings | None = None, *,
             if hasattr(app.state, "ifc_service"):
                 await asyncio.to_thread(app.state.ifc_service.close)
             try:
-                if gemini_client is not None:
-                    await gemini_client.close()
+                try:
+                    if ifc_gemini_client is not None:
+                        await ifc_gemini_client.close()
+                finally:
+                    if gemini_client is not None:
+                        await gemini_client.close()
             finally:
                 if client is not None:
                     await client.close()
 
     app = FastAPI(title="Ask the Plan analysis", version="0.1.0", lifespan=lifespan,
-                  description="Image candidate regions and Nemotron-planned, engine-computed IFC answers with source evidence.")
+                  description="Image candidate regions and model-planned, engine-computed IFC answers with source evidence.")
     app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)
     app.add_middleware(CORSMiddleware, allow_origins=settings.origins,
                        allow_methods=["GET", "POST", "DELETE"], allow_headers=["Content-Type"],

@@ -21,9 +21,10 @@ OPERATIONS = ["select", "traverse", "spatial_query", "project", "rank", *["aggre
 
 
 class QueryError(ValueError):
-    def __init__(self, code: str, message: str, entity_ids=(), fact_ids=(), options=()):
+    def __init__(self, code: str, message: str, entity_ids=(), fact_ids=(), options=(), anchor_ids=()):
         super().__init__(message)
         self.code, self.entity_ids, self.fact_ids, self.options = code, list(entity_ids), list(fact_ids), list(options)
+        self.anchor_ids = list(anchor_ids)
 
 
 @dataclass
@@ -48,6 +49,10 @@ class _State:
     conversions: list[tuple[m.QuantityValue, _Support]] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     issues: list[m.Issue] = field(default_factory=list)
+    quality: str = "exact"
+    completeness: str = "complete"
+    coverage_explanation: str | None = None
+    excluded: set[str] = field(default_factory=set)
 
 
 def _reachable(graph, roots):
@@ -205,6 +210,7 @@ class IfcQueryEngine:
             request_id=request_id, plan_id=plan_id, status=error.code,
             issues=[m.Issue(code=error.code, message=m.LocalizedText(text=str(error)),
                             entity_ids=error.entity_ids, fact_ids=error.fact_ids,
+                            anchor_ids=error.anchor_ids,
                             options=[m.LocalizedText(text=text) for text in error.options])],
             executor_version=EXECUTOR_VERSION, metrics=m.ExecutionMetrics(latency_ms=latency, cache_hit=self.cache_hit))
 
@@ -278,11 +284,19 @@ class IfcQueryEngine:
                 previous = states[op.input_step_id]
                 state = _State(previous.value, set(previous.members), previous.policy, set(previous.concepts),
                                set(previous.properties), set(previous.facts), set(previous.anchors), previous.shape,
-                               cells=[dict(row) for row in previous.cells], notes=list(previous.notes), issues=list(previous.issues))
+                               cells=[dict(row) for row in previous.cells], notes=list(previous.notes), issues=list(previous.issues),
+                               quality=previous.quality, completeness=previous.completeness,
+                               coverage_explanation=previous.coverage_explanation)
                 inputs = ["calculation:" + op.input_step_id]
+                if state.quality != "exact" and (op.kind != "aggregate" or op.method != "count"):
+                    raise QueryError("unsupported_operation", "An incomplete exterior-door selection supports occurrence counting only; other operations need complete membership.")
                 if op.kind == "spatial_query":
                     from .spatial import execute_spatial
                     execute_spatial(self, state, op, scope_members)
+                    if state.excluded:
+                        excluded_id = "set:" + step.id + ":excluded"
+                        sets.append(m.EntitySet(id=excluded_id, scope=plan.scope, count_policy=state.policy,
+                            count=len(state.excluded), entity_ids=sorted(state.excluded)))
                 elif op.kind == "traverse":
                     graph = self.graphs[op.predicate, op.direction]
                     members, frontier = set(), set(state.members)
@@ -348,7 +362,7 @@ class IfcQueryEngine:
             calculations.append(m.CalculationNode(id="calculation:" + step.id, plan_step_id=step.id,
                 operation=operation, input_node_ids=inputs, fact_ids=sorted(state.facts),
                 included_set_id=set_id, excluded_set_id=excluded_id, anchor_ids=sorted(state.anchors), output=state.value,
-                quality="exact", rule_key=state.policy.rule_key))
+                quality=state.quality, rule_key=state.policy.rule_key))
             states[step.id] = state
         claims = []
         for output_key, step_id in plan.outputs.items():
@@ -366,13 +380,13 @@ class IfcQueryEngine:
                             count=len(support.members), entity_ids=sorted(support.members)))
                         calculations.append(m.CalculationNode(id=cell_node_id, operation=support.operation,
                             fact_ids=sorted(support.facts), included_set_id=cell_set_id, anchor_ids=sorted(support.anchors),
-                            output=value, quality="exact", rule_key=state.policy.rule_key))
+                            output=value, quality=state.quality, rule_key=state.policy.rule_key))
                         pointer = f"/rows/{row_index}/" + column.replace("~", "~0").replace("/", "~1")
                         bindings.append(m.EvidenceBinding(value_path=pointer, calculation_id=cell_node_id,
                             fact_ids=sorted(support.facts), anchor_ids=sorted(support.anchors), entity_set_ids=[cell_set_id]))
             claims.append(m.Claim(id="claim:" + output_key, output_key=output_key, name=output_key,
                 scope=plan.scope, concept_ids=sorted(state.concepts), property_keys=sorted(state.properties),
-                value=state.value, quality="exact", coverage_ids=[coverage.id], count_policy=state.policy,
+                value=state.value, quality=state.quality, coverage_ids=[coverage.id], count_policy=state.policy,
                 evidence=bindings))
         issues = {issue.message.text: issue for step_id in plan.outputs.values() for issue in states[step_id].issues}
         notes = list(dict.fromkeys(note for step_id in plan.outputs.values() for note in states[step_id].notes))
@@ -384,15 +398,16 @@ class IfcQueryEngine:
         return result
 
     def _coverage(self, plan, state):
-        data = [plan.scope.model_dump(), sorted(state.concepts), sorted(state.properties), state.policy.model_dump()]
+        data = [plan.scope.model_dump(), sorted(state.concepts), sorted(state.properties), state.policy.model_dump(),
+                state.completeness, state.coverage_explanation, sorted(state.anchors)]
         identifier = "coverage:" + hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()[:24]
         existing = next((c for c in self.bundle.coverage if c.id == identifier), None)
         if existing:
             return existing
         coverage = m.Coverage(id=identifier, scope=plan.scope, concept_ids=sorted(state.concepts),
-            property_keys=sorted(state.properties), count_policy=state.policy, completeness="complete",
-            explanation="Complete enumeration of supported source records and evaluation of the requested fields. "
-                        "Applies to this supplied model revision and query universe; physical building completeness is unverified.",
+            property_keys=sorted(state.properties), count_policy=state.policy, completeness=state.completeness,
+            explanation=state.coverage_explanation or ("Complete enumeration of supported source records and evaluation of the requested fields. "
+                        "Applies to this supplied model revision and query universe; physical building completeness is unverified."),
             provenance=m.Provenance(run_id=self.bundle.runs[0].id, method="computed", anchor_ids=sorted(state.anchors)))
         self.bundle.coverage.append(coverage)
         return coverage
@@ -478,7 +493,10 @@ class IfcQueryEngine:
             return True if True in values else None if None in values else False
         if predicate.kind == "related_to":
             graph = self.graphs[predicate.predicate, predicate.direction]
-            return bool(graph[entity] & set(predicate.entity_ids) & scope_members)
+            matches = graph[entity] & set(predicate.entity_ids) & scope_members
+            state.anchors.update(anchor for related in matches
+                for anchor in self.edge_anchors[predicate.predicate, predicate.direction, entity, related])
+            return bool(matches)
         if predicate.kind == "spatial":
             raise QueryError("unsupported_operation", "Spatial predicates require a geometry executor.")
         actual = self._read(entity, predicate.field, state)

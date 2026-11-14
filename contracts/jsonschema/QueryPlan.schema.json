@@ -1197,6 +1197,16 @@
           "title": "Container Kind",
           "type": "string"
         },
+        "exterior_basis": {
+          "default": "combined",
+          "enum": [
+            "combined",
+            "classification",
+            "boundary"
+          ],
+          "title": "Exterior Basis",
+          "type": "string"
+        },
         "input_step_id": {
           "minLength": 1,
           "title": "Input Step Id",
@@ -1212,7 +1222,8 @@
             "containers",
             "boundary_neighbors",
             "door_connections",
-            "outdoor_access"
+            "outdoor_access",
+            "exterior_doors"
           ],
           "title": "Relation",
           "type": "string"

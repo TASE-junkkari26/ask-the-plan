@@ -28,6 +28,68 @@ records sampling, source/family results, failure examples, pricing, limitations
 and the ignored local artifact directory. Original drawings/reference answers
 were not modified, and the workbench servers were left running.
 
+## IFC exterior doors and independent planners, 14 November 2026
+
+Implemented native exterior-door membership, an independent Nemotron/Hydrogen
+planner selector, bounded source discovery/inspection and a paired evaluation
+harness. Source parsing and final computations remain in the native executor.
+
+Checked on Linux with Python 3.14.10, IfcOpenShell 0.9.0.post1, Pydantic 2.14.3,
+Node 26.13.1 and Firefox 160.0:
+
+- Full Python suite: **367 tests passed**, no skips, in 31.958 seconds. Credentials
+  were disabled; providers were mocked. Checks cover inherited/overridden flags,
+  door/opening boundary paths, duplicate boundaries, unknown/conflicting membership,
+  exact scope, lower-bound propagation, native proof anchors, independent provider
+  lifetimes/configuration, inspection budgets/cancellation and safe diagnostics.
+  Normal local socket/thread access was needed for asynchronous/server checks.
+- All **17 frontend test files** and the TypeScript/Vite production build passed.
+  Existing optional Three/WebGPU export and chunk-size warnings remain. Generated
+  JSON Schemas and TypeScript were refreshed; all 12 contracts are current.
+- The six-model, **24-case offline replay** passed every declared fixture check
+  with zero external inference. It checks authored plans, source memberships,
+  boundary anchors, exact scope and non-answer/partial outcomes. This is not a
+  natural-language accuracy score. The runner records code fingerprints and saves
+  predictions before importing evaluator-only reference values.
+- Executed all three exterior bases on supplied models without inference:
+  FZK-Haus combined gives **at least 2**, with three unresolved doors; Esplanades
+  combined gives **at least 5**, with 36 unresolved doors and no native boundaries;
+  Dental architecture gives **18** by combined/classification and **12 recorded**
+  by boundary-only evidence. The unequal Dental sets are not a demonstrated
+  contradiction. Source hashes and proof counts are saved locally under
+  `build/ifc-exterior-implementation.json`.
+- Firefox imported and rendered the actual FZK model, uploaded it only to the
+  local backend and used an injected synthetic planner. It displayed **At least 2**,
+  two included doors, zero exclusions and three separately unresolved doors;
+  eight native boundary-record links and the original source hash were present.
+  JSON export preserved the bound and membership. A boundary-only follow-up
+  returned **2 recorded doors** with the source limitation. No uncaught page errors
+  occurred. Artifacts are under `build/ifc-exterior-browser/`; owned servers and
+  browser profiles were cleaned up. The main count was subsequently moved ahead
+  of the long explanatory narrative, then rebuilt.
+
+Live structured-planning smoke checks used **only generated IFC metadata**, not
+supplied building files or their catalogs. Across development there were five
+explicit requests: one Nemotron and four Hydrogen-low requests, without SDK
+retries. Nemotron returned the correct two exterior doors on the generated case.
+Two initial Hydrogen requests produced provider-configuration errors; their
+upstream status/code was not retained, so the exact rejection cause is unproven.
+A kind-only native envelope reached the model but its output failed strict local
+plan validation. The final shallow typed-operation schema succeeded: requested
+and returned `gemini-4-hydrogen`, correct two source doors and native proofs,
+17,502 input tokens, 933 combined output/thinking tokens including 616 thought
+tokens, and 4,823 ms total for that selected request. These iterations are API
+compatibility checks, not a controlled quality or latency ranking.
+
+Hydrogen now constrains the envelope and six operation branches natively while
+the full recursive plan schema remains supplied in instructions and strictly
+validated before execution. Safe private diagnostics retain recognized upstream
+categories/static validation locations; public errors omit them and all raw
+provider bodies. No broad live provider benchmark, geometry inference or visual
+IFC-reasoning model experiment is claimed. Existing backend `.env` values were
+preserved. See [IFC usage](IFC_QUESTIONS.md) and
+[comparison commands](../experiments/ifc_planners/README.md).
+
 ## Frontend response metrics, 14 November 2026
 
 Checked on Windows with Node 24.22.3 and Python 3.14.10. This frontend-only

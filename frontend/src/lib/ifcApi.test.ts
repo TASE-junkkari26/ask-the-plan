@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { askIfcQuestion, uploadIfcModel, validateIfcAnswer } from './ifcApi.ts';
+import { askIfcQuestion, ifcQualityLabel, uploadIfcModel, validateIfcAnswer } from './ifcApi.ts';
 import type { IfcQuestionRequest } from '../contracts/IfcQuestionRequest';
 
 const hash = 'a'.repeat(64);
@@ -14,7 +14,7 @@ function answer() {
     request_id: 'request:test', question: request.question, scope: 'view', scope_label: 'Ground floor',
     interpretation: 'Count window occurrences', included_elements: [{ entity_id: 'window:one', step_id: 10, guid: 'guid-A', name: 'W-1', ifc_class: 'IfcWindow' }], excluded_elements: [],
     facts: [], anchors: [], units: [], warnings: [], result: {
-      status: 'answered', claims: [{ id: 'claim:test', value: { kind: 'count', value: 1 } }], calculations: [], entity_sets: [], issues: [],
+      status: 'answered', claims: [{ id: 'claim:test', quality: 'exact', value: { kind: 'count', value: 1 } }], calculations: [], entity_sets: [], issues: [],
     },
   };
 }
@@ -59,6 +59,47 @@ test('malformed answer values and duplicate element identities are rejected befo
   assert.throws(() => validateIfcAnswer(value, request), /invalid evidence/);
   const malformed = answer();
   malformed.result.claims[0].value.value = Number.NaN;
+  assert.throws(() => validateIfcAnswer(malformed, request), /invalid evidence/);
+});
+
+test('partial exterior counts retain lower bounds and distinct unresolved evidence', () => {
+  const value = { ...answer(), unresolved_elements: [
+    { entity_id: 'door:unknown', step_id: 20, guid: 'guid-B', name: 'Unclassified doorway', ifc_class: 'IfcDoor' },
+  ] };
+  value.result.status = 'partial';
+  value.result.claims[0].quality = 'lower_bound';
+  const result = validateIfcAnswer(value, request);
+  assert.equal(result.result.claims?.[0].quality, 'lower_bound');
+  assert.equal(result.unresolved_elements?.[0].step_id, 20);
+  assert.equal(ifcQualityLabel(result.result.claims![0].quality), 'At least');
+  assert.equal(ifcQualityLabel('upper_bound'), 'At most');
+  assert.equal(ifcQualityLabel('estimated'), 'Estimated');
+  assert.equal(ifcQualityLabel('exact'), '');
+});
+
+test('unresolved evidence cannot overlap classified objects or escape the captured view', () => {
+  const overlapping = { ...answer(), unresolved_elements: [answer().included_elements[0]] };
+  assert.throws(() => validateIfcAnswer(overlapping, request), /invalid evidence/);
+  const outside = { ...answer(), unresolved_elements: [
+    { ...answer().included_elements[0], entity_id: 'outside:door', step_id: 30 },
+  ] };
+  assert.throws(() => validateIfcAnswer(outside, request), /outside the submitted view/);
+  const excluded = { ...answer(), excluded_elements: [answer().included_elements[0]] };
+  assert.throws(() => validateIfcAnswer(excluded, request), /invalid evidence/);
+});
+
+test('planning diagnostics accept bounded provenance and reject malformed counters or arbitrary data', () => {
+  const planning = { provider: 'gemini', requested_model: 'gemini-4-hydrogen', returned_model: 'gemini-4-hydrogen',
+    thinking_level: 'high', prompt_version: 'ifc-plan-v3', discovery_version: 'source-v1',
+    model_requests: 2, inspection_count: 3, prompt_tokens: 200, completion_tokens: 80, thought_tokens: 40 };
+  assert.equal(validateIfcAnswer({ ...answer(), planning }, request).planning?.provider, 'gemini');
+  for (const change of [{ model_requests: 4 }, { inspection_count: 7 }, { thought_tokens: -1 },
+    { completion_tokens: Number.NaN }, { model_requests: true }, { provider: 'unknown' },
+    { thinking_level: 'magic' }, { api_key: 'private' }, { returned_model: '\nprivate' }]) {
+    assert.throws(() => validateIfcAnswer({ ...answer(), planning: { ...planning, ...change } }, request), /invalid evidence/);
+  }
+  const malformed = answer();
+  malformed.result.claims[0].quality = 'verified';
   assert.throws(() => validateIfcAnswer(malformed, request), /invalid evidence/);
 });
 

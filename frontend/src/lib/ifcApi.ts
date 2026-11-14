@@ -17,6 +17,15 @@ function strings(value: unknown): value is string[] {
 function localized(value: unknown) {
   return object(value) && typeof value.text === 'string';
 }
+function quality(value: unknown) {
+  return ['exact', 'estimated', 'lower_bound', 'upper_bound'].includes(String(value));
+}
+
+/** Keep bounded/estimated claims visibly distinct from exact source totals. */
+export function ifcQualityLabel(value: string): string {
+  const labels: Record<string, string> = { exact: '', estimated: 'Estimated', lower_bound: 'At least', upper_bound: 'At most' };
+  return labels[value] ?? '';
+}
 function answerValue(value: unknown, depth = 0): boolean {
   if (!object(value) || depth > 12) return false;
   switch (value.kind) {
@@ -99,7 +108,7 @@ export function validateIfcAnswer(value: unknown, request: IfcQuestionRequest): 
       || !Array.isArray(value.facts) || !Array.isArray(value.anchors) || !Array.isArray(value.units)
       || !Array.isArray(value.warnings) || !value.warnings.every(text)) throw invalid();
   for (const claim of value.result.claims) {
-    if (!object(claim) || !text(claim.id) || !answerValue(claim.value)) throw invalid();
+    if (!object(claim) || !text(claim.id) || !answerValue(claim.value) || !quality(claim.quality)) throw invalid();
     if (claim.count_policy != null && (!object(claim.count_policy) || !text(claim.count_policy.grain)
       || !text(claim.count_policy.hierarchy) || !text(claim.count_policy.distinct_by))) throw invalid();
   }
@@ -125,17 +134,36 @@ export function validateIfcAnswer(value: unknown, request: IfcQuestionRequest): 
   for (const unit of value.units) {
     if (!object(unit) || !text(unit.id) || typeof unit.symbol !== 'string') throw invalid();
   }
+  if (value.planning != null) {
+    const planning = value.planning;
+    const allowed = new Set(['provider', 'requested_model', 'returned_model', 'thinking_level',
+      'prompt_version', 'discovery_version', 'model_requests', 'inspection_count',
+      'prompt_tokens', 'completion_tokens', 'thought_tokens']);
+    const safeText = (item: unknown) => text(item) && item.length <= 200 && !/[\u0000-\u001f\u007f]/.test(item);
+    const counter = (item: unknown) => Number.isSafeInteger(item) && (item as number) >= 0;
+    if (!object(planning) || Object.keys(planning).some((key) => !allowed.has(key))
+        || !['nemotron', 'gemini'].includes(String(planning.provider))
+        || !['requested_model', 'returned_model', 'prompt_version', 'discovery_version'].every((key) => safeText(planning[key]))
+        || (planning.thinking_level != null && !['low', 'medium', 'high', 'xhigh', 'enabled', 'disabled', 'provider_default'].includes(String(planning.thinking_level)))
+        || !counter(planning.model_requests) || (planning.model_requests as number) < 1 || (planning.model_requests as number) > 3
+        || !counter(planning.inspection_count) || (planning.inspection_count as number) > 6
+        || ['prompt_tokens', 'completion_tokens', 'thought_tokens'].some((key) => planning[key] != null && !counter(planning[key]))) throw invalid();
+  }
   const visible = (request.scope ?? 'view') === 'view' ? new Set(request.visible_step_ids ?? []) : null;
-  for (const key of ['included_elements', 'excluded_elements'] as const) {
+  const classified = new Set<string>();
+  for (const key of ['included_elements', 'excluded_elements', 'unresolved_elements'] as const) {
+    if (key === 'unresolved_elements' && value[key] === undefined) continue;
+    if (!Array.isArray(value[key])) throw invalid();
     const ids = new Set<string>();
     for (const element of value[key] as unknown[]) {
-      if (!object(element) || !text(element.entity_id) || ids.has(element.entity_id)
+      if (!object(element) || !text(element.entity_id) || ids.has(element.entity_id) || classified.has(element.entity_id)
           || !(element.step_id === null || (Number.isSafeInteger(element.step_id) && (element.step_id as number) > 0))
           || !(element.guid === null || text(element.guid)) || !text(element.ifc_class)
           || typeof element.name !== 'string') throw invalid();
-      if (key === 'included_elements' && visible && !visible.has(element.step_id as number))
+      if (visible && !visible.has(element.step_id as number))
         throw new Error('The IFC answer contains elements outside the submitted view. Please ask again.');
       ids.add(element.entity_id);
+      classified.add(element.entity_id);
     }
   }
   return value as unknown as IfcQuestionResponse;

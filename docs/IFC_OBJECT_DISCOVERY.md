@@ -1,7 +1,10 @@
 # IFC object discovery investigation
 
-Verified against this checkout on 14 November 2026. The search and orchestration
-design below is **proposed**, not implemented. The investigation used local
+Initial investigation on 14 November 2026. A follow-up now implements a per-session
+source-label index, automatic retrieval/facets and bounded search/property/fact/
+relationship inspection shared by Nemotron and Hydrogen. See [current behavior](IFC_QUESTIONS.md).
+Exhaustive-selection handles, broader semantic retrieval and the complete design
+below remain **proposed**. The historical investigation used local
 source models and credential-free probes; it did not measure live Nemotron
 interpretation accuracy or the deployment's context-window limit.
 
@@ -10,7 +13,7 @@ discovery loop before final query execution. Keep the complete IFC and answer
 computation on the backend. Give Nemotron ways to discover the model's actual
 vocabulary and inspect candidate facts without knowing full source names first.
 
-The current integration follows this path:
+The integration before the discovery follow-up followed this path:
 
 1. The [question panel](../frontend/src/components/IfcQuestionPanel.tsx#L139)
    captures the selected scope and uploads the original IFC when first asked.
@@ -34,7 +37,7 @@ The README and IFC question guide describe this implemented integration.
 `AGENTS.md` still describes IFC questions/planning as pending; that description
 does not match the current executable code.
 
-The discovery gaps are narrower than an inability to query IFC without names:
+The original discovery gaps were narrower than an inability to query IFC without names:
 class-based queries already work without object names. They become relevant
 when a question requires a function, named subset, type or property value.
 

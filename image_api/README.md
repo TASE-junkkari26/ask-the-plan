@@ -15,8 +15,8 @@ dataset coverage is claimed. See the [implementation plan](PLAN.md) and
 [Nemotron guide](../docs/nvidia_info.md).
 
 The [Gemini Hydrogen implementation plan](GEMINI_PLAN.md) records the provider
-boundary and protocol research. The image provider is selected on the backend;
-IFC planning continues to use its existing Nemotron integration.
+boundary and protocol research. Image and IFC providers are selected independently;
+see [IFC planner configuration](../docs/IFC_QUESTIONS.md#choose-the-ifc-planner).
 
 ## Install and run
 
@@ -66,10 +66,10 @@ The image provider defaults to `nemotron`. To select it explicitly, set
 `IMAGE_API_PROVIDER=nemotron` and configure `VERDA_INFERENCE_KEY` using the
 [Nemotron configuration rules](../docs/nvidia_info.md#local-setup).
 
-The selector affects `POST /api/v1/candidates` only. IFC queries keep their
-existing Nemotron client and `VERDA_*` settings. Gemini configuration failure
-does not disable configured IFC queries; missing Verda settings do not disable
-configured Gemini image analysis.
+The selector affects `POST /api/v1/candidates` only. IFC queries use
+`IFC_API_PROVIDER`, defaulting to Nemotron, with their own reasoning/request
+budgets. A missing image-provider credential does not disable an independently
+configured IFC planner, and missing IFC configuration does not disable images.
 
 Gemini configuration uses the same root `.env` discovery and process-over-file
 precedence, without changing `os.environ` or interpolating dollar sequences.
