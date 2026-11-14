@@ -73,3 +73,19 @@ test('mixed-model accounting uses each call timestamp and keeps failed/missing u
   assert.deepEqual(estimateCallCosts([base, { ...carbon, outcome: 'failed', prompt_tokens: null }]), { knownUsd: 0.0001, unknownCalls: 1 });
   assert.deepEqual(estimateCallCosts([base, { ...carbon, completed_at: '2026-12-01T00:00:00Z' }]), { knownUsd: 0.0081, unknownCalls: 0 });
 });
+
+test('detail tool cost uses Hydrogen layout and Carbon detection rates separately', async () => {
+  const { estimateCallCosts } = await import('./responseMetrics.ts');
+  const base = { input_sha256: 'a'.repeat(64), input_width: 300, input_height: 200,
+    source_box: [40, 20, 340, 220] as [number, number, number, number],
+    elapsed_ms: 100, completed_at: completed, outcome: 'completed' as const,
+    prompt_tokens: 1000, completion_tokens: 200 };
+  const result = estimateCallCosts([
+    { ...base, id: 'layout', purpose: 'region_proposal', requested_model: 'gemini-4-hydrogen', returned_model: 'gemini-4-hydrogen' },
+    { ...base, id: 'detect', purpose: 'analysis', requested_model: 'gemini-4-carbon', returned_model: 'gemini-4-carbon' },
+    { ...base, id: 'verify', purpose: 'candidate_verification', requested_model: 'gemini-4-carbon', returned_model: 'gemini-4-carbon' },
+    { ...base, id: 'reinspect', purpose: 'reinspection', requested_model: 'gemini-4-carbon', returned_model: 'gemini-4-carbon' },
+  ]);
+  assert.equal(result.unknownCalls, 0);
+  assert.ok(Math.abs(result.knownUsd - 0.015) < 1e-12);
+});

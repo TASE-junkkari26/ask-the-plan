@@ -16,8 +16,19 @@ export function DecisionTrace({ trace, language }: { trace?: ImageDecisionTrace 
     completed: fi ? 'Valmis' : 'Completed', failed: fi ? 'Epäonnistui' : 'Failed', unavailable: fi ? 'Ei saatavilla' : 'Unavailable' };
   const percent = (n: number) => new Intl.NumberFormat(language, { style: 'percent', maximumFractionDigits: 1 }).format(n);
   const cost = trace ? estimateCallCosts(trace.calls ?? []) : null;
+  const purposes = {
+    routing: fi ? 'Reititys' : 'Routing', analysis: fi ? 'Analyysi' : 'Analysis',
+    region_proposal: fi ? 'Piirustusalueiden valinta' : 'Region selection',
+    candidate_verification: fi ? 'Ehdokkaan tarkistus' : 'Candidate check',
+    reinspection: fi ? 'Alueen lisätarkistus' : 'Region reinspection',
+  };
+  const callCost = (call: NonNullable<ImageDecisionTrace['calls']>[number]) => {
+    const estimate = estimateCallCosts([call]);
+    return estimate.unknownCalls ? fi ? 'Hinta tuntematon' : 'Cost unknown' : formatEstimatedUsd(estimate.knownUsd, language);
+  };
   const threshold = trace?.nodes?.find((node) => node.criterion === 'capability')?.threshold;
-  const overallFitOnly = trace?.policy_version === 'capability-routing-v2';
+  const overallFitOnly = trace?.policy_version.startsWith('capability-routing-v2')
+    || trace?.policy_version.startsWith('capability-routing-v3');
   const legacyGates = trace?.policy_version === 'capability-routing-v1';
   return <details className="decision-trace">
     <summary>{fi ? 'Näin kuva analysoitiin' : 'How this was analyzed'}<span>{trace ? routeLabel(trace.selected_profile, language) : fi ? 'Ei tallennettua polkua' : 'No recorded path'}</span></summary>
@@ -43,7 +54,7 @@ export function DecisionTrace({ trace, language }: { trace?: ImageDecisionTrace 
       <p className="decision-score-note">{fi ? 'Reititysarviot eivät ole vastauksen oikeellisuusprosentteja.' : 'Routing scores are not answer accuracy percentages.'}</p>
       {(trace.calls?.length ?? 0) > 0 && <section aria-label={fi ? 'Toteutuneet mallikutsut' : 'Recorded model calls'}>
         <h4>{fi ? 'Mallikutsut' : 'Model calls'}</h4>
-        <ul>{trace.calls?.map((call) => <li key={call.id}>{call.purpose === 'routing' ? fi ? 'Reititys' : 'Routing' : fi ? 'Analyysi' : 'Analysis'}: {modelName(call.returned_model ?? call.requested_model)} · {call.outcome === 'completed' ? fi ? 'Valmis' : 'Completed' : call.outcome === 'cancelled' ? fi ? 'Peruttu' : 'Cancelled' : fi ? 'Epäonnistui' : 'Failed'} · {formatResponseTime(call.elapsed_ms, language)}</li>)}</ul>
+        <ul>{trace.calls?.map((call) => <li key={call.id}>{purposes[call.purpose]}: {modelName(call.returned_model ?? call.requested_model)} · {call.outcome === 'completed' ? fi ? 'Valmis' : 'Completed' : call.outcome === 'cancelled' ? fi ? 'Peruttu' : 'Cancelled' : fi ? 'Epäonnistui' : 'Failed'} · {formatResponseTime(call.elapsed_ms, language)} · {callCost(call)}{call.source_box && <> · {fi ? 'Lähdealue' : 'Source region'} [{call.source_box.join(', ')}]</>}</li>)}</ul>
         {cost && <p>{fi ? 'Kaikkien kutsujen hinta-arvio' : 'Estimated cost of all calls'}: {formatEstimatedUsd(cost.knownUsd, language)}{cost.unknownCalls > 0 && <> + {fi ? 'tuntematon osuus' : 'unknown component'}</>}</p>}
       </section>}
       <p className="decision-version">{fi ? 'Päätössäännöt' : 'Policy'}: {trace.policy_version} · {fi ? 'Ominaisuudet' : 'Capabilities'}: {trace.capability_version}</p>

@@ -42,6 +42,36 @@ function CandidateCloseUp({
   );
 }
 
+function CheckedSource({
+  box, imageUrl, width, height, language,
+}: {
+  box: number[];
+  imageUrl: string;
+  width: number;
+  height: number;
+  language: Language;
+}) {
+  const [x0, y0, x1, y1] = box;
+  const padding = Math.max(20, Math.max(x1 - x0, y1 - y0) * 0.35);
+  const left = Math.max(0, x0 - padding);
+  const top = Math.max(0, y0 - padding);
+  const right = Math.min(width, x1 + padding);
+  const bottom = Math.min(height, y1 + padding);
+  return (
+    <details className="candidate-check-source">
+      <summary>{language === 'fi' ? 'Näytä lähde läheltä' : 'View source close-up'}</summary>
+      <svg viewBox={`${left} ${top} ${right - left} ${bottom - top}`}
+        role="img" aria-label={language === 'fi' ? 'Tarkistetun ehdokkaan sijainti lähdekuvassa' : 'Checked candidate location in the source image'}>
+        <rect width={width} height={height} fill="white" />
+        <image href={imageUrl} width={width} height={height} />
+        <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0}
+          fill="#a7610a" fillOpacity={0.1} stroke="#a7610a" strokeWidth={2}
+          vectorEffect="non-scaling-stroke" />
+      </svg>
+    </details>
+  );
+}
+
 export function CandidatePanel({
   response,
   question,
@@ -66,6 +96,13 @@ export function CandidatePanel({
   const fi = language === 'fi';
   const candidates = response.candidates ?? [];
   const candidate = candidates.find((item) => item.id === selected);
+  const checks = response.detail?.membership_checks ?? [];
+  const checkLabels = {
+    supported: fi ? 'Säilytetty tarkistuksessa' : 'Kept after check',
+    rejected: fi ? 'Poistettu tarkistuksessa' : 'Excluded after check',
+    ambiguous: fi ? 'Yhä epävarma' : 'Still uncertain',
+    failed: fi ? 'Tarkistus ei onnistunut' : 'Check unavailable',
+  };
   const status = {
     ok: fi ? 'Tunnistus valmis' : 'Detection completed',
     partial: fi ? 'Osittainen tunnistus' : 'Partial detection',
@@ -96,6 +133,56 @@ export function CandidatePanel({
         decisionTrace={response.decision_trace}
       />
       <DecisionTrace trace={response.decision_trace} language={language} />
+      {response.detail && (
+        <details className="candidate-detail-trace">
+          <summary>
+            {fi ? 'Tarkka tunnistus' : 'Detailed scan'}
+            <span>
+              {response.detail.provider_calls} {fi ? 'mallikutsua' : 'model calls'}
+              {' · '}{response.detail.regions.length} {fi ? 'tutkittua aluetta' : 'regions inspected'}
+            </span>
+          </summary>
+          <p>
+            {response.detail.selection === 'automatic'
+              ? fi ? 'Piirustusalueet valittiin automaattisesti tästä kuvasta.' : 'Drawing regions selected automatically from this image.'
+              : fi ? 'Tunnistus rajattiin valittuihin alueisiin tässä kuvassa.' : 'Detection was limited to the selected regions of this image.'}
+          </p>
+          <svg
+            viewBox={`0 0 ${response.image.width} ${response.image.height}`}
+            role="img"
+            aria-label={fi ? 'Tunnistukseen valitut piirustusalueet' : 'Drawing regions selected for detection'}
+          >
+            <rect width={response.image.width} height={response.image.height} fill="white" />
+            <image href={imageUrl} width={response.image.width} height={response.image.height} />
+            {response.detail.selected_regions.map(([x0, y0, x1, y1], index) => (
+              <rect key={index} x={x0} y={y0} width={x1 - x0} height={y1 - y0}
+                fill="#137567" fillOpacity={0.08} stroke="#137567" strokeWidth={2}
+                vectorEffect="non-scaling-stroke" />
+            ))}
+          </svg>
+          {response.detail.selection_limitations && response.detail.selection_limitations.length > 0 && (
+            <ul>{response.detail.selection_limitations.map((limitation, index) => <li key={index}>{limitation}</li>)}</ul>
+          )}
+        </details>
+      )}
+      {checks.length > 0 && (
+        <details className="candidate-checks">
+          <summary>{fi ? 'Ehdokkaiden tarkistukset' : 'Candidate checks'} <span>{checks.length}</span></summary>
+          <p>{fi ? 'Ehdokkaita tarkistettiin tämän kuvan lähikuvista.' : 'Candidates checked against close-ups of this image.'}</p>
+          <ol>
+            {checks.map((check) => (
+              <li key={`${check.region_id}:${check.observation_ids.join(',')}`} className={`candidate-check candidate-check-${check.verdict}`}>
+                <div className="candidate-check-heading"><strong>{checkLabels[check.verdict]}</strong><span>{check.category}</span></div>
+                <p>{check.reason}</p>
+                {check.verdict === 'rejected' && (
+                  <CheckedSource box={check.source_box} imageUrl={imageUrl}
+                    width={response.image.width} height={response.image.height} language={language} />
+                )}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
       <p className="candidate-review-note"><CircleAlert size={15} /><span>{fi ? 'Tarkista ehdokkaat kuvasta. Kohteita voi puuttua, eikä luettelon kattavuutta ole vahvistettu.' : 'Review the highlights against the image. Candidates may be missing or ambiguous; inventory completeness is unverified.'}</span></p>
       {(response.limitations ?? []).length > 0 && (
         <section className="candidate-limitations" aria-label={fi ? 'Rajoitukset' : 'Limitations'}>
@@ -106,19 +193,29 @@ export function CandidatePanel({
       {candidates.length === 0 && response.status === 'ok' && <p className="candidate-empty-note">{fi ? 'Tyhjä luettelo ei vahvista, että kuvassa on nolla kohdetta.' : 'An empty candidate list does not establish that the image contains zero objects.'}</p>}
       {candidate && <CandidateCloseUp candidate={candidate} response={response} imageUrl={imageUrl} language={language} onFocus={() => onFocus(candidate.id)} />}
       <div className="candidate-list">
-        {candidates.map((item, index) => (
+        {candidates.map((item, index) => {
+          const labels = [...new Set((response.detail?.observations.find((observation) => observation.candidate_id === item.id)?.source_labels ?? [])
+            .filter((label): label is string => typeof label === 'string'))];
+          return (
           <div className={`candidate-row${selected === item.id ? ' candidate-row-selected' : ''}${item.uncertain ? ' candidate-row-uncertain' : ''}`} key={item.id}>
             <button className="candidate-row-select" onClick={() => onSelect(item.id)} aria-pressed={selected === item.id}>
               <span className="candidate-ordinal">{index + 1}</span>
               <span className="candidate-row-copy">
                 <strong>{item.category}{item.source_label && <code>{item.source_label}</code>}</strong>
                 <span>{item.visual_cue}</span>
+                {labels.length > 1 && (
+                  <span className="candidate-label-variants">
+                    <span>{fi ? 'Lähdemerkinnät:' : 'Source labels:'}</span>
+                    {labels.map((label, labelIndex) => <code key={labelIndex}>{label}</code>)}
+                  </span>
+                )}
                 {item.uncertain && <span className="candidate-uncertainty"><CircleAlert size={12} />{fi ? 'Epävarma' : 'Uncertain'}: {item.uncertainty_reason}</span>}
               </span>
             </button>
             <button className="candidate-row-focus" onClick={() => onFocus(item.id)} aria-label={`${fi ? 'Kohdista' : 'Focus'} ${index + 1}: ${item.source_label || item.category}`} title={fi ? 'Kohdista piirustukseen' : 'Focus on drawing'}><Focus size={16} /></button>
           </div>
-        ))}
+          );
+        })}
       </div>
       <p className="candidate-provenance">{response.image.width} × {response.image.height} px</p>
     </section>

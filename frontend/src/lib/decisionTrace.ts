@@ -32,18 +32,30 @@ export function validateDecisionTrace(
   if (!object(scores) || Object.keys(scores).length > 8
       || !Object.entries(scores).every(([key, v]) => text(key) && Object.hasOwn(assessments, key) && v != null && probability(v))) throw invalid();
   const calls = value.calls ?? [];
-  if (!Array.isArray(calls) || calls.length > 2) throw invalid();
+  if (!Array.isArray(calls) || calls.length > 13) throw invalid();
   const callIds = new Set<string>();
   for (const call of calls) {
     if (!object(call) || !text(call.id) || callIds.has(call.id)
-        || !choice(call.purpose, ['routing', 'analysis'])
+        || !choice(call.purpose, ['routing', 'analysis', 'region_proposal', 'candidate_verification', 'reinspection'])
         || !choice(call.outcome, ['completed', 'failed', 'cancelled'])
         || !text(call.requested_model) || (call.returned_model != null && !text(call.returned_model))
         || !text(call.completed_at, 40) || !Number.isFinite(Date.parse(call.completed_at))
         || !number(call.elapsed_ms) || !hash(call.input_sha256)
         || !positive(call.input_width) || !positive(call.input_height)
         || !tokens(call.prompt_tokens) || !tokens(call.completion_tokens)) throw invalid();
-    if (call.input_sha256 !== value.image.inference_sha256) throw invalid();
+    if (call.source_box == null) {
+      if (call.input_sha256 !== value.image.inference_sha256) throw invalid();
+    } else {
+      const box = call.source_box;
+      if (!Array.isArray(box) || box.length !== 4 || !box.every(number)) throw invalid();
+      const [x0, y0, x1, y1] = box as number[];
+      if (!(x0 < x1 && y0 < y1 && x1 <= image.width && y1 <= image.height)) throw invalid();
+      const width = x1 - x0, height = y1 - y0;
+      // Native crops and smaller overviews retain the source rectangle's aspect
+      // ratio. Allow the one-pixel rounding from an overview's integer size.
+      if ((call.input_width as number) > Math.ceil(width) || (call.input_height as number) > Math.ceil(height)
+          || Math.abs((call.input_width as number) * height - (call.input_height as number) * width) > Math.max(width, height)) throw invalid();
+    }
     callIds.add(call.id);
   }
   const nodes = value.nodes ?? [];
@@ -76,6 +88,11 @@ const reasons: Record<string, [string, string]> = {
   route_selected: ['The host selected this analysis route.', 'Palvelin valitsi tämän analyysireitin.'],
   whole_image: ['The whole selected image was used.', 'Käytettiin koko valittua kuvaa.'],
   preprocessing_deferred: ['Additional preprocessing was skipped for this route.', 'Tällä reitillä ohitettiin ylimääräinen esikäsittely.'],
+  detailed_scan_requested: ['Detailed scan uses native regions and reconciles repeated observations.', 'Tarkka tunnistus käyttää alkuperäisiä kuva-alueita ja yhdistää toistuvat havainnot.'],
+  detail_selected: ['The selected analyzer inspects native drawing detail.', 'Valittu analyysimalli tutkii alkuperäisen piirustuksen yksityiskohtia.'],
+  native_detail_selected: ['The selected analyzer inspects native regions, reconciles repeated objects and checks uncertain candidates.', 'Valittu analyysimalli tutkii alkuperäisiä kuva-alueita, yhdistää toistuvat kohteet ja tarkistaa epävarmat ehdokkaat.'],
+  detail_completed: ['Detailed scan completed with source-bound observations.', 'Tarkka tunnistus valmistui lähdekuvaan sidotuilla havainnoilla.'],
+  detail_budget_exceeded: ['The selected detail coverage exceeds the available call budget.', 'Valittu tarkka tunnistus ylittää käytettävissä olevan kutsumäärän.'],
   analysis_completed: ['Analysis completed.', 'Analyysi valmistui.'],
   analysis_failed: ['Analysis failed.', 'Analyysi epäonnistui.'],
   analysis_cancelled: ['Analysis was cancelled or reached its deadline.', 'Analyysi peruttiin tai sen aikaraja ylittyi.'],
@@ -113,6 +130,9 @@ const values: Record<string, [string, string]> = {
   ok: ['Detection completed', 'Tunnistus valmis'], partial: ['Partial detection', 'Osittainen tunnistus'],
   unreadable: ['Image could not be read', 'Kuvaa ei voitu tulkita'], unsupported: ['Task unsupported for this image', 'Tehtävää ei tueta tässä kuvassa'],
   off: ['Whole image', 'Koko kuva'], overview: ['Whole-image overview', 'Koko kuvan yleiskuva'],
+  tiles: ['Overlapping native detail', 'Limittäiset alkuperäiset kuva-alueet'],
+  regions: ['Selected native regions', 'Valitut alkuperäiset kuva-alueet'],
+  auto: ['Automatic detail selection', 'Automaattinen yksityiskohtien valinta'],
 };
 export function decisionValue(value: string, language: Language): string {
   return Object.hasOwn(values, value) ? values[value][language === 'fi' ? 1 : 0] : language === 'fi' ? 'Ei saatavilla' : 'Unavailable';

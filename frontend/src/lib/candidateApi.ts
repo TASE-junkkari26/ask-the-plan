@@ -142,6 +142,62 @@ function optionalTokens(value: unknown) {
   return value === undefined || value === null || (Number.isSafeInteger(value) && (value as number) >= 0);
 }
 
+function sourceBox(value: unknown, image: PreparedCandidateImage): boolean {
+  if (!Array.isArray(value) || value.length !== 4 || !value.every(Number.isSafeInteger)) return false;
+  const [x0, y0, x1, y1] = value as number[];
+  return x0 >= 0 && y0 >= 0 && x0 < x1 && y0 < y1 && x1 <= image.width && y1 <= image.height;
+}
+
+function validDetail(value: unknown, image: PreparedCandidateImage, candidateIds: Set<string>): boolean {
+  if (value == null) return true;
+  if (!object(value) || !['auto', 'regions', 'tiles'].includes(String(value.mode))
+      || !['automatic', 'explicit'].includes(String(value.selection))
+      || !Number.isSafeInteger(value.provider_calls) || (value.provider_calls as number) < 0
+      || !Array.isArray(value.selected_regions) || !value.selected_regions.length || value.selected_regions.length > 4
+      || !value.selected_regions.every((box) => sourceBox(box, image))
+      || !Array.isArray(value.regions) || value.regions.length > 12
+      || !Array.isArray(value.observations) || value.observations.length !== candidateIds.size
+      || (value.selection_limitations != null && (!Array.isArray(value.selection_limitations)
+        || value.selection_limitations.length > 20 || !value.selection_limitations.every(text)))) return false;
+  const regionIds = new Set<string>();
+  for (const region of value.regions) {
+    if (!object(region) || !text(region.id) || regionIds.has(region.id)
+        || !sourceBox(region.source_box, image) || !hash(region.inference_sha256)
+        || !['ok', 'partial', 'unreadable', 'unsupported', 'failed'].includes(String(region.status))
+        || !Number.isSafeInteger(region.candidate_count) || (region.candidate_count as number) < 0) return false;
+    regionIds.add(region.id);
+  }
+  const observed = new Set<string>();
+  for (const observation of value.observations) {
+    if (!object(observation) || !text(observation.candidate_id)
+        || !candidateIds.has(observation.candidate_id) || observed.has(observation.candidate_id)
+        || typeof observation.clipped !== 'boolean'
+        || !Array.isArray(observation.observation_ids) || !observation.observation_ids.length
+        || observation.observation_ids.length > 64 || !observation.observation_ids.every(text)
+        || !Array.isArray(observation.region_ids) || !observation.region_ids.length
+        || observation.region_ids.length > 64
+        || !observation.region_ids.every((id) => text(id) && regionIds.has(id))) return false;
+    if (observation.source_labels != null && (!Array.isArray(observation.source_labels)
+        || observation.source_labels.length > 64
+        || !observation.source_labels.every((label) => label === null || typeof label === 'string'))) return false;
+    observed.add(observation.candidate_id);
+  }
+  if (value.membership_checks != null) {
+    if (!Array.isArray(value.membership_checks) || value.membership_checks.length > 12) return false;
+    for (const check of value.membership_checks) {
+      if (!object(check) || !text(check.region_id) || !regionIds.has(check.region_id)
+          || !text(check.category) || !text(check.reason)
+          || !['supported', 'rejected', 'ambiguous', 'failed'].includes(String(check.verdict))
+          || !Array.isArray(check.observation_ids) || !check.observation_ids.length
+          || !check.observation_ids.every(text) || !Array.isArray(check.source_box)
+          || check.source_box.length !== 4 || !check.source_box.every(finite)) return false;
+      const [x0,y0,x1,y1] = check.source_box as number[];
+      if (!(0 <= x0 && x0 < x1 && x1 <= image.width && 0 <= y0 && y0 < y1 && y1 <= image.height)) return false;
+    }
+  }
+  return true;
+}
+
 /** Check the wire boundary before attaching server regions to a local source. */
 function validateResponse(value: unknown, submitted: PreparedCandidateImage, questionSha256: string): ImageCandidateResponse {
   const invalid = () => new Error('The analysis service returned invalid candidate data. Please try again.');
@@ -183,6 +239,7 @@ function validateResponse(value: unknown, submitted: PreparedCandidateImage, que
       || !object(value.provenance) || !text(value.provenance.requested_model)
       || !text(value.provenance.returned_model) || !text(value.provenance.prompt_version)) throw invalid();
   validateDecisionTrace(value.decision_trace, value.request_id, submitted, questionSha256, value.image.inference_sha256);
+  if (!validDetail(value.detail, submitted, ids)) throw invalid();
   return value as unknown as ImageCandidateResponse;
 }
 
@@ -287,6 +344,7 @@ export async function requestCandidates(
   question: string,
   signal: AbortSignal,
   onProgress?: (progress: ImageCandidateProgress) => void,
+  detail = false,
 ): Promise<ImageCandidateResponse> {
   aborted(signal);
   const trimmed = question.trim();
@@ -297,9 +355,10 @@ export async function requestCandidates(
   const body = new FormData();
   body.append('image', image.blob, 'drawing.png');
   body.append('question', trimmed);
+  if (detail) body.append('options', JSON.stringify({ mode: 'tiles', max_calls: 9 }));
   let response: Response;
   try {
-    response = await fetch('/api/v1/candidates', { method: 'POST', body, signal,
+    response = await fetch(detail ? '/api/v1/tools/detect-detail' : '/api/v1/candidates', { method: 'POST', body, signal,
       headers: { Accept: 'application/x-ndjson' } });
   } catch {
     aborted(signal);

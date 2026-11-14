@@ -1,0 +1,300 @@
+{
+  "$comment": "Generated from contracts.models; do not edit manually. JSON Schema checks structure. Pydantic and semantic validators also enforce local invariants, references, units, scope, and evidence.",
+  "$defs": {
+    "CandidateImage": {
+      "additionalProperties": false,
+      "description": "The exact submitted source and oriented inference/display frame.",
+      "properties": {
+        "coordinate_system": {
+          "const": "display_pixels_top_left",
+          "default": "display_pixels_top_left",
+          "title": "Coordinate System",
+          "type": "string"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "integer"
+        },
+        "inference_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Inference Sha256",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sha256",
+        "inference_sha256",
+        "width",
+        "height"
+      ],
+      "title": "CandidateImage",
+      "type": "object"
+    },
+    "CandidateMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "completion_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Completion Tokens"
+        },
+        "elapsed_ms": {
+          "minimum": 0,
+          "title": "Elapsed Ms",
+          "type": "number"
+        },
+        "preparation_cache_hit": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preparation Cache Hit"
+        },
+        "preparation_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preparation Ms"
+        },
+        "prompt_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Tokens"
+        }
+      },
+      "required": [
+        "elapsed_ms"
+      ],
+      "title": "CandidateMetrics",
+      "type": "object"
+    },
+    "CandidatePreparation": {
+      "additionalProperties": false,
+      "description": "Actual model image size, distinct from the unchanged display frame.",
+      "properties": {
+        "input_height": {
+          "exclusiveMinimum": 0,
+          "title": "Input Height",
+          "type": "integer"
+        },
+        "input_width": {
+          "exclusiveMinimum": 0,
+          "title": "Input Width",
+          "type": "integer"
+        },
+        "mode": {
+          "enum": [
+            "off",
+            "original",
+            "overview"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "pipeline_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pipeline Version"
+        },
+        "prepared_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prepared Id"
+        }
+      },
+      "required": [
+        "mode",
+        "input_width",
+        "input_height"
+      ],
+      "title": "CandidatePreparation",
+      "type": "object"
+    },
+    "CandidateProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "preprocessing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CandidatePreparation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "prompt_version": {
+          "minLength": 1,
+          "title": "Prompt Version",
+          "type": "string"
+        },
+        "requested_model": {
+          "minLength": 1,
+          "title": "Requested Model",
+          "type": "string"
+        },
+        "returned_model": {
+          "minLength": 1,
+          "title": "Returned Model",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requested_model",
+        "returned_model",
+        "prompt_version"
+      ],
+      "title": "CandidateProvenance",
+      "type": "object"
+    },
+    "ImageRegionSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "source_box": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Source Box",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "source_box",
+        "reason"
+      ],
+      "title": "ImageRegionSelection",
+      "type": "object"
+    }
+  },
+  "$id": "urn:stoa:contracts:0.1.0:ImageRegionResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "image": {
+      "$ref": "#/$defs/CandidateImage"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "metrics": {
+      "$ref": "#/$defs/CandidateMetrics"
+    },
+    "provenance": {
+      "$ref": "#/$defs/CandidateProvenance"
+    },
+    "regions": {
+      "items": {
+        "$ref": "#/$defs/ImageRegionSelection"
+      },
+      "maxItems": 4,
+      "minItems": 1,
+      "title": "Regions",
+      "type": "array"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.1.0",
+      "default": "0.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "selected",
+        "full_source"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "target_kind": {
+      "default": "other",
+      "title": "Target Kind",
+      "type": "string"
+    }
+  },
+  "required": [
+    "request_id",
+    "image",
+    "status",
+    "regions",
+    "provenance",
+    "metrics"
+  ],
+  "title": "ImageRegionResponse",
+  "type": "object"
+}

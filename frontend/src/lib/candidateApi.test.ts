@@ -67,6 +67,94 @@ test('source hash and display-frame mismatches cannot attach candidates to anoth
   }
 });
 
+function detailedResult(): ImageCandidateResponse {
+  return {
+    ...result(),
+    detail: {
+      mode: 'auto', selection: 'automatic', selected_regions: [[40, 20, 760, 380]],
+      provider_calls: 2, selection_limitations: [],
+      regions: [{ id: 'region-001', source_box: [40, 20, 760, 380],
+        inference_sha256: 'c'.repeat(64), status: 'ok', candidate_count: 1 }],
+      observations: [{ candidate_id: 'candidate-001', observation_ids: ['region-001/candidate-001'],
+        region_ids: ['region-001'], clipped: false }],
+    },
+  };
+}
+
+test('detailed scan uses the callable detail endpoint and retains source-bound region provenance', async (t) => {
+  const controller = new AbortController();
+  t.mock.method(globalThis, 'fetch', async (url: string, options: RequestInit) => {
+    assert.equal(url, '/api/v1/tools/detect-detail');
+    assert.equal(options.method, 'POST');
+    assert.equal(options.signal, controller.signal);
+    assert.deepEqual(options.headers, { Accept: 'application/x-ndjson' });
+    const body = options.body as FormData;
+    assert.equal(body.get('question'), 'show doors');
+    assert.deepEqual(JSON.parse(body.get('options') as string), { mode: 'tiles', max_calls: 9 });
+    assert.equal(await (body.get('image') as File).text(), 'submitted snapshot');
+    return Response.json(detailedResult());
+  });
+  const response = await requestCandidates(prepared, ' show doors ', controller.signal, undefined, true);
+  assert.equal(response.detail?.provider_calls, 2);
+  assert.deepEqual(response.detail?.selected_regions, [[40, 20, 760, 380]]);
+  assert.deepEqual(response.candidates?.[0].geometry.minimum, [80, 40]);
+});
+
+test('detail provenance rejects crops outside the source and orphaned candidate observations', async (t) => {
+  const invalidBox = detailedResult();
+  invalidBox.detail!.selected_regions[0] = [0, 0, 801, 400];
+  const invalidReference = detailedResult();
+  invalidReference.detail!.observations[0].region_ids = ['unknown-region'];
+  const missingCandidate = detailedResult();
+  missingCandidate.detail!.observations = [];
+  const repeatedObservation = detailedResult();
+  repeatedObservation.detail!.observations.push(structuredClone(repeatedObservation.detail!.observations[0]));
+  const invalidCalls = detailedResult();
+  invalidCalls.detail!.provider_calls = -1;
+  for (const value of [invalidBox, invalidReference, missingCandidate, repeatedObservation, invalidCalls]) {
+    t.mock.method(globalThis, 'fetch', async () => Response.json(value));
+    await assert.rejects(requestCandidates(prepared, 'doors', new AbortController().signal, undefined, true), /invalid candidate data/);
+    t.mock.restoreAll();
+  }
+});
+
+test('candidate membership evidence preserves source labels and rejects invalid source references', async (t) => {
+  const valid = detailedResult();
+  valid.detail!.observations[0].source_labels = ['O9', '09'];
+  valid.detail!.membership_checks = [{ observation_ids: ['region-001/candidate-001'],
+    category: 'door', source_box: [80, 40, 160, 80], region_id: 'region-001',
+    verdict: 'supported', reason: 'Visible fitted leaf and swing arc.' }];
+  t.mock.method(globalThis, 'fetch', async () => Response.json(valid));
+  const response = await requestCandidates(prepared, 'doors', new AbortController().signal, undefined, true);
+  assert.deepEqual(response.detail?.observations[0].source_labels, ['O9', '09']);
+  assert.equal(response.detail?.membership_checks?.[0]?.verdict, 'supported');
+  t.mock.restoreAll();
+  for (const mutate of [
+    (value: ImageCandidateResponse) => { value.detail!.membership_checks![0]!.region_id = 'unknown'; },
+    (value: ImageCandidateResponse) => { value.detail!.membership_checks![0]!.source_box = [-1, 0, 20, 30]; },
+    (value: ImageCandidateResponse) => { Object.assign(value.detail!.observations[0], { source_labels: [9] }); },
+  ]) {
+    const invalid = structuredClone(valid);
+    mutate(invalid);
+    t.mock.method(globalThis, 'fetch', async () => Response.json(invalid));
+    await assert.rejects(requestCandidates(prepared, 'doors', new AbortController().signal, undefined, true), /invalid candidate data/);
+    t.mock.restoreAll();
+  }
+});
+
+test('cancelling detailed scan before or during response parsing remains an AbortError', async (t) => {
+  const controller = new AbortController();
+  t.mock.method(globalThis, 'fetch', async () => {
+    return { ok: true, headers: new Headers({ 'Content-Type': 'application/json' }),
+      json: async () => { controller.abort(); return detailedResult(); } } as Response;
+  });
+  await assert.rejects(requestCandidates(prepared, 'doors', controller.signal, undefined, true), { name: 'AbortError' });
+  t.mock.restoreAll();
+  const fetch = t.mock.method(globalThis, 'fetch', async () => Response.json(detailedResult()));
+  await assert.rejects(requestCandidates(prepared, 'doors', controller.signal, undefined, true), { name: 'AbortError' });
+  assert.equal(fetch.mock.callCount(), 0);
+});
+
 test('invalid versions, geometry, duplicate IDs, and unsupported response shapes are rejected', async (t) => {
   const bad: unknown[] = [null, {}, { ...result(), schema_version: '2' }];
   for (const box of [
@@ -325,6 +413,40 @@ test('stale decision traces and invalid probabilities/references cannot reach th
   }
 });
 
+test('detailed mixed-model call ledger keeps source crops and actual per-stage models', async (t) => {
+  const value = detailedResult();
+  const trace = traceFor(value);
+  const base = trace.calls[0];
+  const crop = { ...base, input_sha256: 'c'.repeat(64), input_width: 300, input_height: 200,
+    source_box: [40, 20, 340, 220] as [number, number, number, number] };
+  value.decision_trace = { ...trace, calls: [base,
+    { ...crop, id: 'selection', purpose: 'region_proposal', requested_model: 'gemini-4-hydrogen', returned_model: 'gemini-4-hydrogen' },
+    { ...crop, id: 'detection', purpose: 'analysis', requested_model: 'gemini-4-carbon', returned_model: 'gemini-4-carbon' },
+    { ...crop, id: 'check', purpose: 'candidate_verification', requested_model: 'gemini-4-carbon', returned_model: 'gemini-4-carbon' },
+    { ...crop, id: 'reinspect', purpose: 'reinspection', requested_model: 'gemini-4-carbon', returned_model: 'gemini-4-carbon' },
+  ] };
+  t.mock.method(globalThis, 'fetch', async () => Response.json(value));
+  const response = await requestCandidates(prepared, 'Windows?', new AbortController().signal, undefined, true);
+  assert.deepEqual(response.decision_trace?.calls, value.decision_trace.calls);
+});
+
+test('crop call ledgers reject out-of-frame, distorted and oversized evidence inputs', async (t) => {
+  const base = { ...traceFor().calls[0], purpose: 'analysis', input_sha256: 'c'.repeat(64),
+    source_box: [40, 20, 340, 220], input_width: 300, input_height: 200 };
+  for (const change of [
+    { source_box: [-1, 20, 340, 220] }, { source_box: [40, 20, 801, 220] },
+    { source_box: [40, 20, 40, 220] }, { source_box: [40, 20, 340, 401] },
+    { source_box: [40, 20, 340] }, { source_box: [40, '20', 340, 220] },
+    { input_width: 301 }, { input_width: 150, input_height: 200 },
+    { source_box: null }, { source_box: [0, 0, 800, 400], input_width: 1600, input_height: 800 },
+  ]) {
+    const value = { ...result(), decision_trace: { ...traceFor(), calls: [{ ...base, ...change }] } };
+    t.mock.method(globalThis, 'fetch', async () => Response.json(value));
+    await assert.rejects(requestCandidates(prepared, 'Windows?', new AbortController().signal), /invalid decision trace/);
+    t.mock.restoreAll();
+  }
+});
+
 
 test('a cancelled routing call can report a pending route without claiming an analyzer ran', async (t) => {
   const value = result();
@@ -409,6 +531,22 @@ test('streaming handles arbitrary byte and unicode boundaries without resubmitti
   });
   assert.deepEqual(await requestCandidates(prepared, 'Windows?', new AbortController().signal), value);
   assert.equal(calls, 1);
+});
+
+test('detailed scan preserves streamed model handoff and validates final crop evidence', async (t) => {
+  const value = detailedResult();
+  value.provenance.requested_model = value.provenance.returned_model = 'gemini-4-carbon';
+  let progress = 0;
+  t.mock.method(globalThis, 'fetch', async (url: string) => {
+    assert.equal(url, '/api/v1/tools/detect-detail');
+    return streamingResponse([handoff(value), { schema_version: '0.1.0', type: 'result', result: value }], 7);
+  });
+  const response = await requestCandidates(prepared, 'Windows?', new AbortController().signal, (call) => {
+    assert.equal(call.requested_model, 'gemini-4-carbon');
+    progress++;
+  }, true);
+  assert.equal(progress, 1);
+  assert.deepEqual(response.detail?.selected_regions, [[40, 20, 760, 380]]);
 });
 
 test('legacy JSON fallback succeeds without fabricating a handoff or retrying', async (t) => {

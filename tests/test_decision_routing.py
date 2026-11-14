@@ -319,6 +319,9 @@ class RoutingTests(unittest.IsolatedAsyncioTestCase):
 
     def test_invalid_routing_configuration_fails_early(self):
         from pydantic import ValidationError
-        for options in ({'provider': 'nemotron'}, {'preprocess_mode': 'overview'}, {'max_concurrent': 3}):
+        for options in ({'provider': 'nemotron'}, {'preprocess_mode': 'overview'}, {'max_concurrent': 33}):
             with self.assertRaises(ValidationError):
                 ApiSettings(**{**dict(provider='gemini', routing_mode='auto'), **options})
+
+    def test_routing_accepts_configured_bounded_parallelism(self):
+        self.assertEqual(ApiSettings(provider='gemini', routing_mode='auto', max_concurrent=12).max_concurrent, 12)

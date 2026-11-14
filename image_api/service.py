@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from copy import copy
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
@@ -179,9 +180,10 @@ def _gemini_response_schema() -> dict:
 
 
 class GeminiCandidateProvider:
-    def __init__(self, client: AsyncGeminiClient):
+    def __init__(self, client: AsyncGeminiClient, *, detail_context: dict | None = None):
         self.client = client
         self._instruction = Path(__file__).with_name("gemini_prompt.txt").read_text(encoding="utf-8")
+        self.detail_context = detail_context
 
     async def propose(self, image: PreparedImage, question: str) -> _ProviderResult:
         system = (
@@ -190,6 +192,9 @@ class GeminiCandidateProvider:
             "It contains the entire submitted display image, possibly uniformly resized, without cropping or rearranging panels.\n"
             "Normalize box_2d to this entire image; the server maps to original display pixels."
         )
+        if self.detail_context is not None:
+            instruction = Path(__file__).with_name("detail_prompt.txt").read_text(encoding="utf-8")
+            system += "\n" + instruction + "\nHost crop context:\n" + json.dumps(self.detail_context, ensure_ascii=False)
         try:
             reply = await self.client.generate_candidates(
                 question, system=system, image=image.path, schema=_gemini_response_schema())
@@ -218,7 +223,7 @@ class GeminiCandidateProvider:
                                                "limitations": raw.limitations})
             return _ProviderResult(
                 batch=batch, requested_model=self.client.settings.model, returned_model=reply.model,
-                prompt_version="gemini-candidate-v1",
+                prompt_version="gemini-detail-v2" if self.detail_context is not None else "gemini-candidate-v1",
                 prompt_tokens=reply.usage.prompt_tokens if reply.usage else None,
                 completion_tokens=reply.usage.completion_tokens if reply.usage else None,
             )
@@ -230,6 +235,14 @@ class CandidateService:
     def __init__(self, client: AsyncNemotronClient | None, settings: ApiSettings, *,
                  provider: CandidateProvider | None = None):
         self.provider = provider if provider is not None else NemotronCandidateProvider(client, settings)
+
+    def with_context(self, context: dict):
+        """Create request-local context; never mutate a concurrent provider."""
+        if not isinstance(self.provider, GeminiCandidateProvider):
+            return self
+        service = copy(self)
+        service.provider = GeminiCandidateProvider(self.provider.client, detail_context=context)
+        return service
 
     async def extract(self, image: PreparedImage, question: str,
                       request_id: str, *,
