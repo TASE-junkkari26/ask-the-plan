@@ -61,3 +61,15 @@ test('response time shows milliseconds or seconds in the selected language', () 
   for (const value of [NaN, Infinity, -1])
     assert.equal(formatResponseTime(value, 'en'), 'Not recorded');
 });
+
+test('mixed-model accounting uses each call timestamp and keeps failed/missing usage unknown', async () => {
+  const { estimateCallCosts } = await import('./responseMetrics.ts');
+  const base = { id: 'routing', purpose: 'routing' as const, requested_model: 'gemini-decision-1',
+    returned_model: 'gemini-decision-1', input_sha256: 'a'.repeat(64), input_width: 800, input_height: 400,
+    elapsed_ms: 100, completed_at: completed, outcome: 'completed' as const, prompt_tokens: 1000, completion_tokens: 0 };
+  const carbon = { ...base, id: 'analysis', purpose: 'analysis' as const, requested_model: 'gemini-4-carbon', returned_model: 'gemini-4-carbon',
+    prompt_tokens: 1000, completion_tokens: 200 };
+  assert.deepEqual(estimateCallCosts([base, carbon]), { knownUsd: 0.0041, unknownCalls: 0 });
+  assert.deepEqual(estimateCallCosts([base, { ...carbon, outcome: 'failed', prompt_tokens: null }]), { knownUsd: 0.0001, unknownCalls: 1 });
+  assert.deepEqual(estimateCallCosts([base, { ...carbon, completed_at: '2026-12-01T00:00:00Z' }]), { knownUsd: 0.0081, unknownCalls: 0 });
+});

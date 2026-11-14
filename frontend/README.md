@@ -4,8 +4,11 @@ A local React/TypeScript drawing workbench. It opens on a file import screen,
 then shows an image/PDF with a chat panel on the right or an IFC model with its
 3D inspector. No demo drawings or prepared answers are shown. Submitting a
 question about an image/PDF uses the internal image API with its selected
-Nemotron or Gemini Hydrogen-low provider and shows
-candidate boxes, uncertainty, and source close-ups. Inference credentials stay
+Nemotron or Gemini provider and shows candidate boxes, uncertainty, and source
+close-ups. Optional backend capability routing chooses Hydrogen or Carbon and
+records the path for the expandable explanation. While analysis is loading, the
+workbench shows image preparation, model selection and then **Handing to [model]**
+as soon as the backend dispatches the selected analyzer. Inference credentials stay
 on the Python backend. IFC viewing stays local until a question uploads the model
 to that backend for Nemotron planning and CPU engine execution.
 
@@ -64,7 +67,8 @@ still needs verification on the target demo devices.
 - Local image/SVG/PDF previews with pan, zoom, fit, quarter-turn rotation, and PDF page navigation.
 - IFC imports with a separate 3D renderer, original object properties/IDs, storey filtering, visibility controls, sectioning, and engine-backed questions. Questions and the inspector share the right panel for models.
 - Chat panel opens automatically after an image/PDF loads or is selected. It displays the original filename and preview details, and sends the selected image/page for candidate analysis when a question is submitted.
-- Completed image/PDF responses show the returned model, total response time, and estimated USD token cost, with an expandable usage and pricing breakdown.
+- Loading image/PDF requests announce the backend-selected model immediately in the viewer and chat panel, in English/Finnish. A source/page change, cancellation or new request clears that status. The opt-in NDJSON response carries progress and the final result in one POST; JSON-only backends remain compatible without resubmitting analysis.
+- Completed image/PDF responses show the returned model, total response time, and estimated USD token cost, with an expandable usage and pricing breakdown. The collapsed **How this was analyzed** panel displays the recorded capability check, chosen route, preparation and execution. Failed requests retain their recorded path too; responses without a trace explicitly say so.
 - Searchable drawing picker containing only imported files, with thumbnails and removal. The native dialog supports focus containment, Escape, and the `/` or Ctrl/Cmd+K shortcuts.
 - English/Finnish core UI labels; original filenames and source text stay unchanged.
 - Current-drawing scope by default, following the organizer clarification reported on 14 November 2026. Whole-building requests do not aggregate unseen drawings.
@@ -157,10 +161,10 @@ submission through image preparation, upload and the validated response. The
 details also show the backend's model-request and raster-preparation timings.
 These timings measure different parts of the request and are not added together.
 
-Cost is an estimate for the image analysis call: `(input tokens × input rate +
+For legacy responses, cost is an estimate for the image analysis call: `(input tokens × input rate +
 output tokens × output rate) / 1,000,000`. The existing Gemini adapter includes
 thinking tokens in output usage. Missing usage or an unpriced model displays
-**Unavailable**, while explicitly reported zero usage remains zero.
+**Unavailable**, while explicitly reported zero usage remains zero. When a decision trace is present, the summary totals the recorded routing and analysis calls using each call's model and completion timestamp. Missing usage or rates leave an explicit unknown component; failed calls are retained. The usage breakdown keeps routing tokens separate from analysis tokens.
 
 [The pricing catalog](src/lib/responseMetrics.ts) uses the actual returned model
 ID and the response's completion timestamp. Standard paid Gemini API rates were
@@ -169,8 +173,7 @@ on 14 November 2026: Hydrogen is $1.50 input / $7.50 output per million tokens;
 Carbon is $2 / $10 through 30 November, then $4 / $20 from 1 December UTC.
 Estimates precede cache discounts, credits and taxes. Update this catalog when
 rates change. Both model IDs are priced so a future backend router can use the
-same display; this frontend change does not implement model routing or enable
-Carbon in the current Hydrogen-only backend.
+same display. Gemini Decisions is estimated at $0.10 per million input tokens and zero output cost, following the [Decisions plan](../image_api/DECISIONS_PLAN.md#3-gemini-decisions-protocol). The backend owns model routing and allowlisted profiles.
 
 ### API and source evidence
 
@@ -214,7 +217,7 @@ node scripts/smoke-render.mjs
 
 Tests cover import format/size validation, image decoding failures, preview URL
 cleanup, viewport helpers, separate IFC/2D limits, bounded converted-model caching,
-cycle-safe property inspection, candidate API validation/cancellation, and pixel-to-view
+cycle-safe property inspection, candidate API validation/cancellation, request/source/question-bound decision traces, mixed-model accounting, and pixel-to-view
 coordinate mapping. Retained offline demo tests also cover per-drawing
 scope, multilingual object consistency, logical identity across source
 appearances, area arithmetic, schedule lookup, missing information, and

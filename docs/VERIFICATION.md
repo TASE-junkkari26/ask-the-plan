@@ -1,5 +1,208 @@
 # Sprint-one verification record
 
+## Immediate model handoff during loading, 14 November 2026
+
+The image/PDF loading states now show **Preparing image…**, **Choosing analysis
+model…**, then **Handing to [actual selected model]…** immediately before analyzer
+dispatch. Both the viewer overlay and chat loading state update before candidate
+output finishes, with English/Finnish text. The post-result decision disclosure
+remains available. Shadow/manual modes name the actual baseline, not the router's
+unexecuted recommendation; unavailable routes emit no handoff.
+
+The existing POST endpoint supports opt-in `application/x-ndjson` streaming with
+source/request/question-bound handoff and terminal result/error contracts. The
+JSON default and pre-stream HTTP validation errors remain compatible. There is
+no extra inference, polling or automatic resubmission. Cancel/source/page/new
+request guards reject stale status and final output. Streaming cleanup awaits
+asynchronous provider cancellation before image cleanup and admission release,
+including ASGI 2.3/2.4 disconnect and send-failure cases.
+
+Validation on Linux, Python 3.12.3 and Node 24.22.3:
+
+- **363 Python tests passed**, no skips, in 33.391 seconds. Eleven new stream
+  tests drive ASGI sends directly, proving handoff delivery while an analyzer is
+  deliberately blocked, rather than relying on a buffering test transport. They
+  also cover actual models across modes, cached routes, unavailable Carbon,
+  validation/errors, deadlines, admission and disconnect cleanup.
+- All **17 frontend test files**, TypeScript/production build and SSR checks
+  passed. Client tests include blocked-terminal progress, arbitrary UTF-8 chunk
+  boundaries, malformed/truncated streams, request/source/model bindings,
+  cancellation, strict versions and JSON fallback without retries. Existing
+  optional Three/IFC export and bundle-size warnings remain.
+- **11 Firefox 142.0 checks passed** with a private synthetic streaming backend
+  and controlled routing/analysis barriers. Both Hydrogen and Carbon handoffs
+  were visible in viewer/chat while terminal output remained blocked; narrow,
+  Finnish, source/page/cancel/new-request and overlay/export checks passed.
+  Five synthetic browser requests, no JavaScript errors and no live inference.
+- Exactly **one Astra-6 Max** reviewer inspected implementation, lifecycle cases
+  and five screenshots with their bound packets. All findings were addressed;
+  final verdict pass (`agent_reviewed`). Its own sandbox-stalled full-app check
+  was stopped; the successful API suites ran outside the known worker-wakeup
+  restriction with mocked providers. Independent isolated cleanup checks passed.
+- All **13 generated contracts** are current; Markdown and whitespace checks
+  passed. Owned temporary browser/test servers were stopped; the requested
+  preview backend was restarted; the frontend preview was restored on its free
+  port and both were left running.
+
+Evidence/review packet: ignored `experiments/runs/model-handoff-loading/20261114T204644Z/`.
+These checks establish loading/protocol/lifecycle behavior, not model accuracy,
+routing calibration or a provider latency improvement. No live model calls or
+local credential-file edits were needed for this change.
+
+## Routing over-escalation correction, 14 November 2026
+
+The initial gate sent too many ordinary cases to Carbon: it demanded 90%
+confidence on every independent classification and then admitted only direct
+floor-plan door/window/fixture discovery at logical-object/assembly grain.
+Uncertainty over a taxonomy label could therefore force strong analysis even
+when the overall image/task assessment favored the standard analyzer.
+
+Policy `capability-routing-v2` now uses one overall-fit gate: `supported` with
+probability at least **0.6** selects Hydrogen-low. Explicit difficulty or genuine
+capability uncertainty, lower overall fit and router errors/timeouts still select
+Carbon directly. Layout, task, target, grain and scope labels are diagnostics,
+without separate confidence/category vetoes. The provisional criteria include
+ordinary room/object, label, schedule and printed-quantity candidate work. Both
+profiles retain the original question, submitted raster, candidate-only contract
+and unsupported/missing-information outcomes; no new source or executor is added.
+
+The capability/policy versions and cache inputs changed. Explicit threshold
+overrides remain honored. The UI explains the overall-only v2 threshold, while
+historical v1 traces retain the all-assessments explanation and failure reason.
+
+Validation on Linux (Python 3.12.3, Node 24.22.3):
+
+- **352 Python tests passed**, no skips, in 38.527 seconds. Regressions cover
+  threshold boundaries/overrides, lower diagnostic confidence, alternate ordinary
+  families, explicit difficulty, source/question and unsupported-status preservation
+  on both profiles, cache invalidation, failures, budgets and IFC isolation.
+- All **17 frontend test files**, TypeScript/production build and server-rendered
+  v1/v2 explanation checks passed. Existing IFC/Three optional-export and large
+  bundle warnings remain. The SSR script now locates its frontend root portably
+  when invoked from the repository root.
+- **14 headless Firefox checks passed** against a synthetic local HTTP backend,
+  including display of a synthetic Hydrogen route with 72% overall fit, 52%
+  diagnostic scores and a 60% threshold, keyboard disclosure, no inference on opening, overlays/JSON export, narrow
+  layout, failures, shadow mode and source/PDF-page trace clearing. No JavaScript
+  errors or live inference calls. Owned temporary servers/browser were stopped.
+- Replaying fixed historical Decisions scores changes the saved window request
+  from Carbon to Hydrogen: P(supported)=0.6591, v1 threshold 0.9 versus v2 threshold 0.6.
+  This is a counterfactual host-policy check. The changed prompt was not sent to
+  Decisions; live predictions may differ. It establishes neither Hydrogen output
+  quality, a calibrated threshold nor aggregate cost/accuracy improvement.
+
+- Exactly one Astra-6 Max reviewer inspected the routing change, source-bound
+  synthetic desktop/narrow traces and historical replay. All findings were
+  addressed; final verdict **pass (`agent_reviewed`)**. The owned preview backend
+  was restarted with v2 while the existing frontend remained running.
+
+Counterfactual report and review/browser artifacts are preserved in ignored
+`experiments/runs/decision-routing-policy-v2/20261114T202021Z/`. No new provider
+calls, user source edits, commits or deployment are part of this correction.
+
+## Experimental Decisions routing, 14 November 2026
+
+Implemented the first capability-routing slice on `feature/gemini-decisions-routing`:
+native Decisions transport; explicit Hydrogen-low/Carbon-medium profiles; opt-in
+shadow/auto routing; bounded session decision caching; one selected analyzer;
+source/question-bound traces on success, failures and deadlines; expandable
+English/Finnish UI path and per-call cost estimates. Routing defaults to off;
+thresholds/capabilities are provisional pending paired dataset evaluation.
+
+Checked on Linux with Python 3.12.3 and Node 24.22.3:
+
+- Full Python suite: **345 tests passed**, no skips, in 34.408 seconds, including
+  synthetic IFC fixtures and mocked provider transports. New checks cover direct
+  strong dispatch, registry/threshold guards, shadow/cache accounting, trace
+  identity/invalid inputs, failure/cancellation and the finalization reserve.
+- All **17 frontend test files** passed. TypeScript and production build passed;
+  existing optional Three/WebGPU export and large-chunk warnings remain.
+  Server-rendered checks cover collapsed traces, shadow/pending states, scores,
+  skipped preparation, errors, Finnish and missing legacy traces.
+- Headless Firefox 142.0 automated checks used a synthetic local HTTP backend:
+  initially collapsed disclosure, keyboard open/close without inference, unchanged
+  overlays and trace export, no narrow horizontal overflow, source/PDF-page
+  trace clearing, terminal-error traces without candidates and error-text contrast. Twelve
+  checks passed; no JavaScript errors and no live inference. Screenshots and
+  matching normal/strong/shadow/error traces were collected under `/tmp/decisions-ui-*` for the single
+  Astra-6 Max reviewer; these temporary files are not tracked benchmark data.
+- Generated schemas/types, Markdown links and whitespace checks passed. Sandbox
+  async thread wakeups stalled the HTTP tests; the successful suite ran outside
+  that restriction with mocked external transports. Owned temporary browser and
+  test servers were stopped.
+- Exactly one Astra-6 Max subagent reviewed the implementation and seven
+  screenshot artifacts against saved traces. All findings were addressed and
+  the final verdict was pass (`agent_reviewed`). Evidence and the review record
+  are preserved in ignored `experiments/runs/decision-routing-implementation/20261114T193509Z/`.
+
+The automatic approval reviewer initially blocked the live checks pending
+specific egress approval. The user then approved exactly two calls; the live
+record below supersedes that pending status. Paired evaluation, routing
+calibration and automatic preprocessing remain future work.
+
+## Approved live smoke and Carbon thinking correction, 14 November 2026
+
+Sent the selected preview raster `colorful-11397.png` (475 × 650) and the question
+“Locate one clearly visible window assembly. Return at most one candidate.” to
+Decisions and Carbon, one attempt each without retries. No reference answer or
+filename/dataset identity entered either model's input. This checks protocol and
+access; it is not a paired model-quality comparison.
+
+- Decisions completed in **1.011 s**, using 2,108 input tokens and zero output.
+  The returned task/target/grain/scope assessments were discovery/windows/assembly/
+  selected-view. Normal fit was 0.6591; the provisional 0.9 policy selected strong.
+  Applied policy/criteria versions and threshold are recorded in the run report.
+- The initial **Carbon-high** request was accepted, but returned `incomplete`
+  after **55.765 s**. Its 4,093 thinking and three output tokens exactly reached
+  the approved **4,096-token** cap; it also reported 2,188 input tokens. No
+  candidate JSON or candidate boxes were returned. The API correctly rejected it
+  with `invalid_model_output`; no continuation or automatic retry ran.
+- Following the user's correction, Carbon now defaults to **medium** on the strong
+  route, with **low** selectable through
+  `IMAGE_API_ROUTING_STRONG_THINKING_LEVEL=low`. High is outside the application
+  allowlist. Hydrogen remains low. The saved high-thinking run is retained as
+  historical evidence; the separate corrective medium check is recorded below.
+- Fixed the failed-response accounting gap exposed by this call: retain validated
+  usage and allowlisted model metadata through client, adapter and error trace,
+  including incomplete or malformed candidate output. Invalid counters remain
+  unknown; raw bodies and continuation tokens stay out of public errors/traces.
+  Replaying the saved response offline still rejects it and retains the known
+  2,188 input / 4,096 generated tokens. No extra provider call was needed.
+- After the profile/accounting changes, the full Python suite passed **348
+  tests**, no skips, in 32.260 seconds. Focused mocked regressions also cover
+  incomplete usage preservation and completed malformed candidates with untrusted
+  model metadata. Contract export, Markdown and whitespace checks passed; these
+  are offline checks, not medium/low live-quality measurements.
+- One Astra-6 Max reviewer inspected the source and raw/parsed results. Clear
+  window assemblies are visible, but two side-by-side floor plans make the
+  router's single-dominant-plan classification questionable. Candidate support
+  and normal-versus-strong benefit remain undetermined because Carbon returned
+  no candidates. Keep this as a development/calibration observation; no threshold
+  or prompt was tuned from it.
+
+Ignored artifacts: `experiments/runs/decision-routing-smoke/20261114T193754Z/`,
+including raw replies, source/question hashes, settings, report and offline
+replay. Estimated standard-rate cost from the project's dated tariff table is
+$0.0455468 for those initial two calls, including the failed Carbon output; this
+is not an invoice.
+
+Following the user's instruction to use low/medium, one separate corrective
+**Carbon-medium** call used the same raster/question and 4,096-token cap, reusing
+the saved Decisions recommendation rather than making another router call:
+
+- Completed in **55.994 s**, with 2,188 input and 3,838 generated tokens (3,745
+  thinking plus 93 output), returning `ok` and **one candidate**. Its source and
+  inference hashes, response contract and raw-to-display coordinates matched.
+- The same Astra-6 Max reviewer found the window assembly source-supported at
+  `[423.7, 189.8]–[439.85, 277.55]`, excluding the adjacent balcony doorway and
+  other openings. The null source label avoids inventing an identifier.
+- Medium completed under the cap; the similar elapsed time to the incomplete high
+  call does not demonstrate faster inference. This is one source-checked proposal,
+  not a dataset-accuracy or normal-versus-strong comparison. Low remains untested.
+- Corrective artifacts: `experiments/runs/decision-routing-smoke/20261114T195038Z-medium/`.
+  Estimated additional standard-rate cost: $0.042756; all three live calls total
+  $0.0883028 before invoice adjustments. No further live calls ran.
+
 ## Gemini Hydrogen 100-image count evaluation, 14 November 2026
 
 Ran 100 supplied image/count-question pairs through the current production HTTP

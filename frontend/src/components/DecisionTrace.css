@@ -1,0 +1,14 @@
+.decision-trace { margin: 14px 0; border: 1px solid #dce3da; border-radius: 8px; background: #fbfcf8; color: #364b3e; font-size: 12px; text-align: left; overflow-wrap: anywhere; }
+.decision-trace summary { padding: 12px; cursor: pointer; font-weight: 600; }
+.decision-trace summary span { display: block; padding-top: 4px; font-size: 11px; font-weight: 400; color: #637164; }
+.decision-trace summary:focus-visible { outline: 2px solid #137567; outline-offset: 2px; border-radius: 6px; }
+.decision-trace > p, .decision-trace > section, .decision-trace > dl { margin: 10px 12px; }
+.decision-trace ol { padding: 0 14px 0 32px; }
+.decision-trace ol > li { margin: 12px 0; padding-left: 3px; }
+.decision-trace li p { margin: 4px 0; line-height: 1.5; }
+.decision-state { display: inline-block; font-size: 10px; margin-left: 4px; border: 1px solid #d6dfd3; border-radius: 4px; padding: 1px 4px; }
+.decision-value, .decision-score-note, .decision-version { font-size: 10px; color: #627263; }
+.decision-assessments div { display: grid; grid-template-columns: minmax(75px, 1fr) minmax(0, 2fr); gap: 8px; padding: 3px 0; }
+.decision-assessments dd { margin: 0; }
+.decision-trace h4 { margin-bottom: 5px; font-size: 12px; }
+.decision-trace section ul { padding-left: 16px; }

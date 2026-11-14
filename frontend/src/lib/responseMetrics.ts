@@ -1,3 +1,4 @@
+import type { AnalysisCall } from '../contracts/ImageCandidateResponse';
 import type { Language } from '../types';
 
 export const PRICING_SOURCE_URL = 'https://ai.google.dev/gemini-api/docs/pricing';
@@ -17,6 +18,10 @@ interface ModelPricing {
 // Standard paid Gemini API rates, per 1M tokens. Keep model selection on the
 // backend; use the actual returned model to select an estimate here.
 export const MODEL_PRICING: Readonly<Record<string, ModelPricing>> = {
+  'gemini-decision-1': {
+    name: 'Gemini Decisions',
+    rates: [{ effectiveFrom: '2026-11-14T00:00:00Z', inputUsdPerMillion: 0.10, outputUsdPerMillion: 0 }],
+  },
   'gemini-4-hydrogen': {
     name: 'Gemini 4 Hydrogen',
     rates: [{ effectiveFrom: '2026-11-14T00:00:00Z', inputUsdPerMillion: 1.5, outputUsdPerMillion: 7.5 }],
@@ -79,4 +84,16 @@ export function formatEstimatedUsd(amount: number, language: Language): string {
     maximumFractionDigits: 4,
   }).format(tiny ? 0.0001 : amount);
   return `${tiny ? '<' : ''}${value}`;
+}
+
+/** Sum known calls, retaining unreported usage/rates as an unknown component. */
+export function estimateCallCosts(calls: readonly AnalysisCall[]): { knownUsd: number; unknownCalls: number } {
+  let knownUsd = 0;
+  let unknownCalls = 0;
+  for (const call of calls) {
+    const cost = estimateTokenCost(call.returned_model ?? call.requested_model, call.prompt_tokens, call.completion_tokens, call.completed_at);
+    if (cost) knownUsd += cost.totalUsd;
+    else unknownCalls++;
+  }
+  return { knownUsd, unknownCalls };
 }
