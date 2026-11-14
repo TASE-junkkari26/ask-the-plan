@@ -12,6 +12,7 @@ from pathlib import Path
 from .models import (
     BenchmarkCase,
     CapabilityManifest,
+    DxfPreviewResponse,
     ImageCandidateError,
     ImageCandidateResponse,
     IfcModelResponse,
@@ -34,6 +35,7 @@ ROOT_MODELS = (
     BenchmarkCase,
     ImageCandidateResponse,
     ImageCandidateError,
+    DxfPreviewResponse,
     PreparedDrawing,
     IfcModelResponse,
     IfcQuestionRequest,

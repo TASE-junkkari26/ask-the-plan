@@ -1,0 +1,97 @@
+{
+  "$comment": "Generated from contracts.models; do not edit manually. JSON Schema checks structure. Pydantic and semantic validators also enforce local invariants, references, units, scope, and evidence.",
+  "$id": "urn:stoa:contracts:0.1.0:DxfPreviewResponse",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "One rendered layout, not a CAD inventory or a calibrated measurement.",
+  "properties": {
+    "height": {
+      "exclusiveMinimum": 0,
+      "maximum": 4096,
+      "title": "Height",
+      "type": "integer"
+    },
+    "insunits": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Insunits"
+    },
+    "layouts": {
+      "items": {
+        "maxLength": 255,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "title": "Layouts",
+      "type": "array"
+    },
+    "page": {
+      "exclusiveMinimum": 0,
+      "title": "Page",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "0.1.0",
+      "default": "0.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Sha256",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "rendered",
+        "partial"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "svg": {
+      "maxLength": 8388608,
+      "minLength": 1,
+      "title": "Svg",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "maxLength": 1000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 40,
+      "title": "Warnings",
+      "type": "array"
+    },
+    "width": {
+      "exclusiveMinimum": 0,
+      "maximum": 4096,
+      "title": "Width",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "source_sha256",
+    "svg",
+    "width",
+    "height",
+    "page",
+    "layouts",
+    "status",
+    "warnings"
+  ],
+  "title": "DxfPreviewResponse",
+  "type": "object"
+}

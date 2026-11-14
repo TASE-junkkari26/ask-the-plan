@@ -1,4 +1,4 @@
-"""Local HTTP adapters for image candidates and evidence-backed IFC queries."""
+"""Local HTTP adapters for image candidates, DXF previews and IFC queries."""
 from __future__ import annotations
 
 import asyncio
@@ -17,6 +17,8 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
 from contracts.models import ImageCandidateError, ImageCandidateResponse
+from dxf_api.render import MAX_DXF_BODY_BYTES
+from dxf_api.routes import install_dxf_routes
 from gemini import AsyncGeminiClient
 from ifc_api.config import IfcSettings
 from ifc_api.providers import GeminiPlanner, NemotronPlanner, Planner
@@ -39,19 +41,23 @@ def _error(request_id: str, status: int, code: str, message: str,
 class BodyLimitMiddleware:
     """Bound received bytes even when Content-Length is absent or incorrect."""
 
-    def __init__(self, app, max_bytes: int, ifc_max_bytes: int = MAX_IFC_BODY_BYTES):
+    def __init__(self, app, max_bytes: int, ifc_max_bytes: int = MAX_IFC_BODY_BYTES,
+                 dxf_max_bytes: int = MAX_DXF_BODY_BYTES):
         self.app = app
         self.max_bytes = max_bytes
         self.ifc_max_bytes = ifc_max_bytes
+        self.dxf_max_bytes = dxf_max_bytes
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         request_id = uuid4().hex
         scope.setdefault("state", {})["request_id"] = request_id
-        # IFC uploads stream into multipart's spool instead of the image body
-        # buffer. Preserve the image cap while allowing the viewer's file limit.
-        max_bytes = (self.ifc_max_bytes if scope.get("path") == "/api/ifc/models"
+        # Source uploads stream into multipart's spool instead of the image body
+        # buffer. Each source format retains its own limit.
+        path = scope.get("path")
+        max_bytes = (self.ifc_max_bytes if path == "/api/ifc/models"
+                     else self.dxf_max_bytes if path == "/api/dxf/preview"
                      else self.max_bytes)
         received = 0
         response_started = False
@@ -208,7 +214,7 @@ def create_app(settings: ApiSettings | None = None, *,
                     await client.close()
 
     app = FastAPI(title="Ask the Plan analysis", version="0.1.0", lifespan=lifespan,
-                  description="Image candidate regions and model-planned, engine-computed IFC answers with source evidence.")
+                  description="Image candidate regions, local DXF layout previews and model-planned, engine-computed IFC answers with source evidence.")
     app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)
     app.add_middleware(CORSMiddleware, allow_origins=settings.origins,
                        allow_methods=["GET", "POST", "DELETE"], allow_headers=["Content-Type"],
@@ -306,6 +312,7 @@ def create_app(settings: ApiSettings | None = None, *,
             request.app.state.in_flight -= 1
 
     install_ifc_routes(app)
+    install_dxf_routes(app)
     return app
 
 

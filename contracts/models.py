@@ -1013,6 +1013,30 @@ class ImageCandidateError(Contract):
     retryable: bool
 
 
+class DxfPreviewResponse(Contract):
+    """One rendered layout, not a CAD inventory or a calibrated measurement."""
+
+    source_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    svg: Annotated[str, Field(min_length=1, max_length=8 * 1024 * 1024)]
+    width: Annotated[int, Field(gt=0, le=4096, strict=True)]
+    height: Annotated[int, Field(gt=0, le=4096, strict=True)]
+    page: PositiveInt
+    layouts: list[Annotated[str, Field(min_length=1, max_length=255)]] = Field(min_length=1, max_length=128)
+    insunits: NonnegativeInt | None = None  # Literal $INSUNITS; not raster calibration.
+    status: Literal["rendered", "partial"]
+    warnings: list[Annotated[str, Field(min_length=1, max_length=1000)]] = Field(max_length=40)
+
+    @model_validator(mode="after")
+    def check_preview(self):
+        if self.page > len(self.layouts) or len(set(self.layouts)) != len(self.layouts):
+            raise ValueError("DXF preview must identify one unique source layout")
+        if self.width * self.height > 8_000_000:
+            raise ValueError("DXF preview exceeds its pixel budget")
+        if self.status == "partial" and not self.warnings:
+            raise ValueError("partial DXF previews require an explanation")
+        return self
+
+
 def walk_values(value: Value):
     """Visit nested typed values (including tables) without losing their types."""
     yield value
