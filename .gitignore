@@ -17,3 +17,4 @@ __pycache__/
 !/experiments/runs/door-labeling/
 /experiments/runs/door-labeling/*
 !/experiments/runs/door-labeling/20261113T234605960384Z/
+env

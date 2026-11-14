@@ -83,6 +83,12 @@ concepts. Count results retain occurrence or hierarchy policy; quantities retain
 units and net/gross basis. Missing properties and unsupported operations produce
 explicit non-answer outcomes instead of fabricated values.
 
+The current planner uses one bounded catalog request, with limited literal
+name/ID matching rather than an interactive object-search loop. See the
+[object discovery investigation](IFC_OBJECT_DISCOVERY.md) for reproduced lookup
+gaps and a proposed metadata-search/refinement design. That design is not yet
+implemented.
+
 The topology operations distinguish several questions that need different evidence:
 
 | Question | Source-backed behavior |
