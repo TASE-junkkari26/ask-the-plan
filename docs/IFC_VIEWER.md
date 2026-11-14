@@ -39,13 +39,17 @@ screen.
   the view. A storey filters its spatial descendants; objects without that
   membership are not silently assigned to a floor.
 - Click geometry, use the expandable model structure, or find an original STEP ID
-  to inspect an object. Selection highlights without moving the camera.
+  to inspect an object. Selection highlights without moving the camera, with a
+  slow four-second green-to-lime color pulse. Reduced-motion preferences keep
+  the highlight steady.
 - **Focus**, **Hide**, **Isolate**, and **Show all objects** are deliberate actions.
   Show all resets floor/visibility filtering; the horizontal section has its own
   reset. The cut-height slider is in viewer metres, not a source quantity.
 - Ask a question in the inspector's question panel. The default current-view
   scope follows storey/visibility controls; whole-model scope is explicit.
-  Answers highlight their matching source elements separately from selection.
+  Answers highlight their matching source elements separately from selection,
+  with a similar four-second blue-to-light-blue pulse. Reduced-motion preferences
+  keep both highlight styles steady.
   Inspect the element list and calculation inputs, or isolate matches to reveal
   occluded objects. Reset section clipping before a current-view question.
 - The inspector preserves original names, IFC classes, GUIDs, STEP IDs, scalar
@@ -119,7 +123,13 @@ properties are retained; raster depth bias does not repair overlapping objects
 or conflicting geometry in a source file.
 
 The renderer draws on camera, model, selection, visibility, clipping, or resize
-changes. It does not draw continuously while idle. The drawing buffer is limited
+changes. Visible selected objects and query matches also animate their highlights
+at up to 30 frames per second, using live materials without repeated worker
+highlight updates. Each style pulses independently; selection retains priority
+where the sets overlap. Pulses pause in hidden tabs and for hidden objects, and
+stop when their highlights are cleared or the viewer is disposed. With no visible
+highlights or reduced motion enabled, the renderer does not draw continuously
+while idle. The drawing buffer is limited
 to approximately three million pixels and at most 1.5 device pixels per CSS pixel;
 React controls keep their normal resolution. Clipping updates coalesce at frame
 boundaries, and visibility operations run in order so a delayed floor isolation

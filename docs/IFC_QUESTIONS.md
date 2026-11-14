@@ -37,7 +37,10 @@ cut, not an exact object inventory; reset it before asking about the current
 view. A request that needs a wider scope must not silently include hidden floors.
 
 Answer elements receive a persistent highlight independently of the selected
-object. Use the evidence list to inspect an original STEP ID, GUID, name,
+object, with a slow four-second pulse between blue and light blue. Selecting a
+match gives it the green selection pulse; clearing selection restores its blue
+answer highlight. Reduced-motion preferences keep both styles steady. Use the
+evidence list to inspect an original STEP ID, GUID, name,
 properties and units. Focus or isolate matching elements to reveal objects
 inside the model. The answer comes from backend entity sets and stored source
 properties; the number of visible highlights is not used to compute it.
