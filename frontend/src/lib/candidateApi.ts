@@ -198,7 +198,11 @@ export async function requestCandidates(
     value = await response.json();
   } catch {
     aborted(signal);
-    throw new Error('The analysis service returned an unreadable response. Check that the backend is running.');
+    if (!response.ok)
+      throw new Error(`The analysis request failed (HTTP ${response.status}). Check that the image API backend is running and the frontend /api proxy can reach it.`);
+    if (response.headers.get('content-type')?.split(';')[0].trim().toLowerCase() === 'text/html')
+      throw new Error('The analysis endpoint returned a web page instead of JSON. Configure the frontend /api proxy to reach the image API backend.');
+    throw new Error('The analysis service returned unreadable JSON. Check the image API backend logs and try again.');
   }
   aborted(signal);
   if (!response.ok) {

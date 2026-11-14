@@ -28,7 +28,8 @@ optional extensions unless a supplied question needs them. See the
 | Shared contracts | Pydantic models, generated JSON Schemas/TypeScript, reference/unit/scope/evidence validation | Validation cannot prove source completeness or correctness. |
 | Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI | Frontend image detection uses the candidate API; natural-language IFC planning remains pending. Credentials stay on the backend. |
 | Image candidate API | Local HTTP image/question endpoint returning Nemotron candidate boxes, uncertainty, image hashes and display coordinates | Connected to imported 2D drawings; candidate proposals only, with no final counts/answers or IFC analysis. |
-| Perception | Research plans and a saved one-image door-labeling experiment | No general OCR, raster inventory/reconstruction, or model routing. |
+| Raster preprocessing | Standalone source/crop/overview artifacts, coordinate transforms, optional local Tesseract OCR, inspection-tool adapter, and bounded image-API session preparation | API defaults to unchanged model input with OCR off; optional full-source overview mode preserves page layout. No semantic room segmentation, physical calibration, or agent tool loop. |
+| Perception | Research plans and a saved one-image door-labeling experiment | No evaluated general raster inventory/reconstruction or model routing. Standalone optional OCR is documented separately. |
 
 ## Configure Nemotron
 
@@ -61,7 +62,7 @@ for image, JSON, and async examples.
 With the existing backend `.env`, install the API extra and start the service:
 
 ```sh
-.venv/bin/python -m pip install -e '.[api,test]'
+.venv/bin/python -m pip install -e '.[api,preprocess,test]'
 .venv/bin/python -m uvicorn image_api.app:app --host 127.0.0.1 --port 8000
 ```
 
@@ -71,7 +72,11 @@ image-bound candidate boxes, not a final answer/count. Leave this backend runnin
 and start `npm run dev` in a second terminal. In the UI, import a drawing, select
 its image/PDF page, and submit a question to see candidate boxes and a review list.
 Files are previewed locally until a question is submitted; asking sends the
-displayed raster to Nemotron through the backend. Imported IFC models remain
+displayed raster to Nemotron through the backend. The backend prepares a canonical
+upright PNG before optional raster preprocessing. Its default `original` mode
+caches preparation without changing model input; opt-in `overview` mode sends
+only the uncropped full-source overview and maps boxes back to the original
+display coordinates. OCR stays off in this path. Imported IFC models remain
 local 3D inspection and do not use this endpoint. See [API usage and UI handoff](image_api/README.md) for multipart
 examples, generated types, coordinates, limits, and errors.
 
@@ -115,6 +120,62 @@ $env:Path += ';C:\Program Files\nodejs'
 Use `npm.cmd` if PowerShell blocks the `npm.ps1` wrapper; no execution-policy
 change is needed. See [frontend details](frontend/README.md) for import behavior,
 keyboard controls, generated types, and the backend integration boundary.
+
+## Prepare a raster drawing
+
+Install the CPU preprocessing dependencies with the configured Python. From a
+checkout, this standalone path also works without the IFC/inference dependencies:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r drawing_preprocessor/requirements.txt
+.\.venv\Scripts\python.exe -m drawing_preprocessor prepare "path/to/drawing.png" --output build/prepared
+```
+
+On Linux, create a separate environment and run:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r drawing_preprocessor/requirements.txt
+.venv/bin/python -m drawing_preprocessor prepare path/to/drawing.png --output build/prepared
+```
+
+This creates a portable manifest, an exact copy
+of the original, a full-resolution PNG, candidate content crops, smaller
+overviews, and a layout preview. `inspect` crops original detail using a registered
+view ID. OCR is off by default and is not required for preprocessing. To enable it:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/setup_tesseract.py
+.\.venv\Scripts\python.exe scripts/setup_tesseract.py --check
+```
+
+Windows setup extracts a hash-verified engine into the ignored `.tools/` folder
+and installs English, Finnish, German, French, Italian, and Swedish data. The
+preprocessor discovers it automatically. On Debian/Ubuntu, optional OCR needs
+`sudo apt install tesseract-ocr tesseract-ocr-eng tesseract-ocr-fin`;
+then use `--ocr tesseract --ocr-languages eng+fin` on either OS. This recognizes
+text and word boxes; it does not measure rooms or validate dimensions.
+
+Generate a portable human-review gallery with:
+
+```text
+python -m drawing_preprocessor review dataset/junction-dataset --output build/preprocess-review --count 50 --seed 20261114
+```
+
+Use the configured Python path above in place of `python`. Serve the gallery:
+
+```text
+python -m drawing_preprocessor serve build/preprocess-review --port 8765
+```
+
+Open <http://127.0.0.1:8765/>, mark pass/problem/uncertain, add notes, and download
+the review JSON. This serves only the chosen gallery on loopback and works on
+Windows/Linux. Prefer it over opening `index.html` directly: local-file access
+or Windows artifact permissions can prevent browser image loading. Existing
+file-page ratings can be exported there and imported into the HTTP gallery.
+No inference API is called. See the
+[preprocessor guide](docs/DRAWING_PREPROCESSOR.md) for coordinate semantics,
+OCR setup, function-tool registration, and limitations.
 
 ## Install and use the IFC engine
 
@@ -192,6 +253,7 @@ frontend/       Browser prototype and generated TypeScript wire types
 ifc_engine/     Local IFC extraction and structured query execution
 nemotron/       Backend Verda text/vision client and connection-check CLI
 image_api/      Local image/question HTTP service returning candidate boxes
+drawing_preprocessor/  CPU raster preparation and source-inspection tool adapter
 experiments/    Reproducible model experiments, prompts, and findings
 contracts/      Shared models, validation, JSON Schemas, synthetic examples
 tests/          Contract, IFC, Nemotron, reporting, and documentation checks
@@ -227,6 +289,7 @@ adjust commands to the actual root rather than assuming that layout.
 | [OCR recommendations](docs/ocr_recs.md) | Perception candidates and evaluation gates; not an installed pipeline |
 | [Nemotron configuration](docs/nvidia_info.md) | Implemented backend client, local key setup, usage, and live-verification boundary |
 | [Image candidate API](image_api/README.md) | HTTP setup, candidate contracts, image coordinates, and frontend handoff |
+| [Raster preprocessor](docs/DRAWING_PREPROCESSOR.md) | Cached content crops/overviews, optional local OCR, coordinates and backend inspection-tool adapter |
 | [Experiments](experiments/README.md) | Reproducible investigations, starting with raster door labeling |
 | [Full dataset findings](dataset/FULL_DATASET_FINDINGS.md) | Full-corpus audit and source-specific pitfalls |
 | [Preview findings](dataset/DATASET_FINDINGS.md) | Historical preview-only audit |

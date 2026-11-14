@@ -4,8 +4,12 @@
 **Purpose:** Choose OCR and handwritten-text-recognition (HTR) components for the evidence-backed quantity engine described in [the stack recommendation](TECH_STACK_RECOMMENDATION.md), using [the shared contracts](SCHEMA.md).
 
 **Implementation status, 14 November:** This is a dated research and evaluation
-plan. No general OCR, handwriting, raster inventory, or model-routing pipeline is
-currently integrated. A separate [door-labeling pilot](../experiments/door_labeling/RESULTS.md)
+plan. The standalone [raster preprocessor](DRAWING_PREPROCESSOR.md) now supports
+optional local Tesseract word OCR with source-coordinate boxes and explicit
+availability/failure states. Its core works without an OCR executable; the
+recommended PaddleOCR pipeline below is still unimplemented. No handwriting,
+raster inventory, or model-routing pipeline is currently integrated.
+A separate [door-labeling pilot](../experiments/door_labeling/RESULTS.md)
 saves VLM proposals for one development image; it is not an evaluated inventory
 extractor or OCR benchmark. The repo contains a standalone [IFC engine](IFC_ENGINE.md) and a
 [mock frontend](../frontend/README.md). Model/version/benchmark statements below

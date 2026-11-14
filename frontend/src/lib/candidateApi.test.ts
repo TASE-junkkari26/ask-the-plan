@@ -111,18 +111,49 @@ test('empty detections, uncertainty and partial limitations retain their meaning
   }
 });
 
-test('safe backend errors and unavailable/unreadable responses give useful messages', async (t) => {
-  t.mock.method(globalThis, 'fetch', async () => Response.json({
-    schema_version: '0.1.0', request_id: 'test', code: 'busy',
-    message: 'Candidate service is busy; try again later.', retryable: true,
-  }, { status: 429 }));
-  await assert.rejects(requestCandidates(prepared, 'Windows?', new AbortController().signal), /busy/);
-  t.mock.restoreAll();
+test('safe API errors retain the backend diagnosis, including missing configuration', async (t) => {
+  for (const [status, code, message] of [
+    [429, 'busy', 'Candidate service is busy; try again later.'],
+    [503, 'not_configured', 'Configure VERDA_INFERENCE_KEY on the backend.'],
+  ] as const) {
+    t.mock.method(globalThis, 'fetch', async () => Response.json({
+      schema_version: '0.1.0', request_id: 'test', code, message, retryable: true,
+    }, { status }));
+    await assert.rejects(requestCandidates(prepared, 'Windows?', new AbortController().signal), { message });
+    t.mock.restoreAll();
+  }
+});
+
+test('network failures explain that the backend must be started', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => { throw new TypeError('Network failure'); });
   await assert.rejects(requestCandidates(prepared, 'Windows?', new AbortController().signal), /Start the backend/);
-  t.mock.restoreAll();
-  t.mock.method(globalThis, 'fetch', async () => new Response('<html>proxy error</html>', { status: 502 }));
-  await assert.rejects(requestCandidates(prepared, 'Windows?', new AbortController().signal), /unreadable response/);
+});
+
+test('empty Vite errors and non-JSON proxy failures report HTTP status and backend routing', async (t) => {
+  for (const [status, body] of [
+    [500, ''], [502, '<html>proxy error</html>'], [503, 'Service Unavailable'], [504, 'Gateway Timeout'],
+  ] as const) {
+    t.mock.method(globalThis, 'fetch', async () => new Response(body, { status }));
+    await assert.rejects(requestCandidates(prepared, 'Windows?', new AbortController().signal),
+      new RegExp(`HTTP ${status}.*image API backend.*frontend /api proxy`));
+    t.mock.restoreAll();
+  }
+});
+
+test('a frontend HTML fallback explains the missing API proxy without exposing its body', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('<!doctype html><html>app</html>', {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  }));
+  await assert.rejects(requestCandidates(prepared, 'Windows?', new AbortController().signal), {
+    message: 'The analysis endpoint returned a web page instead of JSON. Configure the frontend /api proxy to reach the image API backend.',
+  });
+});
+
+test('malformed JSON from a successful endpoint points to backend logs', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('{"candidates":', {
+    headers: { 'Content-Type': 'application/json' },
+  }));
+  await assert.rejects(requestCandidates(prepared, 'Windows?', new AbortController().signal), /unreadable JSON.*backend logs/);
 });
 
 test('cancelled and blank questions do not send requests and pending cancellation stays an AbortError', async (t) => {

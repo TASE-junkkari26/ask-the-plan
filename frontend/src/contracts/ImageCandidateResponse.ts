@@ -33,7 +33,14 @@ export type InventoryCompleteness = 'unverified';
 export type Limitations = string[];
 export type CompletionTokens = number | null;
 export type ElapsedMs = number;
+export type PreparationCacheHit = boolean | null;
+export type PreparationMs = number | null;
 export type PromptTokens = number | null;
+export type InputHeight = number;
+export type InputWidth = number;
+export type Mode = 'off' | 'original' | 'overview';
+export type PipelineVersion = string | null;
+export type PreparedId = string | null;
 export type PromptVersion = string;
 export type RequestedModel = string;
 export type ReturnedModel = string;
@@ -87,10 +94,23 @@ export interface CandidateImage {
 export interface CandidateMetrics {
   completion_tokens?: CompletionTokens;
   elapsed_ms: ElapsedMs;
+  preparation_cache_hit?: PreparationCacheHit;
+  preparation_ms?: PreparationMs;
   prompt_tokens?: PromptTokens;
 }
 export interface CandidateProvenance {
+  preprocessing?: CandidatePreparation | null;
   prompt_version: PromptVersion;
   requested_model: RequestedModel;
   returned_model: ReturnedModel;
+}
+/**
+ * Actual model image size, distinct from the unchanged display frame.
+ */
+export interface CandidatePreparation {
+  input_height: InputHeight;
+  input_width: InputWidth;
+  mode: Mode;
+  pipeline_version?: PipelineVersion;
+  prepared_id?: PreparedId;
 }

@@ -1,0 +1,4 @@
+# Standalone checkout use: no IFC, inference SDK, GPU, or OCR engine required.
+pydantic>=2.7,<3
+Pillow>=12,<13
+numpy>=1.24,<3

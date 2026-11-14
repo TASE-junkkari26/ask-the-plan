@@ -2,11 +2,13 @@
 
 Contract version: **0.1.0**. The source of truth is [contracts/models.py](../contracts/models.py); [contracts/validation.py](../contracts/validation.py) supplies cross-record validation. These contracts represent the observed IFC, CAD, PDF, raster, schedule, quantity, property, and missing-information tasks. They do not claim that every represented operation already has an executor.
 
-Current consumers are the standalone [IFC executor](IFC_ENGINE.md) and generated
-types used by the [mock frontend](../frontend/README.md). They are not integrated
-through an API yet. Use the executor's capability manifest for supported
-operations; the frontend's prepared evidence is not extracted source truth.
-The separate [image candidate API](../image_api/README.md) uses new
+Current consumers are the standalone [IFC executor](IFC_ENGINE.md), the
+[raster preprocessor](DRAWING_PREPROCESSOR.md), and generated types used by the
+[frontend](../frontend/README.md). The IFC executor remains independent of the
+image service; use its capability manifest for supported operations. Synthetic
+frontend request/result fixtures are not extracted source truth.
+The [image candidate API](../image_api/README.md) is connected to imported
+images/PDF pages and uses
 `ImageCandidateResponse` and `ImageCandidateError` roots for localized, unverified
 image proposals. These are not final `QueryResult` claims. Existing IFC and
 frontend request/result contracts retain their behavior.
@@ -30,6 +32,24 @@ The core distinction is **source evidence → canonical entities and facts → a
 | `BenchmarkCase` | Reference answer, source JSONL location, split/leakage group, tolerance, and adjudication | [BenchmarkCase](../contracts/jsonschema/BenchmarkCase.schema.json) |
 | `ImageCandidateResponse` | One image's candidate boxes, uncertainty, status, provenance and metrics; no final count/answer | [ImageCandidateResponse](../contracts/jsonschema/ImageCandidateResponse.schema.json) |
 | `ImageCandidateError` | Versioned safe HTTP failure with request ID, code, message and retryability | [ImageCandidateError](../contracts/jsonschema/ImageCandidateError.schema.json) |
+| `PreparedDrawing` | Original/source raster artifacts, candidate regions, pixel transforms and optional source-frame OCR | [PreparedDrawing](../contracts/jsonschema/PreparedDrawing.schema.json) |
+
+The [raster preprocessor](DRAWING_PREPROCESSOR.md) implements `PreparedDrawing`.
+It retains exactly one full-source region and validates source/crop/overview
+bounds and transforms. `InspectRegionArgs` supplies its backend function-tool
+arguments; the host resolves the manifest, so model arguments contain no paths.
+These records describe preprocessing artifacts and do not assert semantic view
+scope, complete recognition, canonical building entities, or physical calibration.
+
+The image API can use preparation internally after its canonical upright PNG
+normalization, with OCR off. `ImageCandidateResponse.image.sha256` remains the
+submitted-byte hash and public width/height remain the full display frame;
+`inference_sha256` identifies the bytes actually sent to the model. Optional
+`provenance.preprocessing` records `mode`, `pipeline_version`, `prepared_id`,
+`input_width`, and `input_height`; `metrics.preparation_ms` and
+`metrics.preparation_cache_hit` report preparation work. In optional overview
+mode, candidates are mapped back to full display coordinates. Neither artifact
+paths nor a preprocessing raster replace the frontend's original source snapshot.
 
 Generate the JSON Schemas from the repository root with `python -m contracts.export`. Check that they are current with `python -m contracts.export --check`. Do not edit the generated files. Draft 2020-12 schemas use internal `$defs` and stable versioned URN IDs; they require no network resolution.
 

@@ -20,6 +20,20 @@ class PreparedImage:
     inference_sha256: str
     width: int
     height: int
+    inference_width: int | None = None
+    inference_height: int | None = None
+    preprocessing_mode: str = "off"
+    prepared_id: str | None = None
+    preparation_ms: float = 0
+    preparation_cache_hit: bool | None = None
+
+    @property
+    def model_width(self) -> int:
+        return self.width if self.inference_width is None else self.inference_width
+
+    @property
+    def model_height(self) -> int:
+        return self.height if self.inference_height is None else self.inference_height
 
 
 class _BoundedWriter:
