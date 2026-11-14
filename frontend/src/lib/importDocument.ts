@@ -1,4 +1,5 @@
 import type { ImportedDrawing } from '../types';
+import { previewDxf } from './dxfApi.ts';
 
 export const MAX_IMPORT_BYTES = 35 * 1024 * 1024;
 const imageTypes: Record<string, string> = {
@@ -11,14 +12,14 @@ const imageTypes: Record<string, string> = {
   bmp: 'image/bmp',
 };
 export const IMPORT_ACCEPT =
-  '.pdf,' +
+  '.pdf,.dxf,' +
   Object.keys(imageTypes)
     .map((ext) => `.${ext}`)
     .join(',');
-export const IMPORT_FORMATS = 'PDF, PNG, JPG, WebP, SVG, GIF, BMP';
+export const IMPORT_FORMATS = 'PDF, DXF, PNG, JPG, WebP, SVG, GIF, BMP';
 
 export function documentType(file: File): {
-  kind: 'pdf' | 'image';
+  kind: 'pdf' | 'image' | 'dxf';
   mime: string;
 } {
   if (file.size === 0) throw new Error('This file is empty.');
@@ -29,8 +30,10 @@ export function documentType(file: File): {
     throw new Error(
       'IFC preview is not available yet. Choose a 2D image or PDF.',
     );
-  if (extension === 'dwg' || extension === 'dxf')
-    throw new Error('Export this CAD drawing as PDF or SVG to preview it.');
+  if (extension === 'dwg')
+    throw new Error('Export this DWG drawing as DXF, PDF or SVG to preview it.');
+  if (extension === 'dxf' || ['application/dxf', 'application/x-dxf', 'image/vnd.dxf', 'image/x-dxf'].includes(file.type))
+    return { kind: 'dxf', mime: 'application/dxf' };
   if (file.type === 'application/pdf' || extension === 'pdf')
     return { kind: 'pdf', mime: 'application/pdf' };
   // Desktop file pickers and drag-and-drop may omit or generalize the MIME type.
@@ -190,6 +193,7 @@ export async function importDocument(
   if (!Number.isInteger(page) || page < 1)
     throw new Error('Choose a valid page number.');
   const type = documentType(file);
+  if (type.kind === 'dxf') return previewDxf(file, page, signal);
   return type.kind === 'pdf'
     ? previewPdf(file, page, signal)
     : previewImage(file, type.mime, signal);

@@ -201,11 +201,18 @@ in that unrelated frame. Candidate IDs should remain separate from `entityId`.
 The React integration rasterizes the selected imported image or PDF page onto
 white PNG at the displayed source dimensions, hashes that submitted raster, and
 freezes the preview to that same snapshot while analysing/reviewing candidates.
-This also supports SVG/GIF/BMP previews without changing the API's accepted
+This also supports SVG/GIF/BMP and rendered DXF layout previews without changing the API's accepted
 formats. Submitting sends the snapshot and question to the selected image provider; importing alone
 does not. Original upload bytes and backend-submitted raster hashes can differ.
 Source/page changes abort the request and clear stale results; the client rejects
 responses whose submitted hash or dimensions differ from the prepared snapshot.
+
+DXF import first uses a separate, credential-free `/api/dxf/preview` route on
+this server. It receives the original file, renders one source layout using
+ezdxf, and returns a source-hash-bound SVG preview. Switching DXF layouts clears
+candidates before a new question can submit the displayed raster. See the
+[DXF guide](../docs/DXF_PREVIEW.md) for setup, limits, omissions and the distinction
+between visual candidates and native CAD answers.
 
 Run the Python server above and `npm run dev` in separate terminals. Vite proxies
 `/api` to `http://127.0.0.1:8000` in development and local preview. Optionally set

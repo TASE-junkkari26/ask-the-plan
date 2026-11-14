@@ -13,6 +13,10 @@ Drawing perception accuracy and complete IFC-family coverage remain unverified.
 
 Current implementation includes the shared contracts and validation, a [local IFC extractor and query executor](IFC_ENGINE.md), and an [import/viewing workbench](../frontend/README.md). IFC questions use bounded Nemotron plans, CPU execution, native topology and source evidence; natural-language summaries are generated deterministically from executed values. The frontend provides IFC 3D inspection and answer highlights. Synthetic 2D sources remain offline fixtures, while imported image/PDF questions return unverified candidate regions. [dataset_audit.py](../dataset/dataset_audit.py) supplies dataset/file/STEP-record/SVG inspection. A [one-image Nemotron door-labeling pilot](../experiments/door_labeling/RESULTS.md) saves provisional boxes and a separate assistant review. General detection inventories, database persistence and metric geometry computation remain gaps. Contract/frontend fixtures are synthetic; selected real-model checks do not establish dataset-wide accuracy.
 
+[DXF import and layout previews](DXF_PREVIEW.md) now feed the same unverified
+image-candidate flow. This is rendering support; native CAD fact extraction,
+logical object inventories and geometric query execution remain gaps in E01/E04/E05.
+
 Organizer clarification reported on 14 November: prioritize questions about the drawing/view shown. Broader capabilities below are a backlog, not a requirement to enable every operation for every source. Preserve explicit model-wide scope in existing reference questions.
 
 The [project scope](PROJECT_SCOPE.md) is the supplied dataset and its demonstrated

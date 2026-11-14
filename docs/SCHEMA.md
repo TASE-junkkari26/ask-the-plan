@@ -32,6 +32,7 @@ The core distinction is **source evidence → canonical entities and facts → a
 | `BenchmarkCase` | Reference answer, source JSONL location, split/leakage group, tolerance, and adjudication | [BenchmarkCase](../contracts/jsonschema/BenchmarkCase.schema.json) |
 | `ImageCandidateResponse` | One image's candidate boxes, uncertainty, status, provenance and metrics; no final count/answer | [ImageCandidateResponse](../contracts/jsonschema/ImageCandidateResponse.schema.json) |
 | `ImageCandidateError` | Versioned safe HTTP failure with request ID, code, message and retryability | [ImageCandidateError](../contracts/jsonschema/ImageCandidateError.schema.json) |
+| `DxfPreviewResponse` | One source-hash-bound SVG layout, display dimensions, layout names, literal units metadata and rendering warnings; no native CAD inventory or measurements | [DxfPreviewResponse](../contracts/jsonschema/DxfPreviewResponse.schema.json) |
 | `PreparedDrawing` | Original/source raster artifacts, candidate regions, pixel transforms and optional source-frame OCR | [PreparedDrawing](../contracts/jsonschema/PreparedDrawing.schema.json) |
 | `IfcModelResponse` | Temporary uploaded source handle, verified revision hash and extraction warnings | [IfcModelResponse](../contracts/jsonschema/IfcModelResponse.schema.json) |
 | `IfcQuestionRequest` | IFC question with authoritative model/view scope and exact visible STEP inventory | [IfcQuestionRequest](../contracts/jsonschema/IfcQuestionRequest.schema.json) |

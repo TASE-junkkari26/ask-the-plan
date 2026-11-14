@@ -47,6 +47,8 @@ test('512 MiB applies only to IFC and admits the largest supplied models', () =>
   );
   assert.equal(sourceKind(sizedFile('sheet.PDF', 35 * 1024 * 1024)), 'pdf');
   assert.throws(() => sourceKind(new File(['x'], 'sheet.dwg')), /PDF or SVG/);
+  assert.equal(sourceKind(new File(['x'], 'sheet.DXF')), 'dxf');
+  assert.ok(SOURCE_ACCEPT.includes('.dxf'));
 });
 
 test('reopening an immutable File reuses its hash without retaining source bytes', () => {

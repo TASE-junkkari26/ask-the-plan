@@ -834,3 +834,30 @@ model geometry. It preserves an inspectable partial preview; a corrected export
 is needed for a complete model. No dataset originals, QA answers, backend engines
 or wire contracts were changed. Tests used Linux Node 26.13.1 and Firefox 160
 headless/software WebGL; physical mobile/Windows behavior was not retested here.
+
+## DXF import, preview and visual questions — 14 November 2026
+
+Checked on Linux with Python 3.12.3, ezdxf 1.4.5, Node 24.22.3, npm 11.19.1,
+Vite 7.3.8 and Firefox 160 headless. The requested scope is DXF import, selected
+layout preview and the existing visual question flow. Native CAD query execution
+and measurements are not part of this change; see [DXF support](DXF_PREVIEW.md).
+
+| Check | Observed result |
+|---|---|
+| Frontend tests | All 18 test files passed, including DXF import/routing, source hash and layout validation, warnings, backend errors, cancellation and URL release. |
+| Production build | TypeScript and Vite build passed. Existing optional WebGPU export and large SDK chunk warnings remain. |
+| DXF, body-limit, contract and image API regressions | Synthetic DXF rendering/HTTP tests and existing shared image API, lifecycle and preprocessing tests passed. Rendering checks cover binary and legacy text encoding, literal layout names, blocks, hidden layers, source retention, unsupported content and explicit errors/budgets. |
+| Generated contracts/docs | JSON Schema export check and local Markdown link/anchor check passed; frontend types regenerated from the Python source model. |
+| Production browser flow | Imported a synthetic DXF through the actual local HTTP renderer; checked nonblank source pixels, named layout switching, URL release, source warnings, PNG question submission, candidate overlays and source/layout metadata in JSON export. Inference used a mocked transport, without contacting a model provider. |
+| Partial preview and layout scope | Missing external reference produced a persistent partial-preview notice. Switching to the clean paper layout removed that warning. Switching back cleared the candidate response and restored the source warning. |
+| Browser layout | Desktop and 500-pixel-wide views inspected; no horizontal overflow or uncaught JavaScript errors. Original visible text retained `121.A Keittiö`; paper layout retained `Piirustus 7.16`. |
+| Lifecycle | Timeout, disconnect and cancellation tests verify request-owned worker termination and temporary source cleanup. Busy-slot and independent upload/body limits are covered. All temporary browser/API/preview servers owned by this verification were stopped. |
+
+The initial restricted-sandbox asynchronous test run stalled during cleanup and
+was interrupted. API tests completed with normal local process permissions;
+no application workaround was introduced. The DXF package was installed in the
+project's existing Linux virtual environment and added to the declared `api` extra.
+No supplied DXF assets are installed in this checkout, so these checks use
+synthetic drawings. They establish integration behavior, not real-dataset rendering
+fidelity, candidate accuracy or inference cost. Windows and physical mobile-device
+behavior were not tested in this pass.

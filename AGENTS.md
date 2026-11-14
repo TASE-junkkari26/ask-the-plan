@@ -30,10 +30,15 @@ component guide before changing behavior.
 
 - `frontend/`: React/TypeScript/Vite workbench that opens on local import;
   synthetic sources and the mock adapter `src/demo/engine.ts` remain offline
-  fixtures. Imported images/PDFs submit their displayed raster/page to `image_api/`
+  fixtures. Imported images/PDFs/DXFs submit their displayed raster/page/layout to `image_api/`
   and render unverified candidate boxes. IFC imports render locally; asking uploads
   the original model to `ifc_api/` for source-backed query execution and evidence.
   See [the viewer guide](docs/IFC_VIEWER.md).
+- `dxf_api/`: bounded local ezdxf rendering of one source layout into a source-hash-bound
+  SVG preview. DXF import uploads the original to this credential-free endpoint;
+  visual questions use the existing image candidate flow. Preserve selected layout
+  names, source visibility, partial-rendering warnings and hashes. This is not a
+  native CAD query executor. See [the DXF guide](docs/DXF_PREVIEW.md).
 - `image_api/`: internal HTTP adapter for one image and one question, using the
   selected Nemotron or Gemini image provider. Returns candidate regions, not
   final counts/answers.

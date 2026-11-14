@@ -80,15 +80,15 @@ const copy = {
     drop: 'or drag and drop them here',
     select: 'Select files',
     localFiles: 'Your imports',
-    localNote: 'Files stay in this tab. Refreshing clears the imports.',
+    localNote: 'Refreshing clears the imports. DXF previews use the local backend.',
     dropTitle: 'Drop drawings to import',
     importErrors: 'Some files could not be opened',
     welcome: 'Start with a drawing.',
     welcomeIntro: 'Import a drawing to open your workspace.',
-    formats: `PDF and images · Up to 35 MiB per file · IFC · Up to ${MAX_IFC_BYTES / 1024 / 1024} MiB`,
+    formats: `PDF, DXF and images · Up to 35 MiB per file · IFC · Up to ${MAX_IFC_BYTES / 1024 / 1024} MiB`,
     opening: 'Opening your drawing…',
     analysisNote:
-      'Submitting sends this image or PDF page to the configured image model. Results are candidates for you to review.',
+      'DXF previews use the local backend. Asking sends the displayed image, PDF page or DXF layout to the configured image model. Results are candidates for review.',
   },
   fi: {
     drawings: 'Piirustukset',
@@ -107,15 +107,15 @@ const copy = {
     select: 'Valitse tiedostot',
     localFiles: 'Omat tiedostot',
     localNote:
-      'Tiedostot säilyvät tässä välilehdessä sivun päivittämiseen asti.',
+      'Sivun päivittäminen tyhjentää tuonnit. DXF-esikatselu käyttää paikallista palvelinta.',
     dropTitle: 'Pudota tuotavat piirustukset',
     importErrors: 'Joitakin tiedostoja ei voitu avata',
     welcome: 'Aloita piirustuksesta.',
     welcomeIntro: 'Tuo piirustus avataksesi työtilan.',
-    formats: `PDF- ja kuvatiedostot · Enintään 35 MiB / tiedosto · IFC · Enintään ${MAX_IFC_BYTES / 1024 / 1024} MiB`,
+    formats: `PDF, DXF ja kuvat · Enintään 35 MiB / tiedosto · IFC · Enintään ${MAX_IFC_BYTES / 1024 / 1024} MiB`,
     opening: 'Avataan piirustusta…',
     analysisNote:
-      'Kysymyksen lähettäminen lähettää tämän kuvan tai PDF-sivun määritetylle kuvamallille. Tulokset ovat tarkistettavia ehdokkaita.',
+      'DXF-esikatselu käyttää paikallista palvelinta. Kysymys lähettää näkyvän kuvan, PDF-sivun tai DXF-asettelun määritetylle kuvamallille. Tulokset ovat tarkistettavia ehdokkaita.',
   },
 };
 
@@ -160,15 +160,16 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
       </span>
       <h2>Your drawing, in focus.</h2>
       <p>
-        Select or drop an image, PDF, or IFC file to open it. Explore drawings
+        Select or drop an image, PDF, DXF, or IFC file to open it. Explore drawings
         with the chat panel, or ask questions and inspect a model in 3D. Use Drawings to switch
         files or remove an import.
       </p>
       <div className="help-note">
         <FileImage size={17} />
         <span>
-          Imports are previewed locally and cleared on refresh. Submitting a
-          drawing question sends the selected image or PDF page to the configured image model;
+          Imports are cleared on refresh. DXF files use the local backend for
+          preview; other formats open in the browser. Submitting a drawing
+          question sends the selected image, PDF page or DXF layout to the configured image model;
           highlights are candidates for review. Asking about an IFC uploads it
           to the local backend. Nemotron plans the query, the IFC engine computes
           the answer, and matching source elements are highlighted for inspection.
@@ -1048,7 +1049,16 @@ export default function App() {
                             new Blob(
                               [
                                 JSON.stringify(
-                                  candidateResponse.result,
+                                  imported?.dxf
+                                    ? {
+                                        source: {
+                                          filename: imported.file.name,
+                                          format: 'dxf',
+                                          ...imported.dxf,
+                                        },
+                                        candidate_response: candidateResponse.result,
+                                      }
+                                    : candidateResponse.result,
                                   null,
                                   2,
                                 ),
@@ -1239,8 +1249,12 @@ export default function App() {
                           ? `${language === 'fi' ? 'Tuodaan' : 'Importing'} ${importProgress.current} / ${importProgress.total} · ${importProgress.name}`
                           : pageLoading
                             ? language === 'fi'
-                              ? 'Avataan PDF-sivua…'
-                              : 'Opening PDF page…'
+                              ? imported?.kind === 'dxf'
+                                ? 'Avataan DXF-asettelua…'
+                                : 'Avataan PDF-sivua…'
+                              : imported?.kind === 'dxf'
+                                ? 'Opening DXF layout…'
+                                : 'Opening PDF page…'
                             : language === 'fi'
                               ? 'Paikannetaan ehdokkaita…'
                               : 'Locating candidates…'}
@@ -1293,12 +1307,51 @@ export default function App() {
                       </button>
                     </div>
                   </div>
+                  {imported.dxf && (
+                    <div
+                      className={`dxf-preview-note ${imported.dxf.status === 'partial' ? 'dxf-preview-partial' : ''}`}
+                      role="status"
+                    >
+                      <span>
+                        {language === 'fi' ? 'DXF · 2D-ylänäkymä' : 'DXF · 2D top view'}
+                      </span>
+                      {imported.dxf.warnings.length > 0 && (
+                        <details>
+                          <summary>
+                            {language === 'fi'
+                              ? 'Osittainen esikatselu · Näytä puutteet'
+                              : 'Partial preview · View omissions'}
+                          </summary>
+                          <ul>
+                            {imported.dxf.warnings.map((warning, index) => (
+                              <li key={index}>{warning}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+                  )}
                   <div className="viewer-footer">
                     <span>
                       <FileText size={12} />
                       {imported.file.name}
                     </span>
-                    <div className="page-navigation">
+                    {imported.kind === 'dxf' && imported.dxf ? (
+                      <label className="dxf-layout-picker">
+                        {language === 'fi' ? 'Asettelu' : 'Layout'}
+                        <select
+                          aria-label="DXF layout"
+                          value={imported.page}
+                          disabled={importing}
+                          onChange={(event) => void openPage(imported, Number(event.target.value))}
+                        >
+                          {imported.dxf.layouts.map((name, index) => (
+                            <option key={name} value={index + 1}>{name}</option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : (
+                      <div className="page-navigation">
                       <button
                         className="icon-button"
                         aria-label="Previous PDF page"
@@ -1322,7 +1375,8 @@ export default function App() {
                       >
                         <ChevronRight size={14} />
                       </button>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </>
               ) : null}
@@ -1436,9 +1490,11 @@ export default function App() {
                         </strong>
                         <span className="local-file-details">
                           {fileSize(imported.file.size)} ·{' '}
-                          {imported.kind === 'pdf'
-                            ? `${imported.pages} ${language === 'fi' ? 'sivua' : imported.pages === 1 ? 'page' : 'pages'}`
-                            : `${imported.width} × ${imported.height} px`}
+                          {imported.kind === 'dxf'
+                            ? `DXF · ${imported.dxf?.layouts[imported.page - 1] ?? ''}`
+                            : imported.kind === 'pdf'
+                              ? `${imported.pages} ${language === 'fi' ? 'sivua' : imported.pages === 1 ? 'page' : 'pages'}`
+                              : `${imported.width} × ${imported.height} px`}
                         </span>
                       </div>
                       <Check size={14} />

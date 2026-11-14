@@ -1,4 +1,5 @@
 import type { QueryResult } from './contracts/QueryResult';
+import type { DxfPreviewResponse } from './contracts/DxfPreviewResponse';
 
 export type Language = 'en' | 'fi';
 export type DemoKind = 'plan' | 'schedule' | 'elevation';
@@ -47,7 +48,8 @@ export interface ImportedDrawing {
   height: number;
   page: number;
   pages: number;
-  kind: 'image' | 'pdf';
+  kind: 'image' | 'pdf' | 'dxf';
+  dxf?: Omit<DxfPreviewResponse, 'svg'>;
 }
 /** A tab-local preview identity, independent of backend source identities. */
 export interface LocalDrawing extends ImportedDrawing {
