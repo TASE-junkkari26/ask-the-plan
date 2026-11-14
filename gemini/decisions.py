@@ -163,8 +163,7 @@ class AsyncDecisionsClient:
         self.settings = settings if settings is not None else DecisionsSettings.from_env()
         self._http = httpx.AsyncClient(
             transport=transport, follow_redirects=False,
-            timeout=httpx.Timeout(self.settings.timeout_seconds,
-                                  connect=min(3, self.settings.timeout_seconds)),
+            timeout=httpx.Timeout(self.settings.timeout_seconds),
         )
 
     async def decide(self, question: str, *, image: Path, questions: dict,
@@ -218,8 +217,14 @@ class AsyncDecisionsClient:
                         raise _invalid()
                     chunks.append(chunk)
             value = json.loads(b"".join(chunks), object_pairs_hook=_unique_object)
-        except httpx.TimeoutException:
-            raise GeminiError("Gemini Decisions timed out.", retryable=True, code="provider_timeout") from None
+        except httpx.TimeoutException as exc:
+            # Keep transport diagnostics bounded and independent of provider text.
+            phase = next((name for kind, name in (
+                (httpx.ConnectTimeout, "connect"), (httpx.WriteTimeout, "write"),
+                (httpx.ReadTimeout, "read"), (httpx.PoolTimeout, "pool"),
+            ) if isinstance(exc, kind)), None)
+            raise GeminiError("Gemini Decisions timed out.", retryable=True,
+                              code="provider_timeout", timeout_phase=phase) from None
         except httpx.HTTPError:
             raise GeminiError("Could not reach the Gemini Decisions endpoint.", retryable=True) from None
         except (ValueError, UnicodeError, RecursionError):

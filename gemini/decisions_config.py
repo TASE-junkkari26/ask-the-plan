@@ -17,7 +17,7 @@ class DecisionsSettings(BaseModel):
 
     api_key: SecretStr = Field(repr=False)
     model: Literal["gemini-decision-1"] = "gemini-decision-1"
-    timeout_seconds: float = Field(default=3, gt=0, le=30, allow_inf_nan=False)
+    timeout_seconds: float = Field(default=10, gt=0, le=30, allow_inf_nan=False)
 
     @field_validator("api_key")
     @classmethod

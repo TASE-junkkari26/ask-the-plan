@@ -192,7 +192,7 @@ class ImageCandidateStreamTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual([kind for kind, _ in self.calls], ['decision', 'analysis', 'analysis'])
 
     async def test_unavailable_strong_has_terminal_error_without_false_handoff(self):
-        async with self.api(fit='uncertain', strong=False) as app:
+        async with self.api(fit='needs_strong', strong=False) as app:
             wire = Wire(app)
             try:
                 await wire.start()
