@@ -58,6 +58,12 @@ PDF.js is loaded only for local PDF preview. This version does not embed an IFC/
 
 `src/demo/engine.ts` exports `askDemo`, the asynchronous fixture adapter. Replace it with an API client accepting the generated `QuestionRequest` and returning a `QueryResult` plus resolved presentation evidence.
 
+The separate [image candidate API](../image_api/README.md) is available for
+image/question-to-box integration. It returns `ImageCandidateResponse` proposals,
+not final `QueryResult` claims, and provides generated candidate/error TypeScript
+types. Wiring this service into the React components remains frontend work;
+the demo adapter and local-upload behavior are unchanged.
+
 `src/types.ts` defines UI-only `Mark` and `DemoResponse` presentation records. They resolve the canonical entity, source geometry, label, ordinal, and calculation display. They are not additional physical facts or changes to the shared Python contracts. `src/contracts/` is generated from the committed request/result JSON Schemas.
 
 From `frontend/` (`npm` on Linux):

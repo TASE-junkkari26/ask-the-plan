@@ -1,0 +1,42 @@
+{
+  "$comment": "Generated from contracts.models; do not edit manually. JSON Schema checks structure. Pydantic and semantic validators also enforce local invariants, references, units, scope, and evidence.",
+  "$id": "urn:stoa:contracts:0.1.0:ImageCandidateError",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "minLength": 1,
+      "title": "Code",
+      "type": "string"
+    },
+    "message": {
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Message",
+      "type": "string"
+    },
+    "request_id": {
+      "minLength": 1,
+      "title": "Request Id",
+      "type": "string"
+    },
+    "retryable": {
+      "title": "Retryable",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "0.1.0",
+      "default": "0.1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "request_id",
+    "code",
+    "message",
+    "retryable"
+  ],
+  "title": "ImageCandidateError",
+  "type": "object"
+}

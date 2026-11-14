@@ -7,6 +7,9 @@ and request timeouts. A CLI sends a connection check or a text/image request.
 
 The frontend and IFC CLI remain independent. This adapter does not implement a
 question planner, object detector, annotation batch job, or drawing-analysis API.
+The separate [image candidate API](../image_api/README.md) now wraps this client
+to accept one image/question over HTTP and return localized candidate proposals.
+It does not produce final answers/counts or connect the frontend automatically.
 Model predictions and syntactically valid JSON do not establish source truth,
 correct localization, or a complete object inventory.
 

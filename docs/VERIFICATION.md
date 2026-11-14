@@ -91,13 +91,56 @@ was introduced. The temporary servers were stopped after checks. This does not
 establish real drawing analysis, touch-device behavior, or the roadmap's human
 evidence-verification gate.
 
+## Image candidate API on Linux
+
+Checked 14 November 2026 on Linux with Python 3.12.3, FastAPI 0.162.7,
+Starlette 1.10.0, Uvicorn 0.54.0, Pillow 12.3.0, Pydantic 2.14.3,
+OpenAI SDK 2.54.0, httpx 0.28.1, and python-multipart 0.0.33. Node 24.22.3
+was used for frontend checks. The new [image API](../image_api/README.md)
+adds candidate extraction, not a final-answer planner or a wired React UI.
+
+| Check | Observed result |
+| --- | --- |
+| `.venv/bin/python -m unittest discover -s tests -v` | 138 tests passed, no skips, including the existing real IFC fixture. Provider responses in this suite are mocked. |
+| New API-specific checks within that suite | 18 HTTP/model integration tests, 5 concurrency/lifecycle tests, and 9 candidate contract tests passed. |
+| `.venv/bin/python -m pip check` | No broken installed requirements. |
+| JSON Schema generation and `--check` | All eight generated schemas current; existing six schema files unchanged. |
+| `npm --prefix frontend run generate:contracts` | New candidate/error TypeScript types generated; existing request/result types unchanged. |
+| `npm run build` | TypeScript/Vite production build passed. React components unchanged. |
+| `npm run test:frontend` | Both existing frontend test files passed. |
+| Real Uvicorn startup over localhost | `/health`, `/docs`, and `/openapi.json` returned 200; multipart candidate route documented. No inference calls made by this startup check. |
+| Synthetic example envelopes | Success, empty, partial, and error examples passed Pydantic validation. |
+
+Async checks initially stalled inside the execution sandbox, including a minimal
+independent framework/client example. The passing async suite and local TCP
+startup check ran outside that sandbox; no application logic was weakened to
+work around the restriction. A final change to the configurable question limit
+and OpenAPI metadata was followed by focused question-limit/docs checks.
+
+After explicit user approval, one live request used the already-saved pilot
+floorplan `experiments/runs/door-labeling/20261113T234605960384Z/input.png` and
+the question "Locate the doorways fitted with doors in this floorplan."
+The real Uvicorn endpoint returned HTTP 200 and `status: ok`, with five candidate
+records in the 2730 by 2048 display frame. The returned model was
+`nemotron-3.5-super-vl`; inference-stage elapsed time was 7,731 ms, with 4,411
+prompt tokens and 462 completion tokens. No final door count was generated.
+The response passed the public contract's box/bounds checks and retained
+`inventory_completeness: unverified`. This establishes live wiring on one image;
+no manual localization/recall audit or general accuracy claim is made.
+
+The live request initially required explicit payload/destination approval from
+automatic review; it ran only after the user's approval. Both temporary Uvicorn
+servers were stopped. No API images, credentials, prompts, or raw live responses
+were added to the repository. Frontend browser integration was not exercised.
+
 ## Remaining verification gaps
 
 - Real-device touch/virtual-keyboard behavior, PDF preview/page navigation, and
   exported drawing artifacts still need checks on the demo devices. The Linux
   browser checks above cover selected demo interactions and a local SVG preview.
 - The frontend uses prepared results. A real question-to-planner-to-IFC-to-viewer
-  flow, HTTP integration, and general raster extraction are not implemented.
+  flow and frontend wiring to the separate image candidate HTTP service remain
+  unimplemented. General raster inventory/reconstruction is outside that service.
 - Dataset-wide answer accuracy, evidence localization, multilingual robustness,
   latency distributions, and inference cost have not been benchmarked here.
 - No fresh dependency installation, Linux backend run, live inference request,

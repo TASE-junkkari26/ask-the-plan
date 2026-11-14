@@ -27,7 +27,8 @@ optional extensions unless a supplied question needs them. See the
 | IFC engine | CPU extraction, structured selection/traversal, scalar properties/quantities, counts, grouping/ranking, evidence and caching | Standalone Python/CLI; no natural-language planner, HTTP API, or geometry-measurement engine. |
 | Shared contracts | Pydantic models, generated JSON Schemas/TypeScript, reference/unit/scope/evidence validation | Validation cannot prove source completeness or correctness. |
 | Nemotron access | Backend sync/async Verda client, local `.env` loading, text/image/validated JSON requests, connection-check CLI | Dated live checks are recorded in the guide; no connected question planner or frontend integration. |
-| Perception and services | Research plans and a saved one-image door-labeling experiment | No general OCR, raster inventory/reconstruction, model routing, or frontend/backend HTTP integration. |
+| Image candidate API | Local HTTP image/question endpoint returning Nemotron candidate boxes, uncertainty, image hashes and display coordinates | Candidate proposals only; no final counts/answers. UI wiring remains separate. |
+| Perception | Research plans and a saved one-image door-labeling experiment | No general OCR, raster inventory/reconstruction, or model routing. |
 
 ## Configure Nemotron
 
@@ -54,6 +55,21 @@ On Linux, use `.venv/bin/python -m nemotron check`. This sends a request to Verd
 local tests do not require a key or make inference calls. Installation also
 provides the `nemotron` console command. See [Nemotron setup and usage](docs/nvidia_info.md)
 for image, JSON, and async examples.
+
+## Run the image candidate API
+
+With the existing backend `.env`, install the API extra and start the service:
+
+```sh
+.venv/bin/python -m pip install -e '.[api,test]'
+.venv/bin/python -m uvicorn image_api.app:app --host 127.0.0.1 --port 8000
+```
+
+On Windows, use `.\.venv\Scripts\python.exe` for both commands. Open
+<http://127.0.0.1:8000/docs> to submit one image and one question. The API returns
+image-bound candidate boxes, not a final answer/count. The frontend is not wired
+to it yet. See [API usage and UI handoff](image_api/README.md) for multipart
+examples, generated types, coordinates, limits, and errors.
 
 ## Start the frontend
 
@@ -168,6 +184,7 @@ Python source models rather than editing the generated output.
 frontend/       Browser prototype and generated TypeScript wire types
 ifc_engine/     Local IFC extraction and structured query execution
 nemotron/       Backend Verda text/vision client and connection-check CLI
+image_api/      Local image/question HTTP service returning candidate boxes
 experiments/    Reproducible model experiments, prompts, and findings
 contracts/      Shared models, validation, JSON Schemas, synthetic examples
 tests/          Contract, IFC, Nemotron, reporting, and documentation checks
@@ -201,6 +218,7 @@ adjust commands to the actual root rather than assuming that layout.
 | [Tech stack recommendation](docs/TECH_STACK_RECOMMENDATION.md) | Dated architecture rationale and candidate components |
 | [OCR recommendations](docs/ocr_recs.md) | Perception candidates and evaluation gates; not an installed pipeline |
 | [Nemotron configuration](docs/nvidia_info.md) | Implemented backend client, local key setup, usage, and live-verification boundary |
+| [Image candidate API](image_api/README.md) | HTTP setup, candidate contracts, image coordinates, and frontend handoff |
 | [Experiments](experiments/README.md) | Reproducible investigations, starting with raster door labeling |
 | [Full dataset findings](dataset/FULL_DATASET_FINDINGS.md) | Full-corpus audit and source-specific pitfalls |
 | [Preview findings](dataset/DATASET_FINDINGS.md) | Historical preview-only audit |
