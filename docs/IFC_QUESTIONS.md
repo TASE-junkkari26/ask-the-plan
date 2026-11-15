@@ -2,7 +2,9 @@
 
 Implemented 14 November 2026. The IFC workbench connects an independently selected
 Nemotron or Gemini Hydrogen planner to the CPU [IFC query engine](IFC_ENGINE.md).
-The planner proposes a structured query; the engine executes it against the uploaded source. The language model
+An exact, conservative grammar compiles supported count and stored-quantity
+questions locally with zero inference. Other questions use the configured
+planner to propose a structured query; the engine executes it against the uploaded source. The language model
 does not supply the final count or calculate quantities from a screenshot.
 
 ## Run and ask
@@ -45,6 +47,8 @@ there is no automatic provider fallback.
 | Setting | Default / supported range |
 | --- | --- |
 | `IFC_API_PROVIDER` | `nemotron`; `nemotron` or `gemini` |
+| `IFC_API_FAST_PLANS` | `true`; compile unambiguous supported grammar locally before using the model |
+| `IFC_API_COMPACT_CONTEXT` | `true`; compact model-only entity references and metadata locators; public proof IDs remain unchanged |
 | `IFC_GEMINI_THINKING_LEVEL` | `high`; `low`, `medium`, `high`, `xhigh` |
 | `IFC_GEMINI_MAX_OUTPUT_TOKENS` | `65536`; 1–65536, including thinking |
 | `IFC_API_MAX_TOKENS` | `6000`; 1–65536, Nemotron planning output |
@@ -58,10 +62,32 @@ reasoning configuration, request/inspection counts and reported token usage in
 `planning`; unreported usage stays null. The panel shows these in secondary
 diagnostics. Transport retries are disabled. These settings enable comparison;
 they do not establish that either provider is more accurate on supplied questions.
-Hydrogen constrains a compact native JSON envelope (status, scope flag, steps and
-inspection arguments). The complete plan schema is supplied in instructions and
+Hydrogen constrains a compact native JSON envelope. Its select filters travel
+as JSON strings, avoiding recursive decoder unions and opaque empty objects;
+only those declared filter slots are decoded back into data. The complete typed plan schema is supplied in instructions and
 validated locally before execution; the native envelope alone does not validate
 every operation field or establish source truth.
+
+A finite nested predicate decoder was rejected in live checks. Google documents
+that schema depth and branching can exceed its grammar limits, and recommends
+simplifying native constraints while retaining application validation
+([structured-output limitations](https://aistudio.google.com/docs/structured-output#limitations)).
+The generic provider error does not identify the exact rejected constraint.
+
+Planner context uses question/revision-scoped `e#` aliases in declared entity
+reference slots, and native source locators instead of repeated metadata proof
+UUIDs. Only exposed aliases can resolve. Literal source names, property values,
+program-step IDs and property keys remain intact. Discovery observations and
+exported facts, anchors, source hashes and canonical IDs stay unchanged. Set
+`IFC_API_COMPACT_CONTEXT=false` for a controlled context comparison.
+
+Locally compiled questions report `provider=deterministic`, zero model requests
+and zero token usage. They still pass the same plan validation, captured-scope
+gate, native executor and evidence export. Complete grammar matches and unique
+source identifiers are required; extra conditions, ambiguous names/categories
+and unsupported wording go to the bounded planner. The compiler reads no
+challenge questions or reference answers at runtime. Missing provider credentials
+do not prevent a question that can be safely compiled locally.
 
 ## Scope and verification
 
@@ -117,7 +143,8 @@ JSON to review the complete element sets and source inputs.
 
 The planner can compose the engine's supported selection, filtering, traversal,
 grouping, ranking, property lookup, stored-quantity aggregation and bounded
-`spatial_query` operations. `related_entities` extracts a reference column from
+`spatial_query` operations, typed scalar/table arithmetic, source measurements
+and native distribution-network queries. `related_entities` extracts a reference column from
 a relationship table and deduplicates canonical objects, so a query can find
 connected rooms, return those rooms' properties, or count the rooms once. Doors,
 starting objects and boundary elements remain calculation evidence rather than
@@ -126,6 +153,69 @@ Its catalog contains literal source labels and identifiers alongside normalized
 concepts. Count results retain occurrence or hierarchy policy; quantities retain
 units and net/gross basis. Missing properties and unsupported operations produce
 explicit non-answer outcomes instead of fabricated values.
+
+For compound questions, the planner can return executable outputs for the
+supported requested parts and explicitly list `unanswered_parts`. The API marks
+the combined response `partial` while preserving each executed claim's own units,
+quality, scope and evidence. Each omitted part appears as an issue. An unanswered
+part does not establish source absence, and the planner cannot replace a missing
+requested part with an unasked inventory. When no requested part can execute,
+the response remains a non-answer.
+
+`arithmetic` combines earlier scalar values with checked units and quantity
+bases. `table_calculate` supports row products/ratios/differences, within-group
+percentages and consecutive ordered differences. For example, storey elevations
+can produce floor-to-floor differences without asking a model to calculate the
+heights. Native building identities keep unnamed buildings and repeated names
+distinct. Ratios retain denominator evidence and reject zero denominators.
+
+`SourceContext` occurrence fields retain native type/storey/building identifiers
+and labels with relationship anchors. They allow type and floor breakdowns while
+counting the original occurrences. An exhaustive breakdown can request
+`missing_groups=unclassified`; absent, null and ambiguous classifications remain
+separate bins with exact occurrence cardinalities and a partial outcome.
+`SourceMaterial` retains ordered material-layer records and source thicknesses,
+including occurrence overrides and type inheritance. It does not equate a
+whole wall's volume with its insulation or concrete volume. Native selected
+enumeration/list properties are also retained within bounded size limits.
+
+Area bases need particular care. Revit documents its room `Area` as the author's
+net area under the project's room-boundary settings. The guarded
+`SourceQuantity.AuthoredRoomNetArea` field preserves that interpretation and its
+native authoring/property evidence. It is separate from the exported IFC space
+footprint, and the two can disagree. For a modeled room's net footprint when no
+explicit standard `NetFloorArea` quantity exists, the engine measures the
+represented space footprint and keeps its estimated quality. The stored authored
+value remains available for comparison; neither is adjusted to a reference answer.
+See Autodesk's [room property definitions](https://help.autodesk.com/cloudhelp/2025/ENU/Revit-ArchDesign/files/GUID-21326970-0037-41C6-A996-980C24EE019F.htm)
+and [room-area computation description](https://help.autodesk.com/cloudhelp/2025/ENU/RevitLT-ArchDes/files/GUID-9348929C-18CA-40AC-BB64-71D01CC52F2B.htm).
+
+`measure` distinguishes projected footprints, triangulated surface area,
+closed-solid volume, native axis length, world-Z extent/base and explicit
+distance methods. These are qualified estimates of source geometry with method,
+frame, units and native input records in `measurement_evidence`. World-Z extent
+of a long wall over sloping terrain is not its standing wall height. Geometric
+separation is not a traversable escape route or regulatory clearance.
+
+`network_query` inspects recorded distribution-port connections and ownership.
+It reports defined port and component graph metrics with native relationship
+proof in `network_evidence`. Port graph components differ from components of the
+owning equipment graph. An optional explicit equipment selection controls the
+integration denominator, including portless equipment. No ports means an empty
+recorded inventory and an undefined connectivity ratio, rather than zero percent.
+
+Sources of at least 32 MiB, or at least 15,000 native products on a cache miss,
+use a lean native object/relationship index and a
+deferred property catalog. Requested values are checked against the retained
+original IFC before being called present, null or absent. Property work is
+bounded per question; a budget failure is an explicit outcome, not a zero or a
+claim that uninspected values do not exist. Captured response evidence survives
+release of the previous question's hydrated fact cache. See the
+[large-model findings](IFC_LARGE_MODEL_FINDINGS.md) for measured limits.
+Large idle native sessions are retired before another model is parsed to avoid
+holding two native models at peak extraction memory. The browser can reupload
+an expired source when needed. Large HTTP responses use lossless gzip when the
+client supports it; source evidence and memberships are retained.
 
 The planner starts with a bounded, scope-specific catalog containing spatial
 prerequisites, literal source identifiers, metadata search matches and value
@@ -138,7 +228,8 @@ captured scope. Explicitly truncated samples are discovery candidates, not
 complete object inventories; the executor evaluates final predicates over the
 authorized source objects.
 
-A normal question can use one planning call. Invalid JSON, source references or
+A compiled question uses zero planning calls; other questions can use one.
+Invalid JSON, source references or
 step shapes get at most one repair against the same captured source and scope,
 within the shared request/deadline caps. Exhausted repair returns a structured
 clarification outcome. Missing source facts and genuinely unsupported operations
@@ -209,12 +300,21 @@ or a boundary record does not establish complete usable geometry. The containmen
 fallback currently accepts convex, closed room solids; unsupported room shapes
 and boundary surface constructions remain unknown.
 
-This integration does not add general geometry measurement, route finding, nearest-object
-distance, facade orientation or north-facade classification, regulatory checking
-or every IFC-Bench capability. A valid plan establishes syntax and
+This integration does not establish general route finding, facade orientation
+or north-facade classification, regulatory checking or every IFC-Bench capability.
+Its explicit geometric distance methods do not establish route distances or
+every possible meaning of "closest". A valid plan establishes syntax and
 references, not correct natural-language interpretation. Check the displayed
 interpretation, scope, element set and source facts. The dataset's known families
 remain the acceptance target; this feature does not claim complete coverage.
+
+The [IFC coverage inventory](IFC_QUESTION_COVERAGE.md) lists every supplied family
+and distinguishes 1,188 direct IFC rows from paired PDF questions. The
+[real-dataset evaluator](../experiments/ifc_dataset/README.md) exercises production
+upload/question routes with cumulative call budgets, durable predictions and
+source/code-bound resume. Numeric reference agreement, free-text review and
+independent object-membership correctness remain distinct checks. Unsupported
+known families remain work to complete rather than optional extensions.
 
 ## Supplied question families
 

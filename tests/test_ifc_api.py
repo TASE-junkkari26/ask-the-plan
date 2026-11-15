@@ -22,6 +22,7 @@ import ifcopenshell.guid
 from contracts import models as m
 from contracts.validation import validate_plan, validate_result
 from ifc_engine.catalog import attribute_key, POLICIES
+from ifc_api.config import IfcSettings
 from image_api.app import create_app
 from image_api.config import ApiSettings
 from nemotron import AsyncNemotronClient, ConfigurationError, NemotronSettings
@@ -89,7 +90,7 @@ class IfcApiTests(unittest.IsolatedAsyncioTestCase):
             if not configured:
                 raise ConfigurationError("synthetic unconfigured")
             return sdk
-        app = create_app(ApiSettings(), client_factory=factory)
+        app = create_app(ApiSettings(), client_factory=factory, ifc_settings=IfcSettings(fast_plans=False))
         async with app.router.lifespan_context(app):
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://test") as client:
                 yield client, app
@@ -142,6 +143,116 @@ class IfcApiTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(body["included_elements"]), 3)
             self.assertEqual(body["scope_label"], "Entire model")
             self.assertIsNone(body["plan"]["scope"]["exact_entity_ids"])
+
+    async def test_unanswered_requested_part_keeps_computed_claim_and_marks_question_partial(self):
+        wire = proposal()
+        wire["unanswered_parts"] = ["Warranty periods for the selected window types"]
+        async with self.api(lambda _: completion(wire)) as (client, _):
+            model = await self.upload(client)
+            response = await self.question(client, model,
+                question="How many windows are there, and what are their warranty periods?")
+            self.assertEqual(response.status_code, 200, response.text)
+            answer = response.json()
+            self.assertEqual(answer["result"]["status"], "partial")
+
+            self.assertEqual(answer["result"]["claims"][0]["value"]["value"], 2)
+            self.assertEqual(answer["result"]["claims"][0]["quality"], "exact")
+            self.assertEqual(answer["planning"]["model_requests"], 1)
+            self.assertEqual(len(answer["included_elements"]), 2)
+            issue = answer["result"]["issues"][0]
+            self.assertIn("Warranty periods", issue["message"]["text"])
+            self.assertIn("do not establish", issue["message"]["text"])
+            self.assertTrue(answer["anchors"])
+            wire["unanswered_parts"] = []
+            subsequent = await self.question(client, model)
+            self.assertEqual(subsequent.json()["result"]["status"], "answered")
+            self.assertEqual(answer["result"]["status"], "partial")
+
+    async def test_explicit_whole_model_words_block_a_wrong_view_plan_before_inference(self):
+        questions = ["How many fire-rated windows are there in the entire model?",
+            "How many windows are there in the entire IFC model?",
+            "Kuinka monta paloikkunaa koko mallissa on?",
+            "Wie viele Brandschutzfenster gibt es im gesamten Modell?"]
+        for question in questions:
+            with self.subTest(question=question):
+                async with self.api(lambda _: completion(proposal())) as (client, _):
+                    model = await self.upload(client)
+                    response = await self.question(client, model, question=question)
+                answer = response.json()
+                self.assertEqual(answer["result"]["status"], "needs_clarification")
+                self.assertEqual(answer["result"]["claims"], [])
+                self.assertEqual(answer["planning"]["model_requests"], 0)
+                self.assertEqual(answer["included_elements"], [])
+                self.assertEqual(self.provider_requests, [])
+
+    async def test_large_evidence_responses_are_losslessly_compressed(self):
+        narrative = "Repeated source-backed explanation. " * 5000
+        async with self.api() as (client, _):
+            model = await self.upload(client)
+            with patch("ifc_api.service.summarize", return_value=narrative):
+                response = await self.question(client, model)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.headers.get("content-encoding"), "gzip")
+        self.assertLess(int(response.headers["content-length"]), len(response.content) // 10)
+        answer = m.IfcQuestionResponse.model_validate(response.json())
+        self.assertEqual(answer.result.explanation.text, narrative)
+        self.assertEqual(answer.result.claims[0].value.value, 2)
+        self.assertTrue(answer.anchors)
+
+    async def test_scope_failure_does_not_advertise_hidden_reference_as_a_viewer_match(self):
+        async with self.api() as (client, app):
+            model = await self.upload(client)
+            state = app.state.ifc_service._model(model["model_id"], self.sha)
+            hidden = state.by_step[self.door_steps[0]]
+            self.reply = proposal(operation={"kind": "measure", "input_step_id": "objects",
+                "metric": "horizontal_distance", "basis": "minimum_projected_separation",
+                "output_unit_id": "unit:m", "reference_entity_ids": [hidden]})
+            response = await self.question(client, model)
+        self.assertEqual(response.status_code, 200, response.text)
+        answer = m.IfcQuestionResponse.model_validate(response.json())
+        self.assertEqual(answer.result.status, "incomplete_coverage")
+        public = [*answer.included_elements, *answer.excluded_elements, *answer.unresolved_elements]
+        self.assertTrue(all(element.step_id in self.window_steps[:2] for element in public))
+
+    async def test_disconnected_client_cancels_planning_and_releases_native_session_gate(self):
+        started, cancelled = asyncio.Event(), asyncio.Event()
+
+        async def provider(_request):
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+        async with self.api(provider) as (client, app):
+            model = await self.upload(client)
+            body = json.dumps({"model_id": model["model_id"], "source_sha256": self.sha,
+                "question": "How many windows?", "scope": "model"}).encode()
+            sent_body = False
+            messages = []
+
+            async def receive():
+                nonlocal sent_body
+                if not sent_body:
+                    sent_body = True
+                    return {"type": "http.request", "body": body, "more_body": False}
+                await started.wait()
+                return {"type": "http.disconnect"}
+
+            async def send(message):
+                messages.append(message)
+
+            scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
+                "scheme": "http", "method": "POST", "path": "/api/ifc/questions", "raw_path": b"/api/ifc/questions",
+                "query_string": b"", "root_path": "", "headers": [(b"content-type", b"application/json")],
+                "server": ("test", 80), "client": ("127.0.0.1", 12345)}
+            await asyncio.wait_for(app(scope, receive, send), 3)
+            self.assertTrue(cancelled.is_set())
+            self.assertFalse(app.state.ifc_service._gate.locked())
+            self.assertEqual(app.state.ifc_service._model(model["model_id"], self.sha).active, 0)
+            self.assertEqual(len(self.provider_requests), 1)
+            self.assertEqual(next(message["status"] for message in messages if message["type"] == "http.response.start"), 499)
 
     async def test_empty_view_is_zero_and_not_unrestricted(self):
         async with self.api() as (client, _):
@@ -354,8 +465,9 @@ class IfcApiTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual({hit["step_id"] for hit in hits}, {self.window_steps[0]})
             match = next(field for field in hits[0]["matched_fields"] if field.get("property_key") == attribute_key("ObjectType"))
             self.assertEqual(match["literal_value"], "M_Single-Flush")
-            self.assertTrue(match["fact_id"])
-            self.assertTrue(match["anchor_ids"])
+            self.assertTrue(match["source_hints"])
+            self.assertNotIn("fact_id", match)
+            self.assertNotIn("anchor_ids", match)
             self.assertFalse(catalog["matching_elements_truncated"])
 
     async def test_source_is_retained_until_model_deletion(self):
@@ -489,6 +601,6 @@ class ExactScopeEngineTests(unittest.TestCase):
             plan.steps[-1] = m.PlanStep(id="answer", operation=m.TraverseOperation(
                 kind="traverse", input_step_id="objects", predicate="contains", direction="outgoing"))
             result = engine.execute(plan)
-            self.assertEqual(result.status, "answered", result.model_dump_json())
-            self.assertEqual(result.claims[0].value.entity_ids, [])
+            self.assertEqual(result.status, "incomplete_coverage", result.model_dump_json())
+            self.assertFalse(result.claims)
             validate_result(result, engine.bundle, plan)

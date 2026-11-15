@@ -33,7 +33,10 @@ def property_key(pset: str, name: str) -> str:
 
 
 CLASS_KEY = "ifc:class"
-ATTRIBUTES = ("Name", "LongName", "Description", "Tag", "PredefinedType", "ObjectType", "Phase", "LandTitleNumber")
-LENGTH_ATTRIBUTES = ("OverallWidth", "OverallHeight", "Elevation", "RefElevation")
+ATTRIBUTES = ("Name", "LongName", "Description", "Tag", "PredefinedType", "ObjectType", "Phase", "LandTitleNumber",
+              "FlowDirection", "SystemType")
+LENGTH_ATTRIBUTES = ("OverallWidth", "OverallHeight", "Elevation", "RefElevation",
+                     "ElevationOfRefHeight", "ElevationOfTerrain")
 RELATIONS = ("contains", "aggregates", "typed_by", "assigned_to_system", "assigned_to_zone", "has_material",
-             "bounded_by", "external_boundary", "has_opening", "filled_by", "connected_to", "corresponding_boundary")
+             "bounded_by", "external_boundary", "has_opening", "filled_by", "connected_to", "corresponding_boundary",
+             "has_port", "port_connected_to")

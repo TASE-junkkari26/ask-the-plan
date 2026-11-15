@@ -23,6 +23,7 @@ from PIL import Image
 
 from gemini import AsyncGeminiClient, GeminiSettings
 from image_api.app import create_app
+from ifc_api.config import IfcSettings
 from image_api.config import ApiSettings
 from nemotron import AsyncNemotronClient, ConfigurationError, NemotronSettings
 from tests.test_ifc_api import completion as ifc_completion, proposal as ifc_proposal
@@ -144,6 +145,7 @@ class GeminiImageApiTests(unittest.IsolatedAsyncioTestCase):
 
         app = create_app(
             settings or ApiSettings(provider="gemini", preprocess_mode="off"),
+            ifc_settings=IfcSettings(fast_plans=False),
             client_factory=nemotron_factory,
             gemini_client_factory=gemini_factory,
         )

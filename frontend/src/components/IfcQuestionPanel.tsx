@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUp, Check, CircleAlert, Download, Focus, Search, X } from 'lucide-react';
 import type { IfcSource } from '../types';
 import type { IfcModelResponse } from '../contracts/IfcModelResponse';
@@ -6,10 +6,11 @@ import type { EvidenceAnchor, IfcQuestionResponse } from '../contracts/IfcQuesti
 import type { Output } from '../contracts/QueryResult';
 import type { EvidenceElement, HighlightReport } from '../ifc/evidence';
 import { sourceReferenceLabel } from '../ifc/answer';
+import IfcRouteEvidence from './IfcRouteEvidence';
 import { askIfcQuestion, IfcApiError, ifcQualityLabel, uploadIfcModel } from '../lib/ifcApi';
 import './IfcQuestionPanel.css';
 
-function Value({ value, ...context }: {
+function ValueContent({ value, ...context }: {
   value: Output;
   units: ReadonlyMap<string, string>;
   elements: ReadonlyMap<string, EvidenceElement>;
@@ -35,11 +36,15 @@ function Value({ value, ...context }: {
     case 'table': return <div className="ifc-value-table"><table><thead><tr>{value.columns.map((column) => <th key={column.key}>{column.label.text}</th>)}</tr></thead><tbody>{value.rows.slice(0, 100).map((row, i) => <tr key={i}>{value.columns.map((column) => <td key={column.key}><Value value={row[column.key]} {...context} /></td>)}</tr>)}</tbody></table>{value.rows.length > 100 && <p>First 100 rows shown. Export evidence for all rows.</p>}</div>;
   }
 }
+const Value = memo(ValueContent);
 
-function Elements({ title, elements, onSelect }: { title: string; elements: EvidenceElement[]; onSelect: (id: number) => void }) {
+function ElementsContent({ title, elements, onSelect }: { title: string; elements: EvidenceElement[]; onSelect: (id: number) => void }) {
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(50);
-  const filtered = elements.filter((element) => `${element.name} ${element.ifc_class} #${element.step_id} ${element.guid ?? ''}`.toLowerCase().includes(query.toLowerCase()));
+  const normalized = query.toLowerCase();
+  const filtered = useMemo(() => normalized
+    ? elements.filter((element) => `${element.name} ${element.ifc_class} #${element.step_id} ${element.guid ?? ''}`.toLowerCase().includes(normalized))
+    : elements, [elements, normalized]);
   return <details className="ifc-evidence-group" open={title === 'Included elements'}>
     <summary>{title}<span>{elements.length.toLocaleString('en')}</span></summary>
     {!!elements.length && <>
@@ -54,13 +59,14 @@ function Elements({ title, elements, onSelect }: { title: string; elements: Evid
     </>}
   </details>;
 }
+const Elements = memo(ElementsContent);
 
-function SourceAnchors({ anchorIds, anchors, onSelect }: {
+function SourceAnchorsContent({ anchorIds, anchors, onSelect }: {
   anchorIds: string[];
   anchors: ReadonlyMap<string, EvidenceAnchor>;
   onSelect: (id: number) => void;
 }) {
-  const uniqueIds = [...new Set(anchorIds)];
+  const uniqueIds = useMemo(() => [...new Set(anchorIds)], [anchorIds]);
   if (!uniqueIds.length) return null;
   return <details className="ifc-source-anchors">
     <summary>Source references <span>{uniqueIds.length.toLocaleString('en')}</span></summary>
@@ -82,6 +88,7 @@ function SourceAnchors({ anchorIds, anchors, onSelect }: {
     {uniqueIds.length > 50 && <p>First 50 of {uniqueIds.length.toLocaleString('en')} references shown. Export evidence for every source locator.</p>}
   </details>;
 }
+const SourceAnchors = memo(SourceAnchorsContent);
 
 export default function IfcQuestionPanel({
   source, sourceHash, ready, viewBusy, section, viewRevision, viewLabel,
@@ -108,6 +115,7 @@ export default function IfcQuestionPanel({
   const [phase, setPhase] = useState('');
   const [error, setError] = useState('');
   const [stale, setStale] = useState(false);
+  const [calculationLimit, setCalculationLimit] = useState(25);
   const modelRef = useRef<IfcModelResponse | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const previousView = useRef(viewRevision);
@@ -181,12 +189,14 @@ export default function IfcQuestionPanel({
     }
   };
 
-  const units = new Map((response?.units ?? []).map((unit) => [unit.id, unit.symbol]));
-  const facts = new Map((response?.facts ?? []).map((fact) => [fact.id, fact]));
-  const anchors = new Map((response?.anchors ?? []).map((anchor) => [anchor.id, anchor]));
-  const valueContext = { units, elements: new Map([
+  useEffect(() => { setCalculationLimit(25); }, [response]);
+  const units = useMemo(() => new Map((response?.units ?? []).map((unit) => [unit.id, unit.symbol])), [response]);
+  const facts = useMemo(() => new Map((response?.facts ?? []).map((fact) => [fact.id, fact])), [response]);
+  const anchors = useMemo(() => new Map((response?.anchors ?? []).map((anchor) => [anchor.id, anchor])), [response]);
+  const evidenceElements = useMemo(() => new Map([
     ...(response?.excluded_elements ?? []), ...(response?.unresolved_elements ?? []), ...(response?.included_elements ?? []),
-  ].map((element) => [element.entity_id, element])), onSelect };
+  ].map((element) => [element.entity_id, element])), [response]);
+  const valueContext = { units, elements: evidenceElements, onSelect };
   const canAsk = ready && !viewBusy && !!source.file && !!sourceHash && !(section && scope === 'view');
   return <div className="ifc-questions">
     <div className="ifc-question-intro"><strong>Ask the model. Check every element.</strong><p>The configured planner interprets your question. The IFC engine calculates from source objects, stored properties and recorded relationships.</p></div>
@@ -209,6 +219,7 @@ export default function IfcQuestionPanel({
       {stale && <p className="ifc-question-warning"><CircleAlert size={14} />View changed. This answer describes its captured scope; ask again for the current view.</p>}
       {response.interpretation && <p className="ifc-answer-interpretation">{response.interpretation}</p>}
       {!!response.result.issues?.length && <ul className="ifc-answer-issues">{response.result.issues.map((issue, index) => <li key={index}>{issue.message.text}{!!issue.options?.length && <ul>{issue.options.map((option, optionIndex) => <li key={optionIndex}>{option.text}</li>)}</ul>}</li>)}</ul>}
+      <IfcRouteEvidence calculations={response.result.calculations ?? []} elements={evidenceElements} />
       {!!response.warnings?.length && <details className="ifc-evidence-group"><summary>Source & execution notes <span>{response.warnings.length}</span></summary><ul>{response.warnings.map((warning, i) => <li key={i}>{warning}</li>)}</ul></details>}
       {report && <div className="ifc-highlight-summary"><span className="ifc-answer-swatch" /><span><strong>{report.stepIds.length.toLocaleString('en')} elements marked</strong><small>{response.included_elements?.length ?? 0} source elements included in the engine evidence.{!!report.hiddenStepIds?.length && ` ${report.hiddenStepIds.length} marked elements were hidden by the captured view; Isolate matches reveals them.`}{section && ' The active section can clip marked geometry.'}{!!report.unavailable.length && ` ${report.unavailable.length} have no drawable geometry in this preview.`}{!!report.identityMismatches.length && ` ${report.identityMismatches.length} identity mismatches were withheld.`} Markings are separate from the computed answer.</small></span></div>}
       {!!report?.stepIds.length && <div className="ifc-actions"><button className="secondary-button" onClick={() => focus(report.stepIds)}><Focus size={13} />Fit matches</button><button className="secondary-button" onClick={() => isolate(report.stepIds)}>Isolate matches</button></div>}
@@ -216,7 +227,7 @@ export default function IfcQuestionPanel({
       <Elements key={`${response.request_id}:excluded`} title="Excluded elements" elements={response.excluded_elements ?? []} onSelect={onSelect} />
       {!!response.unresolved_elements?.length && <Elements key={`${response.request_id}:unresolved`} title="Unresolved elements" elements={response.unresolved_elements} onSelect={onSelect} />}
       {response.planning && <details className="ifc-evidence-group"><summary>Analysis details</summary><p>{response.planning.provider} · {response.planning.returned_model}{response.planning.thinking_level ? ` · ${response.planning.thinking_level} reasoning` : ''}</p><p>{response.planning.model_requests} planner requests · {response.planning.inspection_count} source inspections</p><p>Input tokens: {response.planning.prompt_tokens == null ? 'unreported' : response.planning.prompt_tokens.toLocaleString('en')} · Output and reasoning tokens: {response.planning.completion_tokens == null ? 'unreported' : response.planning.completion_tokens.toLocaleString('en')}</p></details>}
-      {!!response.result.calculations?.length && <details className="ifc-evidence-group"><summary>Calculation & source inputs</summary>{response.result.calculations.map((calculation) => <div className="ifc-calculation" key={calculation.id}><strong>{calculation.operation.replaceAll('_', ' ')}</strong><div><Value value={calculation.output} {...valueContext} /></div>{calculation.rule_key && <code>{calculation.rule_key}</code>}{!!calculation.input_node_ids?.length && <p>Input steps: {calculation.input_node_ids.join(', ')}</p>}{(calculation.fact_ids ?? []).slice(0, 100).map((factId) => { const fact = facts.get(factId); return fact && <div className="ifc-calculation-input" key={factId}><code>{fact.original_property_path?.join('.') || fact.property_key}</code><div>{fact.value ? <Value value={fact.value} {...valueContext} /> : fact.status.replaceAll('_', ' ')}</div>{fact.provenance.anchor_ids?.map((anchorId) => { const anchor = anchors.get(anchorId); return anchor && <small key={anchorId}>{anchor.selector.kind}: {anchor.selector.kind === 'step_id' ? '#' : ''}{anchor.selector.value}{anchor.selector.property_path?.length ? ` · ${anchor.selector.property_path.join('.')}` : ''}</small>; })}</div>; })}{(calculation.fact_ids?.length ?? 0) > 100 && <p>First 100 inputs shown; export contains every input.</p>}<SourceAnchors anchorIds={calculation.anchor_ids ?? []} anchors={anchors} onSelect={onSelect} /></div>)}</details>}
+      {!!response.result.calculations?.length && <details className="ifc-evidence-group"><summary>Calculation & source inputs</summary>{response.result.calculations.slice(0, calculationLimit).map((calculation) => <div className="ifc-calculation" key={calculation.id}><strong>{calculation.operation.replaceAll('_', ' ')}</strong><div><Value value={calculation.output} {...valueContext} /></div>{calculation.rule_key && <code>{calculation.rule_key}</code>}{!!calculation.input_node_ids?.length && <p>Input steps: {calculation.input_node_ids.join(', ')}</p>}{(calculation.fact_ids ?? []).slice(0, 100).map((factId) => { const fact = facts.get(factId); return fact && <div className="ifc-calculation-input" key={factId}><code>{fact.original_property_path?.join('.') || fact.property_key}</code><div>{fact.value ? <Value value={fact.value} {...valueContext} /> : fact.status.replaceAll('_', ' ')}</div>{fact.provenance.anchor_ids?.map((anchorId) => { const anchor = anchors.get(anchorId); return anchor && <small key={anchorId}>{anchor.selector.kind}: {anchor.selector.kind === 'step_id' ? '#' : ''}{anchor.selector.value}{anchor.selector.property_path?.length ? ` · ${anchor.selector.property_path.join('.')}` : ''}</small>; })}</div>; })}{(calculation.fact_ids?.length ?? 0) > 100 && <p>First 100 inputs shown; export contains every input.</p>}<SourceAnchors anchorIds={calculation.anchor_ids ?? []} anchors={anchors} onSelect={onSelect} /></div>)}{response.result.calculations.length > calculationLimit && <button className="text-button" onClick={() => setCalculationLimit((value) => value + 25)}>Show next {Math.min(25, response.result.calculations.length - calculationLimit)} steps ({calculationLimit.toLocaleString('en')} / {response.result.calculations.length.toLocaleString('en')})</button>}{response.result.calculations.length > calculationLimit && <p>Export evidence for every calculation and source input.</p>}</details>}
       <button className="text-button ifc-evidence-export" onClick={() => { const url = URL.createObjectURL(new Blob([JSON.stringify(response, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = 'ifc-answer-evidence.json'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }}><Download size={13} />Export answer & evidence</button>
       <small className="ifc-answer-revision">Source SHA-256 <code>{response.source_sha256}</code></small>
     </div>}

@@ -115,16 +115,21 @@ class PlannerEvaluationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(summary["cases"], 24)
             self.assertEqual(summary["passed"], 24)
             self.assertEqual(summary["external_inference_requests"], 0)
-            self.assertEqual(summary["planner_requests"], 24)
+            self.assertEqual(summary["planner_requests"], 23)
             self.assertEqual(summary["statuses"]["partial"], 2)
             self.assertEqual(summary["statuses"]["missing_information"], 2)
             self.assertEqual(summary["statuses"]["needs_clarification"], 1)
             self.assertEqual(summary["statuses"]["conflicting_evidence"], 1)
-            self.assertEqual(summary["usage"]["prompt_tokens"]["unreported_calls"], 24)
+            self.assertEqual(summary["usage"]["prompt_tokens"]["unreported_calls"], 23)
             self.assertIsNone(summary["cost_estimate"])
             stored = [json.loads(line) for line in (output / "predictions.jsonl").read_text().splitlines()]
             self.assertEqual(len(stored), 24)
-            self.assertTrue(all(row["response"]["planning"]["provider"] == "offline_replay" for row in stored))
+            scope_case = next(row for row in stored if row["case_id"] == "floors-scope-change")
+            self.assertEqual(scope_case["calls"], [])
+            self.assertEqual(scope_case["response"]["planning"]["provider"], "deterministic")
+            self.assertEqual(scope_case["response"]["planning"]["model_requests"], 0)
+            self.assertTrue(all(row["response"]["planning"]["provider"] == "offline_replay"
+                                for row in stored if row is not scope_case))
             self.assertEqual(json.loads((output / "manifest.json").read_text())["mode"], "offline_replay")
         evaluator_fields = {"reference_value", "expected_count", "expected_status", "leakage_group", "replay", "split"}
 
@@ -136,7 +141,7 @@ class PlannerEvaluationTests(unittest.IsolatedAsyncioTestCase):
             elif isinstance(value, list):
                 for child in value:
                     check_data(child)
-        self.assertEqual(len(payloads), 24)
+        self.assertEqual(len(payloads), 23)
         for payload in payloads:
             check_data(payload)
 

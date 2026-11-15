@@ -22,7 +22,7 @@ class PlanningMergeTests(unittest.IsolatedAsyncioTestCase):
         self.path = Path(self.directory.name) / "source.ifc"
         _, doors, *_ = sample_model(self.path)
         self.sha = hashlib.sha256(self.path.read_bytes()).hexdigest()
-        self.service = IfcService(None)
+        self.service = IfcService(None, settings=IfcSettings(fast_plans=False))
         description = self.service._load(self.path, self.sha, self.path.stat().st_size)
         self.model = self.service._model(description.model_id, self.sha)
         self.request = m.IfcQuestionRequest(model_id=self.model.model_id, source_sha256=self.sha,
@@ -64,7 +64,7 @@ class PlanningMergeTests(unittest.IsolatedAsyncioTestCase):
     async def test_repair_does_not_reset_model_request_budget_after_discovery(self):
         planner = ScriptedPlanner([inspect_request(action="search", query="doors"), self.invalid, self.ready])
         self.service.planner = planner
-        self.service.settings = IfcSettings(max_model_requests=2)
+        self.service.settings = IfcSettings(max_model_requests=2, fast_plans=False)
         with patch.object(self.model.engine, "execute", wraps=self.model.engine.execute) as execute:
             response = await self.service.question(self.request, "request:shared-limit")
         self.assertEqual(response.result.status, "needs_clarification")

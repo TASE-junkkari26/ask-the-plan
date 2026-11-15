@@ -162,10 +162,17 @@ For a model-wide question attached to a floor PDF, resolve the associated model/
 | `aggregate` | Count/sum/mean/min/max, optional grouping, declared missing-value handling, and requested output unit. Numeric aggregates require a field; count does not. A grouped result's measure column uses `value_key` (default `value`); group columns use their field keys. |
 | `project` | Retrieve catalog fields such as dimensions, materials, or localized descriptions. |
 | `rank` | Sort by a field and retain a bounded number of rows/entities. |
-| `measure` | Compute area/union area/length/perimeter/volume/distance/angle from geometry, with basis, unit, optional reference entities, and calibrations. |
+| `measure` | Compute represented area/union area/length/perimeter/volume/distance, height or base elevation with explicit basis, unit and source/reference objects. Angle remains representable but not implemented by the IFC engine. Per-object IFC measures return subject/reference/value tables; footprint union returns a scalar. |
 | `arithmetic` | Add/subtract/multiply/divide earlier scalar outputs, with dimension checking. |
+| `table_calculate` | Derive checked row arithmetic, within-group percentages or ordered consecutive differences from typed result columns, with per-cell input calculations. |
+| `network_query` | Compute explicitly defined metrics from the selected native distribution-port graph, optionally with a separate component inventory denominator. |
 
 Arithmetic inputs are ordered. Subtraction and division fold from left to right; an executor must check compatible dimensions for addition/subtraction and derive the dimensions for multiplication/division. The current validator checks scalar input shapes and declared unit references; it does not implement full dimensional type inference or recompute arithmetic.
+The IFC executor now performs those numeric/unit/basis checks and records operand
+calculations and unit conversions. Measurement and network nodes carry typed
+`measurement_evidence` and `network_evidence` separately from spatial relations.
+Unclassified grouping bins preserve absent/null/ambiguous source states; their
+known occurrence cardinalities do not imply known classifications.
 
 `FieldRef` identifies a property, label, concept, native identifier, entity ID, or `result_column`. Source/catalog fields apply to entity-set inputs; `result_column` resolves only against columns produced by an earlier rowset step. Group keys and the aggregate `value_key` must be distinct. This prevents treating a calculated count column as if it were a stored building property. `project` retrieves a rowset; it does not silently unwrap a singleton as a scalar. Use a scalar aggregate after an explicit singleton selection when a numeric scalar is needed.
 

@@ -219,7 +219,8 @@ class IfcSpatialApiTests(unittest.IsolatedAsyncioTestCase):
             self.assertGreater(prerequisites["spaces_with_physical_boundaries"], 0)
             self.assertGreater(prerequisites["spaces_without_physical_boundaries"], 0)
             self.assertEqual(prerequisites["native_boundary_completeness"], "unknown")
-            self.assertFalse(prerequisites["routes_supported"])
+            self.assertTrue(prerequisites["routes_supported"])
+            self.assertIn("route_query", catalog["operations"])
 
     async def test_absent_source_description_returns_missing_information_without_narrative(self):
         # Site.Description is explicitly null in the fixture. The system must

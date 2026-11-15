@@ -15,6 +15,8 @@ class IfcSettings(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
 
     provider: Literal["nemotron", "gemini"] = "nemotron"
+    fast_plans: bool = True
+    compact_context: bool = True
     gemini_thinking_level: Literal["low", "medium", "high", "xhigh"] = "high"
     gemini_max_output_tokens: int = Field(default=65536, gt=0, le=65536)
     max_tokens: int = Field(default=6000, gt=0, le=65536)
@@ -35,6 +37,8 @@ class IfcSettings(BaseModel):
         values = {**file_values, **(os.environ if environ is None else environ)}
         names = {
             "provider": "IFC_API_PROVIDER",
+            "fast_plans": "IFC_API_FAST_PLANS",
+            "compact_context": "IFC_API_COMPACT_CONTEXT",
             "gemini_thinking_level": "IFC_GEMINI_THINKING_LEVEL",
             "gemini_max_output_tokens": "IFC_GEMINI_MAX_OUTPUT_TOKENS",
             "max_tokens": "IFC_API_MAX_TOKENS",

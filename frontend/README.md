@@ -8,6 +8,9 @@ Nemotron or Gemini Hydrogen-low provider and shows
 candidate boxes, uncertainty, and source close-ups. Inference credentials stay
 on the Python backend. IFC viewing stays local until a question uploads the model
 to that backend for the independently selected IFC planner and CPU engine execution.
+Unambiguous supported IFC count/quantity grammar can compile locally on the
+backend with zero inference; other questions use its configured planner. The
+analysis details report the actual path and model-request/token usage.
 
 The [project scope](../docs/PROJECT_SCOPE.md) is the supplied dataset's question
 families. Build real integrations and evidence views for that set; unknown

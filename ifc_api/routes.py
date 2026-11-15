@@ -38,7 +38,26 @@ def install_ifc_routes(app: FastAPI):
 
     @app.post("/api/ifc/questions", response_model=IfcQuestionResponse)
     async def ask_ifc(request: Request, question: IfcQuestionRequest):
-        return await request.app.state.ifc_service.question(question, request.state.request_id)
+        inference = asyncio.create_task(request.app.state.ifc_service.question(question, request.state.request_id))
+
+        async def disconnected():
+            while not await request.is_disconnected():
+                await asyncio.sleep(0.1)
+
+        monitor = asyncio.create_task(disconnected())
+        try:
+            done, _ = await asyncio.wait((inference, monitor), return_when=asyncio.FIRST_COMPLETED)
+            if inference in done:
+                return await inference
+            # Stop further planning calls. Native source work drains safely
+            # inside the service before its gate and file ownership are released.
+            inference.cancel()
+            await asyncio.gather(inference, return_exceptions=True)
+            raise ApiError(499, "client_disconnected", "Client disconnected before IFC analysis completed.", True)
+        finally:
+            for task in (inference, monitor):
+                task.cancel()
+            await asyncio.gather(inference, monitor, return_exceptions=True)
 
     @app.delete("/api/ifc/models/{model_id}", status_code=204)
     async def remove_ifc(model_id: str, request: Request):

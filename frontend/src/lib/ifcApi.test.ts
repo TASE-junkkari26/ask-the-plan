@@ -103,6 +103,17 @@ test('planning diagnostics accept bounded provenance and reject malformed counte
   assert.throws(() => validateIfcAnswer(malformed, request), /invalid evidence/);
 });
 
+test('deterministic source planning reports zero inference without accepting a zero-call model claim', () => {
+  const planning = { provider: 'deterministic', requested_model: 'ifc-grammar/v1', returned_model: 'ifc-grammar/v1',
+    prompt_version: 'ifc-grammar-v1', discovery_version: 'source-v2', model_requests: 0, inspection_count: 0,
+    prompt_tokens: 0, completion_tokens: 0, thought_tokens: 0 };
+  assert.equal(validateIfcAnswer({ ...answer(), planning }, request).planning?.model_requests, 0);
+  for (const change of [{ provider: 'gemini' }, { model_requests: 1 }, { inspection_count: 1 },
+    { prompt_tokens: null }, { completion_tokens: 12 }]) {
+    assert.throws(() => validateIfcAnswer({ ...answer(), planning: { ...planning, ...change } }, request), /invalid evidence/);
+  }
+});
+
 test('upload binds model handle to original source hash and sends no inference credential', async () => {
   const original = globalThis.fetch;
   globalThis.fetch = async (url, init) => {

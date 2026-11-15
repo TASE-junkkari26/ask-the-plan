@@ -74,6 +74,18 @@ Hydrogen for IFC planning, set `IFC_API_PROVIDER=gemini`; its independent
 `IFC_GEMINI_THINKING_LEVEL` defaults to `high`. Preserve both
 keys and existing settings; see [provider setup](image_api/README.md#choose-the-image-provider).
 
+Supported exact IFC count/quantity grammar compiles locally with zero inference
+by default (`IFC_API_FAST_PLANS=true`); other questions use the selected planner.
+Planner context uses compact source references by default
+(`IFC_API_COMPACT_CONTEXT=true`), while exported evidence retains canonical IDs.
+Typed arithmetic, ordered table calculations, material-layer facts, bounded
+measurements and native port-network metrics execute in the CPU engine with
+source evidence. Large sources defer property materialization until requested.
+See the [IFC family inventory](docs/IFC_QUESTION_COVERAGE.md) and
+[bounded real-source evaluation](experiments/ifc_dataset/README.md) for the
+remaining acceptance work and the distinction between source evidence and
+reference-answer agreement.
+
 Install the API extra and start the service:
 
 ```sh

@@ -10,9 +10,24 @@ DIMENSIONS = {
     "volume": (3, 0, 0, 0, 0, 0, 0), "mass": (0, 1, 0, 0, 0, 0, 0),
     "time": (0, 0, 1, 0, 0, 0, 0), "angle": (0, 0, 0, 0, 0, 0, 0),
     "ratio": (0, 0, 0, 0, 0, 0, 0), "number": (0, 0, 0, 0, 0, 0, 0),
+    "mass_density": (-3, 1, 0, 0, 0, 0, 0), "thermal_conductivity": (1, 1, -3, 0, -1, 0, 0),
+    "specific_heat_capacity": (2, 0, -2, 0, -1, 0, 0), "volumetric_flow_rate": (3, 0, -1, 0, 0, 0, 0),
+    "mass_flow_rate": (0, 1, -1, 0, 0, 0, 0), "linear_velocity": (1, 0, -1, 0, 0, 0, 0),
+    "pressure": (-1, 1, -2, 0, 0, 0, 0), "power": (2, 1, -3, 0, 0, 0, 0),
+    "energy": (2, 1, -2, 0, 0, 0, 0), "temperature": (0, 0, 0, 0, 1, 0, 0),
 }
 UNIT_TYPES = {"LENGTHUNIT": "length", "AREAUNIT": "area", "VOLUMEUNIT": "volume",
               "MASSUNIT": "mass", "TIMEUNIT": "time", "PLANEANGLEUNIT": "angle"}
+# Match compound measure semantics before substring families (MassDensity is
+# not a mass, and VolumetricFlowRate is not a volume). Unsupported source units
+# remain unresolved; this map alone establishes no conversion or factor.
+MEASURE_KINDS = {
+    "IfcMassDensityMeasure": "mass_density", "IfcThermalConductivityMeasure": "thermal_conductivity",
+    "IfcSpecificHeatCapacityMeasure": "specific_heat_capacity", "IfcVolumetricFlowRateMeasure": "volumetric_flow_rate",
+    "IfcMassFlowRateMeasure": "mass_flow_rate", "IfcLinearVelocityMeasure": "linear_velocity",
+    "IfcPressureMeasure": "pressure", "IfcPowerMeasure": "power", "IfcEnergyMeasure": "energy",
+    "IfcThermodynamicTemperatureMeasure": "temperature",
+}
 SI_TARGETS = {"length": "unit:m", "area": "unit:m2", "volume": "unit:m3",
               "mass": "unit:kg", "time": "unit:s", "angle": "unit:rad",
               "ratio": "unit:1", "number": "unit:1"}
@@ -36,7 +51,8 @@ def standard_units() -> dict[str, Unit]:
                    ("cm2", "area", "0.0001"), ("ft2", "area", "0.09290304"),
                    ("m3", "volume", "1"), ("mm3", "volume", "0.000000001"),
                    ("ft3", "volume", "0.028316846592"), ("kg", "mass", "1"),
-                   ("s", "time", "1"), ("rad", "angle", "1"), ("1", "ratio", "1")]
+                   ("s", "time", "1"), ("rad", "angle", "1"), ("1", "ratio", "1"),
+                   ("%", "ratio", "0.01")]
     return {"unit:" + symbol: Unit(id="unit:" + symbol, symbol=symbol, kind="physical",
                                 dimension=DIMENSIONS[kind], si_multiplier=scale)
             for symbol, kind, scale in definitions}

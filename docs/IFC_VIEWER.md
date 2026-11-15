@@ -52,6 +52,13 @@ screen.
   keep both highlight styles steady.
   Inspect the element list and calculation inputs, or isolate matches to reveal
   occluded objects. Reset section clipping before a current-view question.
+- Modeled walking-route answers include a plan projection of the exported path,
+  its estimated three-dimensional length, and a source-world XYZ coordinate list
+  in metres. Green marks the start and blue the destination. The projection
+  labels its IFC XY frame; changes in height remain in the coordinates and
+  distance. Exit certification, operability and clear-width qualifications stay
+  beside the answer. Up to ten paths and 25 coordinates per path appear in the
+  panel; the JSON export retains every full-precision point and source input.
 - The inspector preserves original names, IFC classes, GUIDs, STEP IDs, scalar
   properties, quantities, and unit references. Type/style definitions are labelled
   separately inside the source references. Metadata-only items remain inspectable.

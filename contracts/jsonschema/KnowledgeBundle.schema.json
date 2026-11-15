@@ -1769,7 +1769,9 @@
             "filled_by",
             "assigned_to_zone",
             "corresponding_boundary",
-            "external_boundary"
+            "external_boundary",
+            "has_port",
+            "port_connected_to"
           ],
           "title": "Predicate",
           "type": "string"

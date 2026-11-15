@@ -89,7 +89,7 @@ class IfcProviderAppTests(unittest.IsolatedAsyncioTestCase):
                 client_factory=nemotron_factory,
                 gemini_client_factory=lambda: gemini_factory("gemini_image"),
                 ifc_gemini_client_factory=lambda: gemini_factory("gemini_ifc"),
-                ifc_settings=None if invalid_ifc_settings else IfcSettings(provider=ifc_provider, gemini_thinking_level="high"))
+                ifc_settings=None if invalid_ifc_settings else IfcSettings(provider=ifc_provider, gemini_thinking_level="high", fast_plans=False))
         async with app.router.lifespan_context(app):
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://test") as client:
                 yield client, app

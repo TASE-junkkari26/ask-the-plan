@@ -15,7 +15,7 @@ from pydantic import ValidationError
 
 from gemini import AsyncGeminiClient, ConfigurationError, GeminiSettings
 from ifc_api.config import IfcSettings
-from ifc_api.providers import GeminiPlanner, NemotronPlanner, gemini_plan_schema, gemini_schema
+from ifc_api.providers import GeminiPlanner, NemotronPlanner, decode_gemini_predicates, gemini_plan_schema, gemini_schema
 from image_api.errors import ApiError
 from nemotron import AsyncNemotronClient, NemotronSettings
 from tests.test_gemini import interaction
@@ -206,13 +206,16 @@ class GeminiPlannerSchemaTests(unittest.TestCase):
         native = gemini_plan_schema(source)
         validator = Draft202012Validator(native)
         Draft202012Validator.check_schema(native)
-        self.assertLess(len(json.dumps(native)), 6500)
+        self.assertLess(len(json.dumps(native)), 11000)
         self.assertEqual(set(native["$defs"]), {"CountPolicy", "FieldRef"})
+        kinds = {branch["properties"]["kind"]["enum"][0]
+                 for branch in native["properties"]["steps"]["items"]["properties"]["operation"]["anyOf"]}
+        self.assertTrue({"arithmetic", "table_calculate", "measure", "network_query"} <= kinds)
         wire = proposal()
         validator.validate(wire)
         PlanProposal.model_validate(wire)
-        # Each operation's required arguments are native constraints. Recursive
-        # predicate semantics still pass through the unchanged local validator.
+        # Required operation arguments remain native constraints. JSON filter
+        # payloads still face the complete typed validator after decoding.
         malformed = deepcopy(wire)
         malformed["steps"][0]["operation"]["arbitrary_code"] = "do not execute"
         self.assertFalse(validator.is_valid(malformed))
@@ -222,7 +225,7 @@ class GeminiPlannerSchemaTests(unittest.TestCase):
             self.assertFalse(validator.is_valid(malformed))
         malformed = deepcopy(wire)
         malformed["steps"][0]["operation"]["where"] = {"kind": "compare", "arbitrary_code": "do not execute"}
-        validator.validate(malformed)
+        self.assertFalse(validator.is_valid(malformed))
         with self.assertRaises(ValidationError):
             PlanProposal.model_validate(malformed)
         malformed["steps"][0]["operation"]["kind"] = "execute_python"
@@ -242,6 +245,37 @@ class GeminiPlannerSchemaTests(unittest.TestCase):
         PlanProposal.model_validate(inspect)
         inspect["requests"][0]["action"] = "run_code"
         self.assertFalse(validator.is_valid(inspect))
+
+    def test_json_filter_transport_preserves_compound_filters_and_local_validation(self):
+        from ifc_api.service import PlanProposal
+        from tests.test_ifc_api import proposal
+        validator = Draft202012Validator(gemini_plan_schema(PlanProposal.model_json_schema()))
+        wire = proposal("space")
+        comparison = {"kind": "compare", "field": {"kind": "property", "key": "ifc:attribute/Name"},
+            "operator": "eq", "value": {"kind": "text", "value": {"text": "1B07"}}}
+        relation = {"kind": "related_to", "predicate": "contained_in", "direction": "outgoing", "entity_ids": ["e#120"]}
+        for where in (comparison, relation, {"kind": "all", "operands": [comparison,
+                {"kind": "any", "operands": [relation, comparison]}]}):
+            with self.subTest(where=where):
+                wire["steps"][0]["operation"]["where"] = json.dumps(where)
+                validator.validate(wire)
+                decoded = PlanProposal.model_validate_json(decode_gemini_predicates(json.dumps(wire)))
+                expected = deepcopy(wire)
+                expected["steps"][0]["operation"]["where"] = where
+                self.assertEqual(decoded.steps[0].operation.where.model_dump(mode="json", exclude_none=True),
+                    PlanProposal.model_validate(expected).steps[0].operation.where.model_dump(mode="json", exclude_none=True))
+        for where in ({}, {"field": comparison["field"], "operator": "eq", "value": comparison["value"]},
+                      {"kind": "compare", "field": comparison["field"], "operator": "eq", "value": {}},
+                      {"kind": "all", "operands": [{}]}):
+            with self.subTest(where=where):
+                wire["steps"][0]["operation"]["where"] = json.dumps(where)
+                validator.validate(wire)
+                with self.assertRaises(ValidationError):
+                    PlanProposal.model_validate_json(decode_gemini_predicates(json.dumps(wire)))
+
+        wire["steps"][0]["operation"]["where"] = "__import__('os').system('must not execute')"
+        with self.assertRaises(ValidationError):
+            PlanProposal.model_validate_json(decode_gemini_predicates(json.dumps(wire)))
 
     def test_recursive_ifc_schema_retains_structure_and_local_validation(self):
         from ifc_api.service import PlanProposal

@@ -133,7 +133,8 @@ def plan_data():
         "steps": [
             {"id": "select", "operation": {"kind": "select", "concept_ids": ["concept:room"], "count_policy": policy(),
                                             "where": {"kind": "compare", "field": {"kind": "entity_id", "key": "id"},
-                                                      "operator": "in", "value": {"kind": "references", "entity_ids": ["room:1"]}}}},
+                                                      "operator": "in", "value": {"kind": "list", "items": [
+                                                          {"kind": "references", "entity_ids": ["room:1"]}]}}}},
             {"id": "lookup", "operation": {"kind": "aggregate", "input_step_id": "select", "method": "sum",
                                             "field": {"kind": "property", "key": "property:net_area"}, "output_unit_id": "unit:m2"}},
         ],
