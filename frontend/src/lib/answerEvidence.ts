@@ -144,17 +144,67 @@ export function partMemberGroups(response: AnswerResponse, partKey: string): Ans
 export function answerStatusLabel(status: string, language: string): string {
   const fi: Record<string, string> = {
     answered: 'Vastattu', partial: 'Osittainen vastaus', missing_source: 'Lähde puuttuu',
-    missing_information: 'Tieto puuttuu', incomplete_coverage: 'Kattavuus epävarma',
-    unsupported_operation: 'Toimintoa ei ole toteutettu', needs_clarification: 'Tarvitaan tarkennus',
+    missing_information: 'Tieto puuttuu', incomplete_coverage: 'Ei vahvistettu',
+    unsupported_operation: 'Ei vielä tuettu', needs_clarification: 'Tarvitaan tarkennus',
     conflicting_evidence: 'Ristiriitaiset lähdetiedot', insufficient_calibration: 'Mittakaava puuttuu',
-    execution_error: 'Suoritus epäonnistui', blocked: 'Riippuva tulos puuttuu',
+    execution_error: 'Analyysi epäonnistui', blocked: 'Lähtötieto puuttuu',
   };
   const en: Record<string, string> = {
     answered: 'Answered', partial: 'Partial answer', missing_source: 'Missing source',
-    missing_information: 'Missing information', incomplete_coverage: 'Coverage unresolved',
-    unsupported_operation: 'Implementation gap', needs_clarification: 'Clarification needed',
+    missing_information: 'Missing information', incomplete_coverage: 'Not verified',
+    unsupported_operation: 'Not supported yet', needs_clarification: 'Clarification needed',
     conflicting_evidence: 'Conflicting evidence', insufficient_calibration: 'Calibration missing',
-    execution_error: 'Execution failed', blocked: 'Dependent input unavailable',
+    execution_error: 'Analysis failed', blocked: 'Input needed',
   };
   return (language === 'fi' ? fi : en)[status] ?? status.replaceAll('_', ' ');
+}
+
+/** Presentation labels preserve uncertainty without exposing internal executor jargon. */
+export function answerOutcomeLabel(response: AnswerResponse, language: string): string {
+  if (response.parts.every((part) => part.status === 'answered')) return answerStatusLabel('answered', language);
+  const hasClaims = response.parts.some((part) => (part.result?.claims?.length ?? 0) > 0);
+  if (hasClaims) {
+    const estimated = response.parts.some((part) => part.result?.claims?.some((claim) => claim.quality === 'estimated'));
+    return estimated ? (language === 'fi' ? 'Arvio' : 'Estimate') : (language === 'fi' ? 'Osittainen vastaus' : 'Partial answer');
+  }
+  if (response.parts.length === 1) return answerStatusLabel(response.parts[0].status, language);
+  return language === 'fi' ? 'Tarvitaan tarkistus' : 'Needs review';
+}
+
+/** Every claim stays intact; long diagnostics remain available in the details/export. */
+export function partAnswerPresentation(response: AnswerResponse, partKey: string, language: string): {
+  claims: AnswerSentence[];
+  message: string | null;
+  messageSentence?: AnswerSentence;
+  notes: string[];
+} {
+  const part = response.parts.find((item) => item.key === partKey);
+  const sentences = (response.narrative ?? []).filter((sentence) => sentence.part_key === partKey);
+  const claims = sentences.filter((sentence) => sentence.kind === 'claim');
+  const issues = sentences.filter((sentence) => sentence.kind === 'issue');
+  const notes = [...new Set([
+    ...issues.map((sentence) => sentence.text), part?.message?.text,
+    part?.result?.explanation?.text, ...(part?.result?.issues ?? []).map((issue) => issue.message.text),
+  ].filter((text): text is string => Boolean(text)))];
+  if (claims.length) return { claims, message: null, notes };
+  const explanation = issues[0]?.text ?? part?.message?.text ?? part?.result?.explanation?.text;
+  if (explanation && explanation.length <= 140) return { claims, message: explanation, messageSentence: issues[0], notes };
+  const fallback = language === 'fi'
+    ? { incomplete_coverage: 'Havainnoista ei vielä voi vahvistaa kokonaismäärää.',
+      needs_clarification: 'Tarkenna kohdetta tai kysymystä.',
+      insufficient_calibration: 'Mittaus tarvitsee tunnetun mittakaavan.',
+      conflicting_evidence: 'Lähdetiedot ovat ristiriidassa. Tarkista korostukset.',
+      execution_error: 'Analyysi epäonnistui. Yritä uudelleen.',
+      missing_source: 'Vastaus tarvitsee toisen lähteen.',
+      blocked: 'Vastaus odottaa puuttuvaa lähtötietoa.' }
+    : { incomplete_coverage: 'The scan does not establish a reliable total yet.',
+      needs_clarification: 'Please clarify the object or question.',
+      insufficient_calibration: 'A known scale is needed for this measurement.',
+      conflicting_evidence: 'The source evidence conflicts. Check the highlights.',
+      execution_error: 'The analysis failed. Please try again.',
+      missing_source: 'Another source is needed to answer this.',
+      blocked: 'A required input is still unavailable.' };
+  const message = fallback[part?.status as keyof typeof fallback]
+    ?? (language === 'fi' ? 'Pyydettyä vastausta ei voitu vahvistaa tästä piirustuksesta.' : 'I couldn’t verify the requested answer from this drawing.');
+  return { claims, message, messageSentence: issues[0], notes };
 }

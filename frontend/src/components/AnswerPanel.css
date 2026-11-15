@@ -1,12 +1,12 @@
-.source-answer { padding: 20px; border-bottom: 1px solid var(--border, #dedfda); color: #263a35; }
+.source-answer { padding: 18px 20px 12px; border-bottom: 1px solid var(--border, #dedfda); color: #263a35; }
 .source-answer-question { margin: 0 0 14px; font-size: 13px; color: #747c77; overflow-wrap: anywhere; }
 .source-answer-outcome { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; color: #147568; margin-bottom: 10px; }
 .source-answer-outcome-partial, .source-answer-part-status { color: #946319; }
-.source-answer-part { padding: 0 0 12px; }
+.source-answer-part { padding: 0 0 4px; }
 .source-answer-part h3 { font-size: 13px; line-height: 1.45; margin: 8px 0; }
 .source-answer-part-status { font-size: 12px; margin: 0 0 6px; }
 .source-answer-sentence { margin: 0 0 10px; }
-.source-answer-sentence p { font-size: 15px; line-height: 1.55; margin: 0 0 5px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.source-answer-sentence p { font-size: 16px; line-height: 1.5; margin: 0 0 8px; overflow-wrap: anywhere; white-space: pre-wrap; }
 .source-answer-evidence-link { display: inline-flex; align-items: center; gap: 5px; border: 0; background: #eaf3ee; border-radius: 4px; padding: 4px 7px; color: #176c5f; font-size: 11px; cursor: pointer; }
 .source-answer-evidence-link[aria-pressed="true"] { outline: 1px solid #176c5f; }
 .source-answer-evidence-link span { font-variant-numeric: tabular-nums; opacity: .75; }
@@ -21,7 +21,11 @@
 .source-answer-locators p { margin: 5px 0; white-space: pre-wrap; }
 .source-answer-locators svg { width: 100%; max-height: 180px; background: white; margin-top: 5px; }
 .source-answer-structured { font-size: 12px; margin: 12px 0; }
-.source-answer-structured > summary, .source-answer-revision > summary { cursor: pointer; }
+.source-answer-details { margin-top: 12px; border-top: 1px solid var(--border, #dedfda); padding-top: 10px; font-size: 12px; color: #53645a; }
+.source-answer-details > summary, .source-answer-structured > summary, .source-answer-revision > summary { cursor: pointer; }
+.source-answer-details > summary { font-weight: 550; }
+.source-answer-details[open] > summary { margin-bottom: 14px; }
+.source-answer-note { font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
 .source-answer-structured h3 { font-size: 12px; margin: 12px 0 5px; }
 .source-answer-claim, .source-answer-calculation { padding: 10px 0; border-bottom: 1px solid #e0e5df; overflow-wrap: anywhere; }
 .source-answer-claim > div, .source-answer-calculation > div { margin-top: 6px; }
@@ -31,7 +35,7 @@
 .answer-bound-table { overflow-x: auto; max-width: 100%; }
 .answer-bound-table table { border-collapse: collapse; width: 100%; }
 .answer-bound-table th, .answer-bound-table td { padding: 7px; border: 1px solid #e1e4de; text-align: left; vertical-align: top; }
-.source-answer-export { display: inline-flex; align-items: center; gap: 5px; margin: 6px 0 10px; }
+.source-answer-export { display: inline-flex; align-items: center; gap: 5px; margin: 12px 0 0; font-size: 11px; color: #69736b; }
 .source-answer-revision { font-size: 10px; color: #778179; }
 .source-answer-revision dl { margin: 8px 0 0; }
 .source-answer-revision dd { margin: 3px 0 8px; overflow-wrap: anywhere; }

@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Check, CircleAlert, Download, Focus } from 'lucide-react';
 import type { AnswerResponse } from '../contracts/AnswerResponse';
 import type { Output } from '../contracts/QueryResult';
-import { answerStatusLabel, partMemberGroups, sentenceEvidence } from '../lib/answerEvidence';
+import { answerOutcomeLabel, answerStatusLabel, partAnswerPresentation, partMemberGroups, sentenceEvidence } from '../lib/answerEvidence';
 import type { AnswerEvidenceLocation, AnswerMemberGroup } from '../lib/answerEvidence';
+import { answerCost } from '../lib/answerMetrics';
+import { formatEstimatedUsd, formatResponseTime } from '../lib/responseMetrics';
 import './AnswerPanel.css';
 
 function AnswerValue({ value, units }: { value: Output; units: ReadonlyMap<string, string> }) {
@@ -46,7 +48,7 @@ function MemberGroup({ group, fi, onLocate, units, propertyLabels }: {
       });
     } catch { return []; }
   });
-  return <details className={`source-answer-locators source-answer-members source-answer-members-${group.role}`} open={group.role !== 'intermediate'}>
+  return <details className={`source-answer-locators source-answer-members source-answer-members-${group.role}`}>
     <summary><strong>{roles[group.role]}</strong> <span>{group.count}</span>{group.grain && <small> · {group.grain.replaceAll('_', ' ')}</small>}</summary>
     {group.explanation && <p>{group.explanation}</p>}
     {filters.length > 0 && <ul>{[...new Set(filters)].map((filter) => <li key={filter}>{filter}</li>)}</ul>}
@@ -102,33 +104,33 @@ export function AnswerPanel({ response, language = 'en', onLocate, imageUrl, sou
   const selected = response.narrative?.find((sentence) => sentence.id === selectedSentence);
   const locations = selected ? sentenceEvidence(response, selected) : [];
   const complete = response.parts.every((part) => part.status === 'answered');
+  const cost = answerCost(response.metrics);
   return <section className="source-answer" aria-label={fi ? 'Vastaus ja lähteet' : 'Answer and source evidence'} aria-live="polite">
-    <p className="source-answer-question">{response.question}</p>
     <div className={`source-answer-outcome${complete ? '' : ' source-answer-outcome-partial'}`}>
       {complete ? <Check size={14} /> : <CircleAlert size={14} />}
-      {complete ? (fi ? 'Vastattu' : 'Answered') : (fi ? 'Rajoitettu vastaus' : 'Qualified answer')}
+      {answerOutcomeLabel(response, language)}
     </div>
     {response.interpretation.requested_parts.map((requested) => {
       const part = response.parts.find((item) => item.key === requested.key)!;
-      const sentences = (response.narrative ?? []).filter((sentence) => sentence.part_key === part.key);
+      const presentation = partAnswerPresentation(response, part.key, language);
+      const visible = presentation.claims.length
+        ? presentation.claims.map((sentence) => ({ sentence, text: sentence.text }))
+        : presentation.message ? [{ sentence: presentation.messageSentence, text: presentation.message }] : [];
       return <div className="source-answer-part" key={part.key}>
         {response.parts.length > 1 && <h3>{requested.question}</h3>}
-        {part.status !== 'answered' && <p className="source-answer-part-status">{answerStatusLabel(part.status, language)}</p>}
-        {sentences.map((sentence) => {
-          const evidence = sentenceEvidence(response, sentence);
-          return <div className="source-answer-sentence" key={sentence.id}>
-            <p>{sentence.text}</p>
-            {evidence.length > 0 && <button type="button" className="source-answer-evidence-link" aria-pressed={selectedSentence === sentence.id}
+        {response.parts.length > 1 && part.status !== 'answered' && <p className="source-answer-part-status">{answerStatusLabel(part.status, language)}</p>}
+        {visible.map(({ sentence, text }, index) => {
+          const evidence = sentence ? sentenceEvidence(response, sentence) : [];
+          return <div className="source-answer-sentence" key={sentence?.id ?? index}>
+            <p>{text}</p>
+            {sentence && evidence.length > 0 && <button type="button" className="source-answer-evidence-link" aria-pressed={selectedSentence === sentence.id}
               onClick={() => { setSelectedSentence((current) => current === sentence.id ? null : sentence.id); setEvidenceLimit(50); onLocate?.(evidence[0]); }}>
-              <Focus size={12} />{fi ? 'Näytä lähde' : 'Show evidence'} <span>{evidence.length}</span>
+              <Focus size={12} />{fi ? 'Näytä piirustuksessa' : 'Show on drawing'}{evidence.length > 1 && <span>{evidence.length}</span>}
             </button>}
           </div>;
         })}
-        {!sentences.length && <p>{part.message?.text ?? part.result?.explanation?.text ?? answerStatusLabel(part.status, language)}</p>}
       </div>;
     })}
-    <p className="source-answer-scope"><strong>{fi ? 'Rajaus' : 'Scope'}</strong> {response.source.scope_label}</p>
-    {response.interpretation.ambiguities?.map((item, index) => <p className="source-answer-part-status" key={index}>{item}</p>)}
     {selected && locations.length > 0 && <section className="source-answer-locators" aria-label={fi ? 'Valitut lähdeviitteet' : 'Selected source references'}>
       <h3>{fi ? 'Lähdeviitteet' : 'Source references'}</h3>
       <ol>{locations.slice(0, evidenceLimit).map((location) => <li key={location.anchorId}>
@@ -143,7 +145,20 @@ export function AnswerPanel({ response, language = 'en', onLocate, imageUrl, sou
       </li>)}</ol>
       {locations.length > evidenceLimit && <button className="text-button" onClick={() => setEvidenceLimit((limit) => limit + 50)}>{fi ? 'Näytä seuraavat 50' : 'Show next 50'} ({evidenceLimit} / {locations.length})</button>}
     </section>}
-    {response.parts.some((part) => partMemberGroups(response, part.key).length > 0) && <section aria-label={fi ? 'Sisällytetyt, poissuljetut ja ratkaisemattomat jäsenet' : 'Included, excluded and unresolved source members'}>
+    <details className="source-answer-details"><summary>{fi ? 'Lisätiedot' : 'Details'}</summary>
+    <p className="source-answer-question">{response.question}</p>
+    <p className="source-answer-scope"><strong>{fi ? 'Rajaus' : 'Scope'}</strong> {response.source.scope_label}</p>
+    {response.interpretation.ambiguities?.map((item, index) => <p className="source-answer-part-status" key={index}>{item}</p>)}
+    {response.parts.map((part) => {
+      const notes = partAnswerPresentation(response, part.key, language).notes;
+      return notes.length > 0 && <details className="source-answer-structured" key={part.key}>
+        <summary>{fi ? 'Rajoitukset ja huomautukset' : 'Limitations & notes'}{response.parts.length > 1 && ` · ${response.interpretation.requested_parts.find((requested) => requested.key === part.key)?.question}`}</summary>
+        <p className="source-answer-part-status">{answerStatusLabel(part.status, language)}</p>
+        {notes.map((note, index) => <p className="source-answer-note" key={index}>{note}</p>)}
+      </details>;
+    })}
+    {response.parts.some((part) => partMemberGroups(response, part.key).length > 0) && <details className="source-answer-structured">
+      <summary>{fi ? 'Laskennan lähdejäsenet' : 'Source members'}</summary>
       <p className="source-answer-scope">{fi ? 'Luettelot näyttävät laskennan lähdejäsenet. Havaintoehdokkaat voivat olla mukana myös ratkaisemattomissa jäsenissä; nämä luettelot eivät muodosta uutta kokonaismäärää.' : 'Lists show the executor’s source members. Detection candidates may also appear as unresolved; these evidence lists do not form a new total.'}</p>
       {response.parts.map((part) => {
         const bundle = response.evidence_contexts?.find((context) => context.id === part.evidence_context_id)?.bundle;
@@ -155,7 +170,7 @@ export function AnswerPanel({ response, language = 'en', onLocate, imageUrl, sou
           {groups.map((group) => <MemberGroup key={`${response.request_id}:${part.key}:${group.id}`} group={group} fi={fi} onLocate={onLocate} units={units} propertyLabels={propertyLabels} />)}
         </div>;
       })}
-    </section>}
+    </details>}
     <details className="source-answer-structured"><summary>{fi ? 'Arvot ja laskennan lähtötiedot' : 'Values and calculation inputs'}</summary>
       {response.parts.map((part) => {
         const bundle = response.evidence_contexts?.find((context) => context.id === part.evidence_context_id)?.bundle;
@@ -173,12 +188,14 @@ export function AnswerPanel({ response, language = 'en', onLocate, imageUrl, sou
       <p>{fi ? 'Vienti sisältää kaikki jäsenet, lähtötiedot ja laskentavaiheet.' : 'Export includes all members, source facts and calculation steps.'}</p>
     </details>
     <details className="source-answer-structured"><summary>{fi ? 'Analyysin vaiheet ja kustannukset' : 'Analysis steps & usage'}</summary>
-      <p>{Math.round(response.metrics.elapsed_ms)} ms · {response.metrics.external_attempts ?? 0} {fi ? 'mallikutsua' : 'model attempts'}{response.metrics.cache_hit ? (fi ? ' · Välimuistista' : ' · Cached result') : ''}</p>
+      <p>{formatResponseTime(response.metrics.elapsed_ms, fi ? 'fi' : 'en')} · {response.metrics.external_attempts ?? 0} {fi ? 'mallikutsua' : 'model calls'}{response.metrics.cache_hit ? (fi ? ' · Välimuistista' : ' · Cached result') : ''}</p>
       {(response.metrics.calls ?? []).length === 0 && <p>{fi ? 'Lähdetiedot ja laskenta käsiteltiin paikallisesti.' : 'Source facts and calculations were processed locally.'}</p>}
       <ol>{response.metrics.calls?.map((call) => <li key={call.id}><strong>{call.purpose.replaceAll('_', ' ')}</strong> · {call.returned_model ?? call.requested_model} · {call.outcome}<br /><small>{call.prompt_tokens == null ? 'Input usage unavailable' : `${call.prompt_tokens} input tokens`} · {call.completion_tokens == null ? 'Output usage unavailable' : `${call.completion_tokens} output and thinking tokens`}</small></li>)}</ol>
-      <p>{fi ? 'Kustannusarvio' : 'Estimated cost'}: {response.metrics.cost_amount == null ? (fi ? 'Ei saatavilla' : 'Unavailable') : `${response.metrics.cost_amount} ${response.metrics.cost_currency ?? ''}`}</p>
+      <p>{fi ? 'Kustannusarvio' : 'Estimated cost'}: {cost.amount == null ? (fi ? 'Ei saatavilla' : 'Unavailable') : cost.currency === 'USD' ? formatEstimatedUsd(cost.amount, fi ? 'fi' : 'en') : `${cost.amount} ${cost.currency ?? ''}`}</p>
+      {cost.unknownCalls > 0 && <p>{fi ? 'Osasta mallikutsuja puuttuu kustannustieto.' : 'Cost information is missing for some model calls.'}</p>}
     </details>
-    <button className="text-button source-answer-export" onClick={() => exportAnswer(response, 'answer-evidence.json', sourcePreview)}><Download size={13} />{fi ? 'Vie vastaus ja lähteet' : 'Export answer & evidence'}</button>
     <details className="source-answer-revision"><summary>{fi ? 'Lähteen tunniste' : 'Source identity'}</summary><dl><dt>Original SHA-256</dt><dd><code>{response.source.source_sha256}</code></dd>{response.source.display_sha256 && <><dt>Display SHA-256</dt><dd><code>{response.source.display_sha256}</code></dd></>}</dl></details>
+    </details>
+    <button className="text-button source-answer-export" onClick={() => exportAnswer(response, 'answer-evidence.json', sourcePreview)}><Download size={13} />{fi ? 'Vie vastaus' : 'Export answer'}</button>
   </section>;
 }

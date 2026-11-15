@@ -82,6 +82,7 @@ export function CandidatePanel({
   language,
   responseTimeMs,
   completedAt,
+  compact = false,
 }: {
   response: ImageCandidateResponse;
   question: string;
@@ -92,6 +93,7 @@ export function CandidatePanel({
   language: Language;
   responseTimeMs: number;
   completedAt: string;
+  compact?: boolean;
 }) {
   const fi = language === 'fi';
   const candidates = response.candidates ?? [];
@@ -114,13 +116,17 @@ export function CandidatePanel({
       ? candidates.length === 1 ? '1 tarkistettava ehdokas' : `${candidates.length} tarkistettavaa ehdokasta`
       : `${candidates.length} ${candidates.length === 1 ? 'candidate' : 'candidates'} to review`
     : fi ? 'Ei tunnistettuja ehdokkaita' : 'No candidates detected';
+  const Diagnostics = compact ? 'details' : 'div';
+  const Limitations = compact ? 'details' : 'section';
   return (
-    <section className="candidate-panel" aria-label={fi ? 'Tunnistetut ehdokkaat' : 'Detected candidates'}>
-      <p className="candidate-question">{question}</p>
+    <section className={`candidate-panel${compact ? ' candidate-panel-compact' : ''}`} aria-label={fi ? 'Tunnistetut ehdokkaat' : 'Detected candidates'}>
+      {!compact && <p className="candidate-question">{question}</p>}
       <div className={`candidate-summary candidate-summary-${response.status}`}>
         <h2>{response.status === 'unreadable' || response.status === 'unsupported' ? status : heading}</h2>
         {response.status === 'partial' && <p>{status}</p>}
       </div>
+      <Diagnostics className={compact ? 'candidate-diagnostics' : undefined}>
+      {compact && <summary>{fi ? 'Tunnistuksen lisätiedot' : 'Detection details'}</summary>}
       <ResponseMetrics
         model={response.provenance.returned_model}
         requestedModel={response.provenance.requested_model}
@@ -183,12 +189,15 @@ export function CandidatePanel({
           </ol>
         </details>
       )}
-      <p className="candidate-review-note"><CircleAlert size={15} /><span>{fi ? 'Tarkistamattomat ehdokkaat voivat olla puutteellisia tai epävarmoja.' : 'Unverified candidates may be incomplete or uncertain.'}</span></p>
+      </Diagnostics>
+      <p className="candidate-review-note"><CircleAlert size={compact ? 13 : 15} /><span>{compact
+        ? fi ? 'Vahvistamattomia havaintoja. Tarkista korostukset.' : 'Unverified detections. Check the highlights.'
+        : fi ? 'Tarkistamattomat ehdokkaat voivat olla puutteellisia tai epävarmoja.' : 'Unverified candidates may be incomplete or uncertain.'}</span></p>
       {(response.limitations ?? []).length > 0 && (
-        <section className="candidate-limitations" aria-label={fi ? 'Rajoitukset' : 'Limitations'}>
-          <h3>{fi ? 'Rajoitukset' : 'Limitations'}</h3>
+        <Limitations className="candidate-limitations" aria-label={fi ? 'Rajoitukset' : 'Limitations'}>
+          {compact ? <summary>{fi ? 'Tunnistuksen rajoitukset' : 'Detection limitations'}</summary> : <h3>{fi ? 'Rajoitukset' : 'Limitations'}</h3>}
           <ul>{response.limitations?.map((limitation, index) => <li key={index}>{limitation}</li>)}</ul>
-        </section>
+        </Limitations>
       )}
       {candidates.length === 0 && response.status === 'ok' && <p className="candidate-empty-note">{fi ? 'Ehdokkaiden puuttuminen ei tarkoita nollaa kohdetta.' : 'No candidates does not mean zero objects.'}</p>}
       {candidate && <CandidateCloseUp candidate={candidate} response={response} imageUrl={imageUrl} language={language} onFocus={() => onFocus(candidate.id)} />}
@@ -217,7 +226,7 @@ export function CandidatePanel({
           );
         })}
       </div>
-      <p className="candidate-provenance">{response.image.width} × {response.image.height} px</p>
+      {!compact && <p className="candidate-provenance">{response.image.width} × {response.image.height} px</p>}
     </section>
   );
 }

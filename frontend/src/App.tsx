@@ -1455,6 +1455,7 @@ export default function App() {
                   <div className="candidate-results">
                     <AnswerPanel response={answerResponse} language={language} onLocate={focusAnswerEvidence} imageUrl={analysisUrl} sourcePreview={imported?.dxf} />
                     {candidateResponse && <CandidatePanel
+                      compact
                       response={candidateResponse.result}
                       question={candidateResponse.question}
                       responseTimeMs={candidateResponse.responseTimeMs}

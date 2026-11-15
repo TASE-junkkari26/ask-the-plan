@@ -11,7 +11,7 @@
     "generate:contracts": "node scripts/generate-contracts.mjs",
     "build": "node scripts/prepare-ifc-assets.mjs && tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --experimental-strip-types --test src/demo/engine.test.ts src/lib/viewport.test.ts src/lib/importDocument.test.ts src/lib/importSource.test.ts src/ifc/properties.test.ts src/lib/candidateApi.test.ts src/lib/candidateGeometry.test.ts src/lib/responseMetrics.test.ts src/lib/dxfApi.test.ts src/ifc/conversion.test.ts src/ifc/stepFile.test.ts src/ifc/rendering.test.ts src/ifc/tasks.test.ts src/ifc/conversionError.test.ts src/ifc/geometryRecovery.test.ts src/ifc/evidence.test.ts src/ifc/answer.test.ts src/lib/ifcApi.test.ts src/lib/answerApi.test.ts",
+    "test": "node --experimental-strip-types --test src/demo/engine.test.ts src/lib/viewport.test.ts src/lib/importDocument.test.ts src/lib/importSource.test.ts src/ifc/properties.test.ts src/lib/candidateApi.test.ts src/lib/candidateGeometry.test.ts src/lib/responseMetrics.test.ts src/lib/dxfApi.test.ts src/ifc/conversion.test.ts src/ifc/stepFile.test.ts src/ifc/rendering.test.ts src/ifc/tasks.test.ts src/ifc/conversionError.test.ts src/ifc/geometryRecovery.test.ts src/ifc/evidence.test.ts src/ifc/answer.test.ts src/lib/ifcApi.test.ts src/lib/answerApi.test.ts src/lib/answerMetrics.test.ts",
     "prepare:ifc-assets": "node scripts/prepare-ifc-assets.mjs",
     "prepare:ifc-demo": "node --experimental-strip-types scripts/prepare-ifc-demo.mts"
   },

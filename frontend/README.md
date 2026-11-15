@@ -15,7 +15,11 @@ then shows an image/PDF/DXF with a chat panel on the right or an IFC model with 
 question about an image/PDF/DXF registers its original bytes and displayed PNG
 with the local backend, then uses the common answer API. Answers show
 source-bound natural-language statements above candidate boxes or native source
-evidence. Visual counts stay qualified when omission or membership coverage is
+evidence. Answers lead with a concise result and a source button; technical
+diagnostics, calculations, members and source identity are available in collapsed
+details and the complete JSON export. Visual identifications retain literal
+labels and an estimate qualification, without claiming verified ranking or area.
+Visual counts stay qualified when omission or membership coverage is
 unresolved; an empty scan does not establish zero. Optional backend capability routing chooses Hydrogen or Carbon and
 records the path for the expandable explanation. While analysis is loading, the
 workbench shows image preparation, model selection and then **Handing to [model]**

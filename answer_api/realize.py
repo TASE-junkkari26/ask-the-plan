@@ -65,6 +65,22 @@ def supported_languages() -> tuple[str, ...]:
     return tuple(_TEXT)
 
 
+_VISUAL_TEXT = {
+    "en": ("Likely {value}.", "Possible matches: {value}.", "Size comparison is unverified.", "Visual match, not verified.", "I can highlight a possible match, but can’t verify that answer yet."),
+    "fi": ("Todennäköisesti {value}.", "Mahdolliset kohteet: {value}.", "Kokovertausta ei ole vahvistettu.", "Vahvistamaton visuaalinen havainto.", "Voin näyttää mahdollisen kohteen, mutta en vielä vahvistaa vastausta."),
+    "de": ("Vermutlich {value}.", "Mögliche Treffer: {value}.", "Größenvergleich nicht bestätigt.", "Visueller Treffer, nicht bestätigt.", "Ich kann einen möglichen Treffer zeigen, die Antwort aber noch nicht bestätigen."),
+    "fr": ("Probablement {value}.", "Correspondances possibles : {value}.", "Comparaison de taille non vérifiée.", "Correspondance visuelle non vérifiée.", "Je peux montrer une correspondance possible, mais pas encore confirmer la réponse."),
+    "it": ("Probabilmente {value}.", "Possibili corrispondenze: {value}.", "Confronto dimensionale non verificato.", "Corrispondenza visiva non verificata.", "Posso mostrare una possibile corrispondenza, ma non ancora confermare la risposta."),
+    "sv": ("Troligen {value}.", "Möjliga träffar: {value}.", "Storleksjämförelsen är inte verifierad.", "Visuell träff, inte verifierad.", "Jag kan visa en möjlig träff, men ännu inte bekräfta svaret."),
+    "es": ("Probablemente {value}.", "Posibles coincidencias: {value}.", "Comparación de tamaño no verificada.", "Coincidencia visual no verificada.", "Puedo mostrar una posible coincidencia, pero aún no confirmar la respuesta."),
+    "da": ("Sandsynligvis {value}.", "Mulige fund: {value}.", "Størrelsessammenligningen er ikke bekræftet.", "Visuelt fund, ikke bekræftet.", "Jeg kan vise et muligt fund, men endnu ikke bekræfte svaret."),
+    "nl": ("Waarschijnlijk {value}.", "Mogelijke overeenkomsten: {value}.", "Groottevergelijking niet geverifieerd.", "Visuele overeenkomst, niet geverifieerd.", "Ik kan een mogelijke overeenkomst tonen, maar het antwoord nog niet bevestigen."),
+    "et": ("Tõenäoliselt {value}.", "Võimalikud vasted: {value}.", "Suuruste võrdlus on kinnitamata.", "Kinnitamata visuaalne vaste.", "Saan näidata võimalikku vastet, kuid vastust veel mitte kinnitada."),
+    "pl": ("Prawdopodobnie {value}.", "Możliwe dopasowania: {value}.", "Porównanie wielkości niezweryfikowane.", "Dopasowanie wizualne niezweryfikowane.", "Mogę pokazać możliwe dopasowanie, ale jeszcze nie potwierdzić odpowiedzi."),
+    "ro": ("Probabil {value}.", "Posibile potriviri: {value}.", "Comparația dimensiunilor nu este verificată.", "Potrivire vizuală neverificată.", "Pot arăta o posibilă potrivire, dar încă nu pot confirma răspunsul."),
+}
+
+
 def _entity_name(identifier: str, bundle: m.KnowledgeBundle) -> str:
     entity = next((item for item in bundle.entities if item.id == identifier), None)
     if entity is None:
@@ -104,7 +120,9 @@ def _value(value: m.Value, bundle: m.KnowledgeBundle, words: dict[str, str]) -> 
 
 def realize_answer(response: m.AnswerResponse) -> list[m.AnswerSentence]:
     """Render only existing typed claims/issues; no inference or arithmetic."""
-    words = _TEXT.get(response.interpretation.language.split("-")[0].lower(), _TEXT["en"])
+    language = response.interpretation.language.split("-")[0].lower()
+    words = _TEXT.get(language, _TEXT["en"])
+    visual_words = _VISUAL_TEXT.get(language, _VISUAL_TEXT["en"])
     contexts = {item.id: item.bundle for item in response.evidence_contexts}
     sentences: list[m.AnswerSentence] = []
     for part in response.parts:
@@ -114,7 +132,13 @@ def realize_answer(response: m.AnswerResponse) -> list[m.AnswerSentence]:
             if bundle is None:
                 raise ValueError("claim realization requires its source evidence context")
             candidate = any(binding.evidence_kind == "candidate" for binding in claim.evidence)
-            if isinstance(claim.value, m.CountValue):
+            visual_match = candidate and isinstance(claim.value, m.ReferencesValue) and claim.output_key == "visual_match"
+            if visual_match:
+                text = visual_words[0 if len(claim.value.entity_ids) == 1 else 1].format(
+                    value=_value(claim.value, bundle, words))
+                ranking = claim.count_policy and claim.count_policy.rule_key == "drawing.unverified_visual_rank.v1"
+                text += " " + visual_words[2 if ranking else 3]
+            elif isinstance(claim.value, m.CountValue):
                 if candidate:
                     text = words["detected"].format(value=claim.value.value, name=claim.name)
                 else:
@@ -130,7 +154,8 @@ def realize_answer(response: m.AnswerResponse) -> list[m.AnswerSentence]:
                     # than the scalar input's precision. Preserve that limit.
                     rendered_value = rendered_value.model_copy(update={"quality": claim.quality})
                 text = f"{claim.name}: {qualifier}{_value(rendered_value, bundle, words)}."
-            text += " " + words["scope"].format(scope=response.interpretation.scope_label)
+            if not candidate:
+                text += " " + words["scope"].format(scope=response.interpretation.scope_label)
             total = (len(claim.value.rows) if isinstance(claim.value, m.TableValue)
                      else len(claim.value.entity_ids) if isinstance(claim.value, m.ReferencesValue)
                      else len(claim.value.items) if isinstance(claim.value, m.ListValue) else 0)
@@ -143,8 +168,13 @@ def realize_answer(response: m.AnswerResponse) -> list[m.AnswerSentence]:
                 qualification=claim.quality))
         issues = result.issues if result is not None else []
         for index, issue in enumerate(issues):
+            text = (words["partial"] + " " if part.status == "partial" else "") + issue.message.text
+            if result.executor_version == "drawing-observations-1" and part.status == "unsupported_operation" and issue.anchor_ids:
+                # Preserve the implementation diagnostic in result.issues/export;
+                # the primary unavailable answer is short and user-facing.
+                text = visual_words[4]
             sentences.append(m.AnswerSentence(id=f"sentence:{part.key}:issue:{index}", part_key=part.key,
-                kind="issue", text=(words["partial"] + " " if part.status == "partial" else "") + issue.message.text,
+                kind="issue", text=text,
                 anchor_ids=issue.anchor_ids, qualification="unavailable"))
         if not issues and part.message is not None:
             sentences.append(m.AnswerSentence(id=f"sentence:{part.key}:reason", part_key=part.key,

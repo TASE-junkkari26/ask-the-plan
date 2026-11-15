@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 from copy import copy
 import hashlib
+import re
 from time import perf_counter
 from uuid import uuid4
 
@@ -19,6 +20,36 @@ from ifc_api.providers import PlannerReply, PlannerUsage
 from ifc_engine.engine import QueryError
 from .budget import AnswerBudget, BudgetPlanner
 from .intent import language, needs_entire_ifc, requested_parts, is_count_question
+
+
+def visual_identification(question):
+    """Recognize bounded visual matching, without promising measured rankings.
+
+    Values, physical properties and relations still need their native executor.
+    This hint selects an evidence type; it never chooses or ranks image boxes.
+    """
+    if is_count_question(question) or re.search(
+        r"\b(area|volume|length|height|width|depth|perimeter|distance|dimensions?|net|gross|"
+        r"material|rating|cost|price|route|connected|adjacent|external|internal|compliance|"
+        r"pinta-ala|tilavuus|pituus|korkeus|leveys)\b|m[²³]|\b(?:m2|m3|mm)\b", question, re.I):
+        return None
+    subject = r"\b(room|rooms|roo|space|spaces|door|doors|window|windows|huone|huoneista|tila|ovi|ikkuna|raum|zimmer|pièce|stanza|locale)\b"
+    rank = r"(?:largest|smallest|biggest|bigger|smaller|suurin|pienin|größte|grösste|kleinste|plus\s+(?:grand|petit)|più\s+(?:grande|piccol))"
+    ranking_lead = rf"^\s*(?:{rank}\b|(?:which|what)\s+(?:is\s+)?(?:the\s+)?(?:room|space|{rank})\b|(?:find|locate|identify|show(?:\s+me)?)\s+(?:the\s+)?{rank}\b)"
+    if re.search(subject, question, re.I) and re.search(rf"\b{rank}\b", question, re.I) and re.match(ranking_lead, question, re.I):
+        return "rank"
+    location = re.match(r"^\s*(?:where\s+(?:is|are)|find|locate|identify|show(?:\s+me)?|missä|näytä|etsi)\s+(.+?)[?.!]*$", question, re.I)
+    if location:
+        # Keep positive location routing narrow: a class, literal source label
+        # or source-like identifier. Extra prose can contain a property/relation
+        # request which this adapter cannot execute.
+        target = re.sub(r"^(?:the|a|an)\s+", "", location.group(1), flags=re.I)
+        literal = r'''["“«][^"”»]+["”»]'''
+        identifier = r"(?=[\w.\-]*\d)[\w]+(?:[.\-][\w]+)*"
+        kind = r"(?:room|rooms|space|spaces|door|doors|window|windows|kitchen|bathroom|huone|tila|ovi|ikkuna|keittiö)"
+        if re.fullmatch(rf"(?:{kind}(?:\s+(?:{literal}|{identifier}))?|{literal}|{identifier})", target, re.I):
+            return "match"
+    return None
 
 
 def unavailable(key, status, message, dependencies=()):
@@ -102,8 +133,10 @@ class AnswerService:
                         detail=request.detail, on_handoff=on_handoff),
                         timeout=max(.001, budget.remaining - .1))
                     from .adapters import candidate_part
-                    answer_part, context = candidate_part(observed, source, request_id, part_key=part.key)
-                    if part.operation not in {'count', 'inventory_count'} and not is_count_question(part.question):
+                    identification = visual_identification(part.question) if part.operation == 'auto' else None
+                    answer_part, context = candidate_part(observed, source, request_id, part_key=part.key,
+                                                         identification=identification)
+                    if identification is None and part.operation not in {'count', 'inventory_count'} and not is_count_question(part.question):
                         # Detection boxes are not source values, dimensions or
                         # answers to an unrelated requested operation.
                         answer_part = m.AnswerPart(key=part.key, status='unsupported_operation',

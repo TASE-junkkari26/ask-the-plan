@@ -16,6 +16,8 @@ page/layout, rotation, PDF.js viewport transform and crop bounds. Each requested
 part has an outcome, optional executable plan, `QueryResult` and evidence context.
 Deterministic sentences reference claims and anchors. Semantic validation
 regenerates their text and rejects changed values, qualifications or snapshots.
+Counting instructions stay attached to their question; separate requested
+outputs retain separate parts. Literal quoted identifiers are not split.
 Fixed templates cover English, Finnish, German, French, Italian, Swedish,
 Spanish, Danish, Dutch, Estonian, Polish and Romanian. Source strings stay literal.
 
@@ -32,7 +34,7 @@ Original downloads are attachments; display resources are PNGs.
 | IFC execution | Whole-model properties, quantities, inventories and bounded native spatial queries; explicit question filters remain in plans | Existing engine coverage and net/gross definitions remain authoritative |
 | IFC compound outputs | Shared planning/discovery budget, independent dependency closures, per-part results | Failed independent parts stay visible; failed prerequisites block dependent outputs |
 | IFC scalar arithmetic | Decimal add/subtract/multiply/divide, dimensions, conversions and ratios/percent | Unknown inputs, incompatible bases, currency conversion and zero division fail; rounded results are estimated |
-| Visual observations | Existing selected analyzer/detail tools and candidate anchors | Nonempty scans are partial estimated observations; empty scans do not prove zero; candidates do not prove lower bounds |
+| Visual observations | Existing selected analyzer/detail tools, candidate counts and bounded visual identifications with literal labels and source anchors | Partial estimated observations; visual size/ranking is unverified, empty scans do not prove zero, and candidates do not prove lower bounds or measurements |
 | Native PDF lookup | Server-owned Node/PDF.js worker, original spans and mapped display anchors | Repeated literal identifiers require clarification; strings remain source quotations |
 | Native PDF schedules | Anchored headers/panel extents, row/cell identity, filters, imperial units, row multiplication and sums/extrema | Aggregates remain partial until independent semantic table/assembly coverage is established |
 | Calibrated geometry library | Validated polygons, holes and union/difference with source calibration | Callable library; automatic drawing-to-room extraction remains unimplemented |
@@ -55,9 +57,13 @@ the same automatic panel selection and native tile mode as the existing detail
 client, including door reading resolution and bounded optional OpenCV window
 checks. Native PDF answers can finish before visual analysis is needed.
 
-The answer panel shows every part and qualification above the existing evidence
-interfaces. Links select drawing regions or original IFC objects. Structured
-values, members and calculations paginate without truncating export. DXF exports
+The answer panel leads with concise answers and their qualifications. Source
+buttons select drawing regions or original IFC objects. Technical issues, scope,
+members, calculations, usage and source identity stay in collapsed details;
+the export retains the complete response. Known call costs use the same recorded
+model/timestamp tariffs as the candidate panel, while unpriced or unreported
+calls retain an unknown total. Structured values, members and calculations
+paginate without truncating export. DXF exports
 also retain the preview's layout/status/warnings/unit metadata in `source_preview`;
 those metadata do not calibrate pixels or establish native CAD counts.
 
@@ -79,3 +85,19 @@ family remains an implementation gap.
 See [verification](VERIFICATION.md) for actual checks and limits. Schema checks,
 synthetic UI tests and native extraction success are not model-answer accuracy
 or proof of complete inventories.
+
+## Concise answer presentation check — 15 November 2026
+
+Windows, Python 3.14.10 and Node 24.22.3: 106 focused backend tests and 145 frontend
+tests passed. Checks cover estimated visual identifications, refusal to invent
+measurements or promote candidates to exact/lower-bound facts, counting-rule
+preservation, cost-ledger unknowns, and concise presentation without discarding
+source evidence. Component server rendering checked a saved response with more
+than 20 members: details start closed, source controls remain available, and
+member/source data are retained. Production build passed with existing SDK/chunk
+warnings; local Markdown links and diff whitespace passed.
+
+The backend was restarted and frontend/proxy/module health checked. No paid
+inference or new model-accuracy evaluation was performed. Computer Use ended
+before browser verification because URL policy enforcement is unavailable for
+the current Windows browser; no interactive browser/layout pass is claimed.

@@ -6,7 +6,7 @@ import type { AnswerResponse } from '../contracts/AnswerResponse';
 import type { ImportedDrawing } from '../types';
 import type { PreparedCandidateImage } from './candidateApi.ts';
 import { drawingSnapshot, registerAnswerSource, requestAnswer, sameAnswerSnapshot, validateAnswerResponse } from './answerApi.ts';
-import { anchorEvidence, answerStatusLabel, partMemberGroups, sentenceEvidence } from './answerEvidence.ts';
+import { anchorEvidence, answerOutcomeLabel, answerStatusLabel, partAnswerPresentation, partMemberGroups, sentenceEvidence } from './answerEvidence.ts';
 
 const question = 'What is the area of room 121.A?';
 const questionHash = createHash('sha256').update(question).digest('hex');
@@ -166,9 +166,62 @@ test('cancellation during JSON parsing or pending streaming cannot publish a sta
 
 test('missing values and implementation gaps retain distinct visible statuses', () => {
   assert.equal(answerStatusLabel('missing_information', 'en'), 'Missing information');
-  assert.equal(answerStatusLabel('unsupported_operation', 'en'), 'Implementation gap');
+  assert.equal(answerStatusLabel('unsupported_operation', 'en'), 'Not supported yet');
   assert.equal(answerStatusLabel('partial', 'fi'), 'Osittainen vastaus');
   assert.deepEqual(sentenceEvidence(unavailableAnswer(), unavailableAnswer().narrative![0]), []);
+});
+
+test('long technical failures get a concise summary while full diagnostics remain intact', () => {
+  const response = unavailableAnswer();
+  const diagnostic = 'The visual tool located candidate source regions, but it did not extract or execute the requested property, quantity or relation. That answer tool remains an implementation gap. Additional source inspection could not establish the requested area.';
+  response.parts[0].status = 'unsupported_operation';
+  response.parts[0].message = { text: diagnostic };
+  response.narrative![0].text = diagnostic;
+  const presented = partAnswerPresentation(response, 'area', 'en');
+  assert.equal(presented.message, 'I couldn’t verify the requested answer from this drawing.');
+  assert.deepEqual(presented.notes, [diagnostic]);
+  assert.deepEqual(presented.claims, []);
+  assert.equal(response.narrative![0].text, diagnostic);
+  assert.equal(answerOutcomeLabel(response, 'en'), 'Not supported yet');
+});
+
+test('estimated identification leads with the bound backend claim and retains its qualification', () => {
+  const response = unavailableAnswer();
+  response.parts[0].status = 'partial';
+  response.parts[0].result = { claims: [{ quality: 'estimated' }] } as unknown as NonNullable<AnswerResponse['parts'][number]['result']>;
+  const claim = { ...response.narrative![0], id: 'identification', kind: 'claim' as const,
+    text: 'Likely Zimmer 4.02. Size comparison is unverified.', claim_ids: ['room'], anchor_ids: ['room-box'], qualification: 'estimated' as const };
+  response.narrative!.unshift(claim);
+  const presented = partAnswerPresentation(response, 'area', 'en');
+  assert.deepEqual(presented.claims, [claim]);
+  assert.equal(presented.message, null);
+  assert.equal(presented.claims[0].text, claim.text);
+  assert.deepEqual(presented.claims[0].anchor_ids, ['room-box']);
+  assert.equal(answerOutcomeLabel(response, 'en'), 'Estimate');
+  assert.equal(answerOutcomeLabel(response, 'fi'), 'Arvio');
+  assert.ok(presented.notes.includes('No source-backed area is available for room 121.A.'));
+});
+
+test('all answer claims remain visible without truncating long source identifiers or extra parts', () => {
+  const response = unavailableAnswer();
+  const claim = { ...response.narrative![0], kind: 'claim' as const, text: '121.A — ' + 'Original source identifier '.repeat(15),
+    claim_ids: ['source'], qualification: 'exact' as const };
+  response.narrative = [claim, { ...claim, id: 'second', text: '7.16' }];
+  const presented = partAnswerPresentation(response, 'area', 'en');
+  assert.equal(presented.claims.length, 2);
+  assert.equal(presented.claims[0].text, claim.text);
+  assert.equal(presented.claims[1].text, '7.16');
+});
+
+test('an empty unresolved scan never becomes a zero or an estimate label', () => {
+  const response = unavailableAnswer();
+  response.parts[0].status = 'incomplete_coverage';
+  response.narrative = [];
+  response.parts[0].message = undefined;
+  const presented = partAnswerPresentation(response, 'area', 'en');
+  assert.equal(presented.message, 'The scan does not establish a reliable total yet.');
+  assert.deepEqual(presented.claims, []);
+  assert.equal(answerOutcomeLabel(response, 'en'), 'Not verified');
 });
 
 function membershipAnswer(): AnswerResponse {

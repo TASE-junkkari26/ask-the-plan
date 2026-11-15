@@ -6,6 +6,28 @@ import re
 from contracts import models as m
 
 
+_COUNTING_RULE = re.compile(
+    r"^(?:count\s+(?:only\b|doorways\s+fitted\b)|only\s+count\b|do\s+not\s+count\b|"
+    r"include\b|exclude\b|laske\s+(?:vain\b|oviaukot\b)|älä\s+laske\b|"
+    r"jätä\s+pois\b|(?:open\s+doorways\b.*\bdo\s+not\s+count\b)|"
+    r"(?:pelkkiä\s+oviaukkoja\b.*\bei\s+lasketa\b)|"
+    r"(?:a|each)\b.*\bcounts?\s+as\s+(?:one|1)\b)", re.I)
+_QUOTED = re.compile(r'''"[^"]*"|“[^”]*”|«[^»]*»|(?<!\w)'[^']*'(?!\w)''')
+
+
+def _split_unquoted(pattern: str, text: str, *, flags=0) -> list[str]:
+    """Separate explicit requests without splitting a literal source identifier."""
+    protected = [match.span() for match in _QUOTED.finditer(text)]
+    start, pieces = 0, []
+    for boundary in re.finditer(pattern, text, flags):
+        if any(left <= boundary.start() < right for left, right in protected):
+            continue
+        pieces.append(text[start:boundary.start()].strip())
+        start = boundary.end()
+    pieces.append(text[start:].strip())
+    return [piece for piece in pieces if piece]
+
+
 def language(question: str, requested: str | None = None) -> str:
     if requested:
         return requested
@@ -31,10 +53,18 @@ def requested_parts(request: m.AnswerRequest) -> list[m.AnswerRequestedPart]:
         return request.parts
     # Explicit separate sentences can be handled independently. Keep complex
     # conjunctive interpretation in the structured planner, not string guesses.
-    sentences = [item.strip() for item in re.split(r'(?<=[?;])\s+(?=[A-ZÄÖÅÉ¿])', request.question) if item.strip()]
+    fragments = _split_unquoted(r'(?<=[?;])\s+(?=[A-ZÄÖÅÉ¿])', request.question)
+    sentences = []
+    for fragment in fragments:
+        # A counting rule qualifies the preceding inventory; it is not another
+        # requested answer. Keep the rule with the detector's full question.
+        if sentences and is_count_question(sentences[-1]) and _COUNTING_RULE.match(fragment):
+            sentences[-1] += ' ' + fragment
+        else:
+            sentences.append(fragment)
     if len(sentences) == 1:
-        clauses = re.split(r'\s+(?:and|plus|und|ja|et|e)\s+(?=(?:give|calculate|what|how|list|show|measure|find|provide|welche|laske|näytä)\b)',
-                           request.question, flags=re.I)
+        clauses = _split_unquoted(r'\s+(?:and|plus|und|ja|et|e)\s+(?=(?:give|calculate|what|how|list|show|measure|find|provide|welche|laske|näytä)\b)',
+                                  request.question, flags=re.I)
         if len(clauses) > 1:
             sentences = clauses
     if len(sentences) > 1 and len(sentences) <= 16:

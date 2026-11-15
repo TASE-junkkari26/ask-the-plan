@@ -8,6 +8,39 @@
 .candidate-panel {
   padding-bottom: 22px;
 }
+.candidate-panel-compact .candidate-summary {
+  padding: 13px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.candidate-panel-compact .candidate-summary h2 {
+  font-size: 13px;
+  font-weight: 550;
+  color: #53665a;
+}
+.candidate-panel-compact .candidate-summary p {
+  margin-top: 4px;
+}
+.candidate-diagnostics {
+  margin: 10px 0;
+  color: #637468;
+  font-size: 11px;
+}
+.candidate-diagnostics > summary,
+.candidate-limitations > summary {
+  cursor: pointer;
+}
+.candidate-panel-compact .candidate-review-note {
+  margin: 9px 0;
+}
+.candidate-panel-compact .candidate-limitations {
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+.candidate-panel-compact .candidate-limitations[open] > summary {
+  margin-bottom: 7px;
+}
 .candidate-question {
   margin: 0 0 16px;
   color: #516357;
