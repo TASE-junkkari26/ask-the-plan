@@ -110,6 +110,16 @@ def prune_ifc_context(bundle: m.KnowledgeBundle, results: list[m.QueryResult],
             for spatial in calculation.spatial_evidence:
                 keep("entities", [spatial.subject_id, *spatial.related_ids])
                 keep("anchors", spatial.anchor_ids)
+            for measurement in calculation.measurement_evidence:
+                keep("entities", [measurement.subject_id, *measurement.reference_entity_ids])
+            for material in calculation.material_evidence:
+                keep("entities", [material.subject_id])
+                values(material.recorded_quantity)
+                for layer in material.specified_layers:
+                    values(layer.thickness)
+            for route in calculation.route_evidence:
+                keep("entities", [route.subject_id, route.target_id, *route.room_ids, *route.door_ids, *route.stair_ids])
+                keep("anchors", route.anchor_ids)
         for issue in result.issues:
             keep("entities", issue.entity_ids)
             keep("facts", issue.fact_ids)
@@ -128,6 +138,8 @@ def prune_ifc_context(bundle: m.KnowledgeBundle, results: list[m.QueryResult],
                 field(operation.field)
             for reference in getattr(operation, "group_by", []):
                 field(reference)
+            if getattr(operation, "order_by", None) is not None:
+                field(operation.order_by)
             keep("units", [getattr(operation, "output_unit_id", None)])
             keep("calibrations", getattr(operation, "calibration_ids", []))
             keep("entities", getattr(operation, "reference_entity_ids", []))

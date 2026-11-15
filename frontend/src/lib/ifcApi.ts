@@ -142,12 +142,16 @@ export function validateIfcAnswer(value: unknown, request: IfcQuestionRequest): 
     const safeText = (item: unknown) => text(item) && item.length <= 200 && !/[\u0000-\u001f\u007f]/.test(item);
     const counter = (item: unknown) => Number.isSafeInteger(item) && (item as number) >= 0;
     if (!object(planning) || Object.keys(planning).some((key) => !allowed.has(key))
-        || !['nemotron', 'gemini'].includes(String(planning.provider))
+        || !['nemotron', 'gemini', 'deterministic'].includes(String(planning.provider))
         || !['requested_model', 'returned_model', 'prompt_version', 'discovery_version'].every((key) => safeText(planning[key]))
         || (planning.thinking_level != null && !['low', 'medium', 'high', 'xhigh', 'enabled', 'disabled', 'provider_default'].includes(String(planning.thinking_level)))
-        || !counter(planning.model_requests) || (planning.model_requests as number) < 1 || (planning.model_requests as number) > 3
+        || !counter(planning.model_requests) || (planning.model_requests as number) > 3
         || !counter(planning.inspection_count) || (planning.inspection_count as number) > 6
         || ['prompt_tokens', 'completion_tokens', 'thought_tokens'].some((key) => planning[key] != null && !counter(planning[key]))) throw invalid();
+    if (planning.provider === 'deterministic'
+      ? planning.model_requests !== 0 || planning.inspection_count !== 0
+        || ['prompt_tokens', 'completion_tokens', 'thought_tokens'].some((key) => planning[key] !== 0)
+      : (planning.model_requests as number) < 1) throw invalid();
   }
   const visible = (request.scope ?? 'view') === 'view' ? new Set(request.visible_step_ids ?? []) : null;
   const classified = new Set<string>();

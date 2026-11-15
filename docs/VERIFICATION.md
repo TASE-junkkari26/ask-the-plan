@@ -1,5 +1,46 @@
 # Sprint-one verification record
 
+## Origin-first IFC integration, 15 November 2026
+
+Integrated the complete local IFC snapshot with `origin/main` at `330d26f`,
+giving origin priority on conflicts. Preserved its common answer coordinator,
+independent requested parts, concise interface, whole-model IFC questions,
+drawing/DXF routing and scalar arithmetic. Compatible local native planning,
+measurements, routes, network queries, hydration limits and source evidence
+remain available. Scalar arithmetic source and its upstream tests match origin.
+The original local snapshot is retained on
+`backup/local-ifc-before-origin-20261115` and in the safety stash.
+
+Checked on Linux with Python 3.14.10, IfcOpenShell 0.9.0.post1, Pydantic 2.14.3,
+Node.js 26.13.1 and npm 12.2.2:
+
+- `python -m unittest discover -s tests -q`: all **1,053 tests pass**, no skips,
+  in 112.696 seconds, with provider transports mocked and credentials disabled.
+- All 21 frontend test files, production build and rendering smoke checks pass.
+  The smoke checks verify whole-model form copy and that closed evidence panels
+  defer large proof rendering. Existing Three/WebGPU export and bundle-size
+  warnings remain; the build completed in 18.82 seconds.
+- All 18 generated contract roots are current; frontend types were regenerated.
+  Documentation links, the IFC question inventory and whitespace checks pass.
+- Focused checks cover common native planning, independent partial outputs,
+  source-bound material/route evidence, hydration, scalar/table arithmetic,
+  provider isolation and lossless JSON compression with uncompressed NDJSON
+  progress events. Independent review found no blocking integration issues in
+  session ownership, cancellation or evidence dependency closure.
+
+The optional answer-family ledger check reports only a local availability
+difference: `preview_dataset_available` is true in this checkout and false in
+origin's saved ledger. All 234 generated family entries match. The saved ledger
+is retained from origin. An observed upstream arithmetic limitation also remains:
+implicit dimensionless ratio units can select `rad`; request `unit:1` when a ratio
+needs that output unit.
+
+These are offline integration checks. No live inference requests or browser
+automation were run for this merge. Prior native/source and authorized Gemini
+observations remain separate in the [IFC development record](IFC_IMPLEMENTATION_VERIFICATION.md)
+and [completed capped batch](IFC_NEXT_LIVE_CHECKS.md); they do not establish
+post-merge dataset-family accuracy.
+
 ## Minimal interface copy, 15 November 2026
 
 Removed repeated import instructions, subtitles, source filename cards and

@@ -13,9 +13,8 @@ from time import perf_counter
 from uuid import uuid4
 
 from contracts import models as m
-from contracts.validation import validate_plan
 from image_api.errors import ApiError
-from ifc_api.service import InvalidProposal, PlanProposal
+from ifc_api.service import InvalidProposal, PlanProposal, _model_title_conflict, _native_work
 from ifc_api.providers import PlannerReply, PlannerUsage
 from ifc_engine.engine import QueryError
 from .budget import AnswerBudget, BudgetPlanner
@@ -68,12 +67,7 @@ def planning_reason(status):
 
 async def cpu_work(function, *args):
     """Native execution finishes before callers may release source leases."""
-    task = asyncio.create_task(asyncio.to_thread(function, *args))
-    try:
-        return await asyncio.shield(task)
-    except asyncio.CancelledError:
-        await task
-        raise
+    return await _native_work(function, *args)
 
 
 class AnswerService:
@@ -174,8 +168,8 @@ class AnswerService:
         if service._gate.locked():
             raise ApiError(429, 'busy', 'IFC service is busy; try again later.', True)
         async with service._gate:
-            model = service._model(request.model_id, request.source_sha256)
             with service._lock:
+                model = service._model(request.model_id, request.source_sha256)
                 model.active += 1
             try:
                 source = m.AnswerSourceBinding(source_id=model.model_id, kind='ifc',
@@ -186,7 +180,28 @@ class AnswerService:
                                                   question=request.question, scope='model')
                 plans, missing = {}, {}
                 reply = PlannerReply(text='', model='no-model-call', usage=PlannerUsage(prompt_tokens=0, completion_tokens=0))
-                if request.plans:
+                source_error = None
+                try:
+                    # One hydration/work budget spans planning and every output.
+                    # Earlier part evidence survives until the union is exported.
+                    await cpu_work(model.engine.clear_hydration)
+                    conflict = await cpu_work(_model_title_conflict, model.engine, request.question, True)
+                except QueryError as exc:
+                    source_error = exc
+                    conflict = None
+                if source_error:
+                    status = source_error.code if source_error.code in {'missing_source', 'unsupported_operation', 'needs_clarification', 'incomplete_coverage', 'missing_information'} else 'execution_error'
+                    proposal = PlanProposal(status='missing_information', interpretation=planning_reason(status),
+                        explicitly_requests_entire_model=True, steps=[])
+                    missing = {part.key: unavailable(part.key, status, planning_reason(status)) for part in intent.requested_parts}
+                    reply = service._native_reply()
+                elif conflict:
+                    proposal = PlanProposal(status='needs_clarification', interpretation=conflict,
+                        explicitly_requests_entire_model=True, steps=[])
+                    missing = {part.key: unavailable(part.key, 'needs_clarification', conflict)
+                               for part in intent.requested_parts}
+                    reply = service._native_reply()
+                elif request.plans:
                     plans = {key: plan.model_copy(update={'id': 'plan:' + uuid4().hex, 'request_id': request_id})
                              for key, plan in request.plans.items()}
                     proposal = PlanProposal(status='missing_information', interpretation='Validated direct query plans.',
@@ -200,8 +215,30 @@ class AnswerService:
                     proposal = None
                     for attempt in range(2):
                         try:
-                            proposal, reply = await asyncio.wait_for(proxy._propose(model, ifc_request, repair, context),
-                                                                     timeout=max(.001, budget.remaining - .1))
+                            compiled = None
+                            if (attempt == 0 and len(intent.requested_parts) == 1 and service.settings.fast_plans
+                                    and not getattr(service, 'configuration_error', None)):
+                                from ifc_api.fast_plans import try_plan
+                                compiled = await cpu_work(try_plan, model.engine, request.question,
+                                    service._scope_members(model, ifc_request))
+                                if compiled is not None and len(compiled.get('outputs', {})) > 1 and request.parts is not None:
+                                    # A host-supplied part key cannot be silently
+                                    # replaced by several native output keys.
+                                    compiled = None
+                            if compiled is not None:
+                                proposal = PlanProposal.model_validate(compiled)
+                                reply = service._native_reply()
+                                if proposal.status == 'ready':
+                                    if len(proposal.outputs) > 1:
+                                        proposal = proposal.model_copy(update={'requested_parts': [
+                                            m.AnswerRequestedPart(key=key, question=request.question) for key in proposal.outputs]})
+                                    else:
+                                        output = proposal.output_step_id or next(iter(proposal.outputs.values()))
+                                        proposal = proposal.model_copy(update={'output_step_id': None,
+                                            'outputs': {intent.requested_parts[0].key: output}})
+                            else:
+                                proposal, reply = await asyncio.wait_for(proxy._propose(model, ifc_request, repair, context),
+                                                                         timeout=max(.001, budget.remaining - .1))
                             if proposal.status == 'ready':
                                 outputs = proposal.outputs or {'answer': proposal.output_step_id}
                                 # Compile every requested output before executing
@@ -216,15 +253,33 @@ class AnswerService:
                                         keys = [key for key in [*outputs, *(part.key for part in proposal.unavailable_parts)]
                                                 if key != 'answer']
                                         intent.requested_parts.extend(m.AnswerRequestedPart(key=key, question=key) for key in keys)
+                                invalid = []
                                 for key, step_id in outputs.items():
                                     try:
                                         steps = self._dependency_steps(proposal.steps, step_id)
-                                        plans[key] = m.QueryPlan(id='plan:' + uuid4().hex, request_id=request_id,
+                                        candidate = m.QueryPlan(id='plan:' + uuid4().hex, request_id=request_id,
                                             scope=model.engine.scope(), steps=steps, outputs={key: step_id})
-                                    except (ValueError, InvalidProposal):
+                                        part = next((part for part in intent.requested_parts if part.key == key), None)
+                                        question = (request.question if len(intent.requested_parts) == 1
+                                                    else part.question if part is not None else request.question)
+                                        scoped_request = ifc_request.model_copy(update={'question': question})
+                                        scoped_proposal = proposal.model_copy(update={'steps': steps, 'outputs': {key: step_id},
+                                            'output_step_id': None, 'unanswered_parts': [], 'unavailable_parts': []})
+                                        await cpu_work(service._preflight_plan, model, scoped_request, scoped_proposal, candidate)
+                                        plans[key] = candidate
+                                        missing.pop(key, None)
+                                    except (ValueError, InvalidProposal) as exc:
+                                        invalid.append(str(exc))
                                         missing[key] = unavailable(key, 'needs_clarification',
                                             'This output did not compile into a valid ordered dependency plan. Clarify its source inputs.')
+                                    except QueryError as exc:
+                                        status = exc.code if exc.code in {'missing_source', 'unsupported_operation', 'needs_clarification', 'incomplete_coverage', 'missing_information'} else 'execution_error'
+                                        missing[key] = unavailable(key, status, planning_reason(status))
                                 missing.update({part.key: part for part in proposal.unavailable_parts})
+                                # An ignored literal room or invalid reference is
+                                # repairable. Valid independent outputs survive.
+                                if invalid and not plans:
+                                    raise InvalidProposal(invalid[0])
                             else:
                                 missing = {part.key: unavailable(part.key, proposal.status, planning_reason(proposal.status))
                                            for part in intent.requested_parts}
@@ -234,6 +289,11 @@ class AnswerService:
                             if attempt == 1 or len(context.get('replies', [])) >= service.settings.max_model_requests:
                                 missing = {part.key: unavailable(part.key, 'needs_clarification',
                                     'A source-valid plan could not be formed within the shared planning budget.') for part in intent.requested_parts}
+                        except QueryError as exc:
+                            status = exc.code if exc.code in {'missing_source', 'unsupported_operation', 'needs_clarification', 'incomplete_coverage', 'missing_information'} else 'execution_error'
+                            missing.update({part.key: unavailable(part.key, status, planning_reason(status))
+                                            for part in intent.requested_parts if part.key not in plans})
+                            break
                         except (ApiError, asyncio.TimeoutError) as exc:
                             message = exc.message if isinstance(exc, ApiError) else 'The shared question deadline expired during planning.'
                             missing = {part.key: unavailable(part.key, 'execution_error', message) for part in intent.requested_parts}
@@ -260,19 +320,16 @@ class AnswerService:
                         if (plan.scope.project_id != expected.project_id or plan.scope.document_ids != expected.document_ids
                                 or plan.scope.view_ids or plan.scope.universe not in {'modeled_objects', 'source_records'}):
                             raise QueryError('missing_source', 'The executable plan belongs to a different source or drawing view.')
-                        service._bounded(plan)
-                        for step in plan.steps:
-                            operation = step.operation
-                            capability = ('aggregate.' + operation.method if operation.kind == 'aggregate'
-                                else 'arithmetic.' + operation.operator if operation.kind == 'arithmetic' else operation.kind)
-                            if capability not in model.engine.capabilities.operations:
-                                raise QueryError('unsupported_operation', f'The local executor does not implement {capability}.')
-                        validate_plan(plan, model.engine.bundle, model.engine.capabilities)
+                        scoped_request = ifc_request.model_copy(update={'question': request.question
+                            if len(intent.requested_parts) == 1 else part.question})
+                        scoped_proposal = proposal.model_copy(update={'steps': plan.steps, 'outputs': plan.outputs,
+                            'output_step_id': None, 'unanswered_parts': [], 'unavailable_parts': []})
+                        await cpu_work(service._preflight_plan, model, scoped_request, scoped_proposal, plan)
                         executable_plan = plan
                         result = await cpu_work(model.engine.execute, plan)
                     except (QueryError, ValueError, ApiError) as exc:
                         result = model.engine._failure(QueryError(getattr(exc, 'code', 'execution_error')
-                            if getattr(exc, 'code', '') in {'missing_source', 'unsupported_operation', 'needs_clarification'} else 'execution_error',
+                            if getattr(exc, 'code', '') in {'missing_source', 'unsupported_operation', 'needs_clarification', 'incomplete_coverage', 'missing_information'} else 'execution_error',
                             str(exc)), request_id, executable_plan.id if executable_plan else None)
                     ctx_id = 'evidence:ifc:' + model.model_id
                     coverage_ids = {identifier for claim in result.claims for identifier in claim.coverage_ids}
@@ -323,6 +380,7 @@ class AnswerService:
             needed.add(current)
             operation = by_id[current].operation
             pending.extend(getattr(operation, 'input_step_ids', []))
-            if hasattr(operation, 'input_step_id'):
-                pending.append(operation.input_step_id)
+            for operand in ('input_step_id', 'component_step_id', 'target_step_id'):
+                if getattr(operation, operand, None) is not None:
+                    pending.append(getattr(operation, operand))
         return [step for step in steps if step.id in needed]

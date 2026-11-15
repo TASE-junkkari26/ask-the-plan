@@ -25,6 +25,7 @@ from .fixtures import GROUPS, VERSION, Fixture, build_fixture
 PROVIDERS = ("replay", "nemotron", "nemotron-thinking", "gemini-low", "gemini-high")
 SOURCE_MODULES = (
     "ifc_api/service.py", "ifc_api/providers.py", "ifc_api/discovery.py", "ifc_api/config.py", "ifc_api/answers.py",
+    "ifc_api/fast_plans.py", "ifc_api/planning_context.py", "ifc_api/intent_guard.py",
     "gemini/client.py", "gemini/config.py", "ifc_engine/engine.py", "ifc_engine/ingest.py",
     "ifc_engine/spatial.py", "ifc_engine/exterior.py", "ifc_engine/catalog.py", "ifc_engine/units.py",
     "contracts/models.py", "contracts/validation.py", "nemotron/client.py",
@@ -140,7 +141,7 @@ class ReplayPlanner:
     def __init__(self, state):
         from ifc_api.config import IfcSettings
         self.state = state
-        self.settings = IfcSettings()
+        self.settings = IfcSettings(fast_plans=False)
 
     @property
     def provenance(self):
@@ -168,10 +169,10 @@ async def _provider(name, replay_state):
         if name == "nemotron-thinking":
             values = values.model_copy(update={"enable_thinking": True})
         client = AsyncNemotronClient(values)
-        return NemotronPlanner(client, IfcSettings.from_env().model_copy(update={"provider": "nemotron"})), client.close
+        return NemotronPlanner(client, IfcSettings.from_env().model_copy(update={"provider": "nemotron", "fast_plans": False})), client.close
     from gemini import AsyncGeminiClient, GeminiSettings
     client = AsyncGeminiClient(GeminiSettings.from_env())
-    settings = IfcSettings.from_env().model_copy(update={"provider": "gemini", "gemini_thinking_level": name.split("-")[1]})
+    settings = IfcSettings.from_env().model_copy(update={"provider": "gemini", "gemini_thinking_level": name.split("-")[1], "fast_plans": False})
     return GeminiPlanner(client, settings), client.close
 
 
@@ -187,7 +188,10 @@ def source_fingerprint(root: Path | None = None):
     """Identify the code actually present, including uncommitted adapter changes."""
     root = root if root is not None else Path(__file__).resolve().parents[2]
     hashes, missing = {}, []
-    for relative in SOURCE_MODULES:
+    modules = set(SOURCE_MODULES)
+    for package in ("ifc_api", "ifc_engine", "contracts", "gemini", "nemotron"):
+        modules.update(path.relative_to(root).as_posix() for path in (root / package).rglob("*.py"))
+    for relative in sorted(modules):
         path = root / relative
         if not path.is_file():
             missing.append(relative)
@@ -205,7 +209,7 @@ def _safe_config(provider):
     # Copy explicit harmless scalars only; never serialize a credential settings object.
     output = {"adapter": getattr(provider, "name", type(provider).__name__)}
     settings = getattr(provider, "settings", None)
-    for key in ("provider", "max_tokens", "deadline_seconds", "max_model_requests", "max_inspections",
+    for key in ("provider", "fast_plans", "compact_context", "max_tokens", "deadline_seconds", "max_model_requests", "max_inspections",
                 "gemini_thinking_level", "gemini_max_output_tokens"):
         value = getattr(settings, key, None)
         if value is None or isinstance(value, (str, int, float, bool)):

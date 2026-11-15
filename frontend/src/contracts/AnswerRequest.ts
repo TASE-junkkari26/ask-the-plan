@@ -251,7 +251,11 @@ export type Operation1 =
   | ProjectOperation
   | RankOperation
   | MeasureOperation
-  | ArithmeticOperation;
+  | ArithmeticOperation
+  | TableCalculateOperation
+  | NetworkQueryOperation
+  | MaterialQuantityOperation
+  | RouteQueryOperation;
 export type ConceptIds = string[];
 export type DistinctBy = 'canonical_entity_id';
 export type Grain = 'logical_object' | 'occurrence' | 'assembly' | 'part' | 'schedule_row';
@@ -376,6 +380,7 @@ export type GroupBy = FieldRef[];
 export type InputStepId1 = string;
 export type Kind17 = 'aggregate';
 export type Method = 'count' | 'sum' | 'mean' | 'min' | 'max';
+export type MissingGroups = 'fail' | 'unclassified';
 export type MissingValues = 'fail' | 'partial';
 export type OutputUnitId = string | null;
 export type ValueKey = string;
@@ -396,6 +401,7 @@ export type Fields1 = [FieldRef, ...FieldRef[]];
 export type InputStepId4 = string;
 export type Kind20 = 'project';
 export type Direction2 = 'ascending' | 'descending';
+export type IncludeTies = boolean;
 export type InputStepId5 = string;
 export type Kind21 = 'rank';
 export type Limit = number;
@@ -403,7 +409,18 @@ export type Basis1 = string;
 export type CalibrationIds = string[];
 export type InputStepId6 = string;
 export type Kind22 = 'measure';
-export type Metric = 'area' | 'union_area' | 'length' | 'perimeter' | 'volume' | 'distance' | 'angle';
+export type Metric =
+  | 'area'
+  | 'union_area'
+  | 'enclosed_area'
+  | 'length'
+  | 'perimeter'
+  | 'volume'
+  | 'distance'
+  | 'angle'
+  | 'height'
+  | 'base_elevation'
+  | 'horizontal_distance';
 export type OutputUnitId1 = string;
 export type ReferenceEntityIds = string[];
 /**
@@ -413,6 +430,59 @@ export type InputStepIds = [string, string, ...string[]];
 export type Kind23 = 'arithmetic';
 export type Operator2 = 'add' | 'subtract' | 'multiply' | 'divide';
 export type OutputUnitId2 = string | null;
+/**
+ * @minItems 1
+ * @maxItems 8
+ */
+export type Fields2 =
+  | [FieldRef]
+  | [FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef];
+/**
+ * @maxItems 8
+ */
+export type GroupBy1 =
+  | []
+  | [FieldRef]
+  | [FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef];
+export type InputStepId7 = string;
+export type Kind24 = 'table_calculate';
+export type NextKey = string;
+export type Operator3 = 'add' | 'subtract' | 'multiply' | 'divide' | 'percent_of_total' | 'consecutive_difference';
+export type OutputUnitId3 = string | null;
+export type ValueKey1 = string;
+export type ComponentStepId = string | null;
+export type InputStepId8 = string;
+export type Kind25 = 'network_query';
+export type InputStepId9 = string;
+export type Kind26 = 'material_quantity';
+/**
+ * @maxItems 32
+ */
+export type MaterialNames = string[];
+export type Method2 = 'auto' | 'recorded_net' | 'geometry';
+export type OutputUnitId4 = string;
+export type ToleranceM1 = number;
+export type ClearanceM = number;
+export type IncludeStairs = boolean;
+export type InputStepId10 = string;
+export type Kind27 = 'route_query';
+export type Mode = 'shortest' | 'farthest';
+export type StartBasis = 'modeled_interior_point' | 'explicit_point' | 'farthest_sampled';
+export type StartPointM = [unknown, unknown, unknown] | null;
+export type TargetBasis = 'recorded_external_boundary' | 'certified_fire_exit';
+export type TargetStepId = string | null;
 export type Question1 = string;
 export type SchemaVersion1 = '0.1.0';
 export type DisplayHeight = number | null;
@@ -609,6 +679,7 @@ export interface AggregateOperation {
   input_step_id: InputStepId1;
   kind: Kind17;
   method: Method;
+  missing_groups?: MissingGroups;
   missing_values?: MissingValues;
   output_unit_id?: OutputUnitId;
   value_key?: ValueKey;
@@ -641,6 +712,7 @@ export interface ProjectOperation {
 export interface RankOperation {
   direction: Direction2;
   field: FieldRef;
+  include_ties?: IncludeTies;
   input_step_id: InputStepId5;
   kind: Kind21;
   limit: Limit;
@@ -659,6 +731,53 @@ export interface ArithmeticOperation {
   kind: Kind23;
   operator: Operator2;
   output_unit_id?: OutputUnitId2;
+}
+/**
+ * Bounded arithmetic over source-derived table cells, never expressions.
+ */
+export interface TableCalculateOperation {
+  fields: Fields2;
+  group_by?: GroupBy1;
+  input_step_id: InputStepId7;
+  kind: Kind24;
+  next_key?: NextKey;
+  operator: Operator3;
+  order_by?: FieldRef | null;
+  output_unit_id?: OutputUnitId3;
+  value_key?: ValueKey1;
+}
+/**
+ * Metrics of an explicitly selected native distribution-port graph.
+ */
+export interface NetworkQueryOperation {
+  component_step_id?: ComponentStepId;
+  input_step_id: InputStepId8;
+  kind: Kind25;
+}
+/**
+ * Recorded homogeneous net volumes or source-verified material estimates.
+ */
+export interface MaterialQuantityOperation {
+  input_step_id: InputStepId9;
+  kind: Kind26;
+  material_names?: MaterialNames;
+  method?: Method2;
+  output_unit_id?: OutputUnitId4;
+  tolerance_m?: ToleranceM1;
+}
+/**
+ * A bounded modeled walking route, separate from straight-line distance.
+ */
+export interface RouteQueryOperation {
+  clearance_m?: ClearanceM;
+  include_stairs?: IncludeStairs;
+  input_step_id: InputStepId10;
+  kind: Kind27;
+  mode?: Mode;
+  start_basis?: StartBasis;
+  start_point_m?: StartPointM;
+  target_basis?: TargetBasis;
+  target_step_id?: TargetStepId;
 }
 export interface AnswerSnapshot {
   display_height?: DisplayHeight;

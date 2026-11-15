@@ -259,9 +259,11 @@ class IfcEngineTests(unittest.TestCase):
                           predicate="typed_by", direction="outgoing"))]
         plan.outputs = {"types": "types"}
         result = self.engine.execute(plan)
-        self.assertEqual(result.claims[0].value.entity_ids, [])
+        self.assertEqual(result.status, "incomplete_coverage")
+        self.assertFalse(result.claims)
         plan.scope = self.engine.scope()
         result = self.engine.execute(plan)
+        self.assertEqual(result.status, "answered", result.model_dump_json())
         self.assertEqual(len(result.claims[0].value.entity_ids), 1)
 
     def test_unsupported_geometry_and_physical_building_scope(self):

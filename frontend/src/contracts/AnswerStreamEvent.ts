@@ -1289,7 +1289,9 @@ export type Predicate =
   | 'filled_by'
   | 'assigned_to_zone'
   | 'corresponding_boundary'
-  | 'external_boundary';
+  | 'external_boundary'
+  | 'has_port'
+  | 'port_connected_to';
 export type SubjectId1 = string;
 export type Relations = Relation[];
 export type AnchorIds2 = string[];
@@ -1390,7 +1392,11 @@ export type Operation =
   | ProjectOperation
   | RankOperation
   | MeasureOperation
-  | ArithmeticOperation;
+  | ArithmeticOperation
+  | TableCalculateOperation
+  | NetworkQueryOperation
+  | MaterialQuantityOperation
+  | RouteQueryOperation;
 export type ConceptIds2 = string[];
 export type EntityKinds = (
   | 'site'
@@ -1456,6 +1462,7 @@ export type GroupBy = FieldRef[];
 export type InputStepId1 = string;
 export type Kind29 = 'aggregate';
 export type Method2 = 'count' | 'sum' | 'mean' | 'min' | 'max';
+export type MissingGroups = 'fail' | 'unclassified';
 export type MissingValues = 'fail' | 'partial';
 export type OutputUnitId = string | null;
 export type ValueKey = string;
@@ -1476,6 +1483,7 @@ export type Fields1 = [FieldRef, ...FieldRef[]];
 export type InputStepId4 = string;
 export type Kind32 = 'project';
 export type Direction2 = 'ascending' | 'descending';
+export type IncludeTies = boolean;
 export type InputStepId5 = string;
 export type Kind33 = 'rank';
 export type Limit = number;
@@ -1483,7 +1491,18 @@ export type Basis1 = string;
 export type CalibrationIds = string[];
 export type InputStepId6 = string;
 export type Kind34 = 'measure';
-export type Metric = 'area' | 'union_area' | 'length' | 'perimeter' | 'volume' | 'distance' | 'angle';
+export type Metric =
+  | 'area'
+  | 'union_area'
+  | 'enclosed_area'
+  | 'length'
+  | 'perimeter'
+  | 'volume'
+  | 'distance'
+  | 'angle'
+  | 'height'
+  | 'base_elevation'
+  | 'horizontal_distance';
 export type OutputUnitId1 = string;
 export type ReferenceEntityIds = string[];
 /**
@@ -1493,6 +1512,59 @@ export type InputStepIds = [string, string, ...string[]];
 export type Kind35 = 'arithmetic';
 export type Operator2 = 'add' | 'subtract' | 'multiply' | 'divide';
 export type OutputUnitId2 = string | null;
+/**
+ * @minItems 1
+ * @maxItems 8
+ */
+export type Fields2 =
+  | [FieldRef]
+  | [FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef];
+/**
+ * @maxItems 8
+ */
+export type GroupBy1 =
+  | []
+  | [FieldRef]
+  | [FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef]
+  | [FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef, FieldRef];
+export type InputStepId7 = string;
+export type Kind36 = 'table_calculate';
+export type NextKey = string;
+export type Operator3 = 'add' | 'subtract' | 'multiply' | 'divide' | 'percent_of_total' | 'consecutive_difference';
+export type OutputUnitId3 = string | null;
+export type ValueKey1 = string;
+export type ComponentStepId = string | null;
+export type InputStepId8 = string;
+export type Kind37 = 'network_query';
+export type InputStepId9 = string;
+export type Kind38 = 'material_quantity';
+/**
+ * @maxItems 32
+ */
+export type MaterialNames = string[];
+export type Method4 = 'auto' | 'recorded_net' | 'geometry';
+export type OutputUnitId4 = string;
+export type ToleranceM1 = number;
+export type ClearanceM = number;
+export type IncludeStairs = boolean;
+export type InputStepId10 = string;
+export type Kind39 = 'route_query';
+export type Mode3 = 'shortest' | 'farthest';
+export type StartBasis = 'modeled_interior_point' | 'explicit_point' | 'farthest_sampled';
+export type StartPointM = [unknown, unknown, unknown] | null;
+export type TargetBasis = 'recorded_external_boundary' | 'certified_fire_exit';
+export type TargetStepId = string | null;
 export type CompletionTokens2 = number | null;
 export type DiscoveryVersion = string;
 export type InspectionCount = number;
@@ -1514,11 +1586,103 @@ export type FactIds = string[];
 export type Id26 = string;
 export type IncludedSetId = string | null;
 export type InputNodeIds = string[];
+/**
+ * @maxItems 256
+ */
+export type AssignmentStepIds = number[];
+export type Frame = 'ifc_world' | 'native_quantity';
+export type HostVolumeM3 = number | null;
+/**
+ * @maxItems 256
+ */
+export type LayerStepIds = number[];
+export type MaterialName = string | null;
+/**
+ * @maxItems 256
+ */
+export type MaterialStepIds = number[];
+export type Method5 =
+  | 'recorded_net_homogeneous'
+  | 'closed_mesh_homogeneous'
+  | 'verified_uniform_layers'
+  | 'recorded_not_used'
+  | 'unavailable';
+export type SelectedThicknessM = number | null;
+/**
+ * @maxItems 2000
+ */
+export type SourceStepIds = number[];
+export type Index = number;
+export type LayerStepId = number;
+export type MaterialName1 = string | null;
+export type MaterialStepId = number | null;
+/**
+ * @maxItems 256
+ */
+export type SpecifiedLayers = MaterialLayerInput[];
+export type Status3 = 'verified' | 'recorded_not_used' | 'unavailable';
+export type SubjectId2 = string;
+export type ToleranceM2 = number;
+export type TotalThicknessM = number | null;
+export type Unit1 = 'm3';
+export type VolumeM3 = number | null;
+export type MaterialEvidence = MaterialEvaluation[];
+export type Frame1 = 'ifc_world';
+export type Method6 = string;
+export type Metric1 =
+  | 'area'
+  | 'union_area'
+  | 'enclosed_area'
+  | 'length'
+  | 'perimeter'
+  | 'volume'
+  | 'distance'
+  | 'angle'
+  | 'height'
+  | 'base_elevation'
+  | 'horizontal_distance';
+/**
+ * @maxItems 2000
+ */
+export type ReferenceEntityIds1 = string[];
+/**
+ * @maxItems 2000
+ */
+export type RepresentationStepIds = number[];
+/**
+ * @maxItems 2000
+ */
+export type SourceStepIds1 = number[];
+export type Status4 = 'verified' | 'unavailable';
+export type SubjectId3 = string;
+export type ToleranceM3 = number;
+export type Unit2 = 'm' | 'm2' | 'm3' | 'rad';
+export type Value6 = number | null;
+export type MeasurementEvidence = MeasurementEvaluation[];
+export type ComponentNetworkCount = number;
+export type ComponentsWithConnectedPortsCount = number;
+export type ComponentsWithPortsCount = number;
+export type ConnectedPortCount = number;
+export type ConnectionGraphSha256 = string;
+export type CountingBasis = string;
+export type CutEdgeCount = number;
+export type IsolatedPortCount = number;
+export type LargestComponentNetworkCount = number;
+export type LargestComponentPortCount = number;
+export type Method7 = 'native_distribution_port_graph.v1';
+export type PortComponentCount = number;
+export type SelectedComponentCount = number;
+export type SelectedPortCount = number;
+export type UniqueConnectionCount = number;
+export type NetworkEvidence = NetworkEvaluation[];
 export type Operation1 =
   | 'select'
   | 'traverse'
   | 'spatial_query'
   | 'related_entities'
+  | 'network_query'
+  | 'material_quantity'
+  | 'route_query'
   | 'project'
   | 'rank'
   | 'count'
@@ -1548,14 +1712,47 @@ export type Output =
   | TableValue;
 export type PlanStepId = string | null;
 export type Quality1 = 'exact' | 'estimated' | 'lower_bound' | 'upper_bound';
-export type RuleKey1 = string | null;
+/**
+ * @maxItems 10000
+ */
 export type AnchorIds4 = string[];
-export type Method4 = string;
+/**
+ * @maxItems 1000
+ */
+export type DoorIds = string[];
+export type Frame2 = 'ifc_world';
+export type Method8 = string;
+/**
+ * @maxItems 2048
+ */
+export type PathPointsM = [unknown, unknown, unknown][];
+export type Quality2 = 'estimated';
+/**
+ * @maxItems 500
+ */
+export type RoomIds = string[];
+/**
+ * @maxItems 2000
+ */
+export type SourceStepIds2 = number[];
+/**
+ * @maxItems 64
+ */
+export type StairIds = string[];
+export type Status5 = 'verified' | 'partial' | 'unavailable';
+export type SubjectId4 = string;
+export type TargetId = string | null;
+export type ToleranceM4 = number;
+export type Unit3 = 'm';
+export type RouteEvidence = RouteEvaluation[];
+export type RuleKey1 = string | null;
+export type AnchorIds5 = string[];
+export type Method9 = string;
 export type RelatedIds = string[];
 export type Relation2 = 'containers' | 'boundary_neighbors' | 'door_connections' | 'outdoor_access' | 'exterior_doors';
-export type Status3 = 'verified' | 'candidate' | 'unavailable' | 'recorded_empty';
-export type SubjectId2 = string;
-export type ToleranceM1 = number | null;
+export type Status6 = 'verified' | 'candidate' | 'unavailable' | 'recorded_empty';
+export type SubjectId5 = string;
+export type ToleranceM5 = number | null;
 export type SpatialEvidence = SpatialEvaluation[];
 export type Calculations = CalculationNode[];
 export type ConceptIds3 = string[];
@@ -1567,7 +1764,7 @@ export type CoverageIds = [string, ...string[]];
  * @minItems 1
  */
 export type Evidence = [EvidenceBinding, ...EvidenceBinding[]];
-export type AnchorIds5 = string[];
+export type AnchorIds6 = string[];
 export type CalculationId = string;
 export type EntitySetIds = string[];
 export type EvidenceKind = 'verified' | 'candidate' | 'unavailable';
@@ -1577,8 +1774,8 @@ export type Id27 = string;
 export type Name2 = string;
 export type OutputKey = string;
 export type PropertyKeys1 = string[];
-export type Quality2 = 'exact' | 'estimated' | 'lower_bound' | 'upper_bound';
-export type Value6 =
+export type Quality3 = 'exact' | 'estimated' | 'lower_bound' | 'upper_bound';
+export type Value7 =
   | QuantityValue
   | CountValue
   | TextValue
@@ -1597,7 +1794,7 @@ export type MembersUri = string | null;
 export type EntitySets = EntitySet[];
 export type ExecutorVersion = string;
 export type Id29 = string;
-export type AnchorIds6 = string[];
+export type AnchorIds7 = string[];
 export type Code1 =
   | 'needs_clarification'
   | 'missing_source'
@@ -1621,7 +1818,7 @@ export type ModelOutputTokens = number | null;
 export type PlanId = string | null;
 export type RequestId6 = string;
 export type SchemaVersion5 = '0.1.0';
-export type Status4 =
+export type Status7 =
   | 'answered'
   | 'partial'
   | 'needs_clarification'
@@ -1989,10 +2186,10 @@ export type ElapsedMs3 = number;
 export type ExternalAttempts = number;
 export type ModelInputTokens1 = number | null;
 export type ModelOutputTokens1 = number | null;
-export type AnchorIds7 = string[];
+export type AnchorIds8 = string[];
 export type ClaimIds = string[];
 export type Id31 = string;
-export type Kind36 = 'claim' | 'issue';
+export type Kind40 = 'claim' | 'issue';
 export type PartKey = string;
 export type Qualification = 'exact' | 'estimated' | 'lower_bound' | 'upper_bound' | 'unavailable';
 export type Text1 = string;
@@ -2173,7 +2370,7 @@ export type DependsOn1 =
     ];
 export type EvidenceContextId = string | null;
 export type Key4 = string;
-export type Status5 =
+export type Status8 =
   | 'answered'
   | 'partial'
   | 'needs_clarification'
@@ -2192,7 +2389,7 @@ export type SchemaVersion7 = '0.1.0';
 export type DisplayHeight1 = number | null;
 export type DisplaySha2561 = string | null;
 export type DisplayWidth1 = number | null;
-export type Kind37 = 'image' | 'pdf' | 'svg' | 'dxf' | 'ifc';
+export type Kind41 = 'image' | 'pdf' | 'svg' | 'dxf' | 'ifc';
 export type LayoutName1 = string | null;
 export type PageIndex2 = number | null;
 export type Rotation1 = 0 | 90 | 180 | 270;
@@ -2864,6 +3061,7 @@ export interface AggregateOperation {
   input_step_id: InputStepId1;
   kind: Kind29;
   method: Method2;
+  missing_groups?: MissingGroups;
   missing_values?: MissingValues;
   output_unit_id?: OutputUnitId;
   value_key?: ValueKey;
@@ -2896,6 +3094,7 @@ export interface ProjectOperation {
 export interface RankOperation {
   direction: Direction2;
   field: FieldRef;
+  include_ties?: IncludeTies;
   input_step_id: InputStepId5;
   kind: Kind33;
   limit: Limit;
@@ -2914,6 +3113,53 @@ export interface ArithmeticOperation {
   kind: Kind35;
   operator: Operator2;
   output_unit_id?: OutputUnitId2;
+}
+/**
+ * Bounded arithmetic over source-derived table cells, never expressions.
+ */
+export interface TableCalculateOperation {
+  fields: Fields2;
+  group_by?: GroupBy1;
+  input_step_id: InputStepId7;
+  kind: Kind36;
+  next_key?: NextKey;
+  operator: Operator3;
+  order_by?: FieldRef | null;
+  output_unit_id?: OutputUnitId3;
+  value_key?: ValueKey1;
+}
+/**
+ * Metrics of an explicitly selected native distribution-port graph.
+ */
+export interface NetworkQueryOperation {
+  component_step_id?: ComponentStepId;
+  input_step_id: InputStepId8;
+  kind: Kind37;
+}
+/**
+ * Recorded homogeneous net volumes or source-verified material estimates.
+ */
+export interface MaterialQuantityOperation {
+  input_step_id: InputStepId9;
+  kind: Kind38;
+  material_names?: MaterialNames;
+  method?: Method4;
+  output_unit_id?: OutputUnitId4;
+  tolerance_m?: ToleranceM1;
+}
+/**
+ * A bounded modeled walking route, separate from straight-line distance.
+ */
+export interface RouteQueryOperation {
+  clearance_m?: ClearanceM;
+  include_stairs?: IncludeStairs;
+  input_step_id: InputStepId10;
+  kind: Kind39;
+  mode?: Mode3;
+  start_basis?: StartBasis;
+  start_point_m?: StartPointM;
+  target_basis?: TargetBasis;
+  target_step_id?: TargetStepId;
 }
 export interface IfcPlanningProvenance {
   completion_tokens?: CompletionTokens2;
@@ -2940,7 +3186,7 @@ export interface QueryResult {
   plan_id?: PlanId;
   request_id: RequestId6;
   schema_version?: SchemaVersion5;
-  status: Status4;
+  status: Status7;
 }
 export interface CalculationNode {
   anchor_ids?: AnchorIds3;
@@ -2950,27 +3196,118 @@ export interface CalculationNode {
   id: Id26;
   included_set_id?: IncludedSetId;
   input_node_ids?: InputNodeIds;
+  material_evidence?: MaterialEvidence;
+  measurement_evidence?: MeasurementEvidence;
+  network_evidence?: NetworkEvidence;
   operation: Operation1;
   output: Output;
   plan_step_id?: PlanStepId;
   quality: Quality1;
+  route_evidence?: RouteEvidence;
   rule_key?: RuleKey1;
   spatial_evidence?: SpatialEvidence;
+}
+export interface MaterialEvaluation {
+  assignment_step_ids?: AssignmentStepIds;
+  frame: Frame;
+  host_volume_m3?: HostVolumeM3;
+  layer_step_ids?: LayerStepIds;
+  material_name?: MaterialName;
+  material_step_ids?: MaterialStepIds;
+  metadata?: Metadata;
+  method: Method5;
+  recorded_quantity?: QuantityValue | null;
+  selected_thickness_m?: SelectedThicknessM;
+  source_step_ids?: SourceStepIds;
+  specified_layers?: SpecifiedLayers;
+  status: Status3;
+  subject_id: SubjectId2;
+  tolerance_m: ToleranceM2;
+  total_thickness_m?: TotalThicknessM;
+  unit?: Unit1;
+  volume_m3?: VolumeM3;
+}
+export interface Metadata {
+  [k: string]: unknown;
+}
+export interface MaterialLayerInput {
+  index: Index;
+  layer_step_id: LayerStepId;
+  material_name?: MaterialName1;
+  material_step_id?: MaterialStepId;
+  thickness?: QuantityValue | null;
+}
+/**
+ * Inspectably bounded evidence from a retained IFC geometry source.
+ */
+export interface MeasurementEvaluation {
+  frame: Frame1;
+  metadata?: Metadata1;
+  method: Method6;
+  metric: Metric1;
+  reference_entity_ids?: ReferenceEntityIds1;
+  representation_step_ids?: RepresentationStepIds;
+  source_step_ids?: SourceStepIds1;
+  status: Status4;
+  subject_id: SubjectId3;
+  tolerance_m: ToleranceM3;
+  unit: Unit2;
+  value?: Value6;
+}
+export interface Metadata1 {
+  [k: string]: unknown;
+}
+export interface NetworkEvaluation {
+  component_network_count?: ComponentNetworkCount;
+  components_with_connected_ports_count: ComponentsWithConnectedPortsCount;
+  components_with_ports_count: ComponentsWithPortsCount;
+  connected_port_count: ConnectedPortCount;
+  connection_graph_sha256: ConnectionGraphSha256;
+  counting_basis: CountingBasis;
+  cut_edge_count?: CutEdgeCount;
+  isolated_port_count: IsolatedPortCount;
+  largest_component_network_count?: LargestComponentNetworkCount;
+  largest_component_port_count: LargestComponentPortCount;
+  method: Method7;
+  port_component_count: PortComponentCount;
+  selected_component_count: SelectedComponentCount;
+  selected_port_count: SelectedPortCount;
+  unique_connection_count: UniqueConnectionCount;
+}
+export interface RouteEvaluation {
+  anchor_ids?: AnchorIds4;
+  door_ids?: DoorIds;
+  frame: Frame2;
+  metadata?: Metadata2;
+  method: Method8;
+  path_points_m?: PathPointsM;
+  quality?: Quality2;
+  room_ids?: RoomIds;
+  source_step_ids?: SourceStepIds2;
+  stair_ids?: StairIds;
+  status: Status5;
+  subject_id: SubjectId4;
+  target_id?: TargetId;
+  tolerance_m: ToleranceM4;
+  unit?: Unit3;
+}
+export interface Metadata2 {
+  [k: string]: unknown;
 }
 /**
  * Machine-readable support and unresolved inputs for one spatial subject.
  */
 export interface SpatialEvaluation {
-  anchor_ids?: AnchorIds4;
-  metadata?: Metadata;
-  method: Method4;
+  anchor_ids?: AnchorIds5;
+  metadata?: Metadata3;
+  method: Method9;
   related_ids?: RelatedIds;
   relation: Relation2;
-  status: Status3;
-  subject_id: SubjectId2;
-  tolerance_m?: ToleranceM1;
+  status: Status6;
+  subject_id: SubjectId5;
+  tolerance_m?: ToleranceM5;
 }
-export interface Metadata {
+export interface Metadata3 {
   [k: string]: unknown;
 }
 export interface Claim {
@@ -2982,12 +3319,12 @@ export interface Claim {
   name: Name2;
   output_key: OutputKey;
   property_keys?: PropertyKeys1;
-  quality: Quality2;
+  quality: Quality3;
   scope: Scope1;
-  value: Value6;
+  value: Value7;
 }
 export interface EvidenceBinding {
-  anchor_ids?: AnchorIds5;
+  anchor_ids?: AnchorIds6;
   calculation_id: CalculationId;
   entity_set_ids?: EntitySetIds;
   evidence_kind?: EvidenceKind;
@@ -3004,7 +3341,7 @@ export interface EntitySet {
   scope: Scope1;
 }
 export interface Issue {
-  anchor_ids?: AnchorIds6;
+  anchor_ids?: AnchorIds7;
   code: Code1;
   entity_ids?: EntityIds4;
   fact_ids?: FactIds2;
@@ -3061,10 +3398,10 @@ export interface AnswerCall {
   thought_tokens?: ThoughtTokens1;
 }
 export interface AnswerSentence {
-  anchor_ids?: AnchorIds7;
+  anchor_ids?: AnchorIds8;
   claim_ids?: ClaimIds;
   id: Id31;
-  kind: Kind36;
+  kind: Kind40;
   part_key: PartKey;
   qualification: Qualification;
   text: Text1;
@@ -3077,13 +3414,13 @@ export interface AnswerPart {
   message?: LocalizedText | null;
   plan?: QueryPlan | null;
   result?: QueryResult | null;
-  status: Status5;
+  status: Status8;
 }
 export interface AnswerSourceBinding {
   display_height?: DisplayHeight1;
   display_sha256?: DisplaySha2561;
   display_width?: DisplayWidth1;
-  kind: Kind37;
+  kind: Kind41;
   layout_name?: LayoutName1;
   page_index?: PageIndex2;
   rotation?: Rotation1;

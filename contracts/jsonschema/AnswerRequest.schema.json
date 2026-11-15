@@ -43,6 +43,15 @@
           "title": "Method",
           "type": "string"
         },
+        "missing_groups": {
+          "default": "fail",
+          "enum": [
+            "fail",
+            "unclassified"
+          ],
+          "title": "Missing Groups",
+          "type": "string"
+        },
         "missing_values": {
           "default": "fail",
           "enum": [
@@ -679,6 +688,61 @@
       "title": "LocalizedText",
       "type": "object"
     },
+    "MaterialQuantityOperation": {
+      "additionalProperties": false,
+      "description": "Recorded homogeneous net volumes or source-verified material estimates.",
+      "properties": {
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "material_quantity",
+          "title": "Kind",
+          "type": "string"
+        },
+        "material_names": {
+          "items": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Material Names",
+          "type": "array"
+        },
+        "method": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "recorded_net",
+            "geometry"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "output_unit_id": {
+          "default": "unit:m3",
+          "minLength": 1,
+          "title": "Output Unit Id",
+          "type": "string"
+        },
+        "tolerance_m": {
+          "default": 0.001,
+          "maximum": 0.05,
+          "minimum": 1e-06,
+          "title": "Tolerance M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id"
+      ],
+      "title": "MaterialQuantityOperation",
+      "type": "object"
+    },
     "MeasureOperation": {
       "additionalProperties": false,
       "properties": {
@@ -708,11 +772,15 @@
           "enum": [
             "area",
             "union_area",
+            "enclosed_area",
             "length",
             "perimeter",
             "volume",
             "distance",
-            "angle"
+            "angle",
+            "height",
+            "base_elevation",
+            "horizontal_distance"
           ],
           "title": "Metric",
           "type": "string"
@@ -739,6 +807,41 @@
         "basis"
       ],
       "title": "MeasureOperation",
+      "type": "object"
+    },
+    "NetworkQueryOperation": {
+      "additionalProperties": false,
+      "description": "Metrics of an explicitly selected native distribution-port graph.",
+      "properties": {
+        "component_step_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Component Step Id"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "network_query",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id"
+      ],
+      "title": "NetworkQueryOperation",
       "type": "object"
     },
     "NormalizedQuantity": {
@@ -775,12 +878,16 @@
             "mapping": {
               "aggregate": "#/$defs/AggregateOperation",
               "arithmetic": "#/$defs/ArithmeticOperation",
+              "material_quantity": "#/$defs/MaterialQuantityOperation",
               "measure": "#/$defs/MeasureOperation",
+              "network_query": "#/$defs/NetworkQueryOperation",
               "project": "#/$defs/ProjectOperation",
               "rank": "#/$defs/RankOperation",
               "related_entities": "#/$defs/RelatedEntitiesOperation",
+              "route_query": "#/$defs/RouteQueryOperation",
               "select": "#/$defs/SelectOperation",
               "spatial_query": "#/$defs/SpatialQueryOperation",
+              "table_calculate": "#/$defs/TableCalculateOperation",
               "traverse": "#/$defs/TraverseOperation"
             },
             "propertyName": "kind"
@@ -812,6 +919,18 @@
             },
             {
               "$ref": "#/$defs/ArithmeticOperation"
+            },
+            {
+              "$ref": "#/$defs/TableCalculateOperation"
+            },
+            {
+              "$ref": "#/$defs/NetworkQueryOperation"
+            },
+            {
+              "$ref": "#/$defs/MaterialQuantityOperation"
+            },
+            {
+              "$ref": "#/$defs/RouteQueryOperation"
             }
           ],
           "title": "Operation"
@@ -1055,6 +1174,11 @@
         "field": {
           "$ref": "#/$defs/FieldRef"
         },
+        "include_ties": {
+          "default": false,
+          "title": "Include Ties",
+          "type": "boolean"
+        },
         "input_step_id": {
           "minLength": 1,
           "title": "Input Step Id",
@@ -1235,6 +1359,106 @@
         "entity_ids"
       ],
       "title": "RelationPredicate",
+      "type": "object"
+    },
+    "RouteQueryOperation": {
+      "additionalProperties": false,
+      "description": "A bounded modeled walking route, separate from straight-line distance.",
+      "properties": {
+        "clearance_m": {
+          "default": 0,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Clearance M",
+          "type": "number"
+        },
+        "include_stairs": {
+          "default": true,
+          "title": "Include Stairs",
+          "type": "boolean"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "route_query",
+          "title": "Kind",
+          "type": "string"
+        },
+        "mode": {
+          "default": "shortest",
+          "enum": [
+            "shortest",
+            "farthest"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "start_basis": {
+          "default": "modeled_interior_point",
+          "enum": [
+            "modeled_interior_point",
+            "explicit_point",
+            "farthest_sampled"
+          ],
+          "title": "Start Basis",
+          "type": "string"
+        },
+        "start_point_m": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Point M"
+        },
+        "target_basis": {
+          "default": "recorded_external_boundary",
+          "enum": [
+            "recorded_external_boundary",
+            "certified_fire_exit"
+          ],
+          "title": "Target Basis",
+          "type": "string"
+        },
+        "target_step_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Step Id"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id"
+      ],
+      "title": "RouteQueryOperation",
       "type": "object"
     },
     "Scope": {
@@ -1552,6 +1776,95 @@
         "relation"
       ],
       "title": "SpatialQueryOperation",
+      "type": "object"
+    },
+    "TableCalculateOperation": {
+      "additionalProperties": false,
+      "description": "Bounded arithmetic over source-derived table cells, never expressions.",
+      "properties": {
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FieldRef"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Fields",
+          "type": "array"
+        },
+        "group_by": {
+          "items": {
+            "$ref": "#/$defs/FieldRef"
+          },
+          "maxItems": 8,
+          "title": "Group By",
+          "type": "array"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "table_calculate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "next_key": {
+          "default": "following",
+          "minLength": 1,
+          "title": "Next Key",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "add",
+            "subtract",
+            "multiply",
+            "divide",
+            "percent_of_total",
+            "consecutive_difference"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "order_by": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_unit_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Unit Id"
+        },
+        "value_key": {
+          "default": "calculated",
+          "minLength": 1,
+          "title": "Value Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "operator",
+        "fields"
+      ],
+      "title": "TableCalculateOperation",
       "type": "object"
     },
     "TableColumn": {

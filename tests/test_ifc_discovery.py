@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import ifcopenshell.guid
 
@@ -68,7 +69,7 @@ class DiscoveryTests(unittest.IsolatedAsyncioTestCase):
         cls.directory.cleanup()
 
     def setUp(self):
-        self.service = IfcService(None)
+        self.service = IfcService(None, settings=IfcSettings(fast_plans=False))
         description = self.service._load(self.path, self.sha, self.path.stat().st_size)
         self.model = self.service._model(description.model_id, self.sha)
         self.index = SourceDiscovery(self.model.engine, self.model.elements)
@@ -135,6 +136,26 @@ class DiscoveryTests(unittest.IsolatedAsyncioTestCase):
             self.index.execute(DiscoveryRequest(action="inspect", entity_ids=["other-revision"],
                 property_keys=["invented/path"]), self.members)
 
+    async def test_long_question_retains_full_text_with_bounded_initial_search(self):
+        question = ("What is the sound transmission class (STC) rating between treatment rooms? "
+            "If this information is not directly available in the BIM model, what are the typical "
+            "STC ratings for similar partition wall constructions?")
+        planner = ScriptedPlanner([{"status": "missing_information", "interpretation": "Offline inspection fixture.",
+            "explicitly_requests_entire_model": False, "steps": []}])
+        self.service.planner = planner
+        request = self.request().model_copy(update={"question": question})
+        response = await self.service.question(request, "request:long-question")
+        self.assertEqual(response.result.status, "missing_information")
+        self.assertEqual(planner.calls[0]["question"], question)
+        self.assertTrue(planner.calls[0]["discovery"]["search"]["query_truncated"])
+        self.assertEqual(len(planner.calls), 1)
+
+    def test_unsearchable_long_literal_is_not_a_zero_match_inventory(self):
+        search = self.index.initial("A" * 201, self.members)["search"]
+        self.assertIsNone(search["matching_total"])
+        self.assertTrue(search["query_truncated"])
+        self.assertEqual(search["records"], [])
+
     async def test_inspection_loop_executes_real_plan_and_aggregates_usage(self):
         planner = ScriptedPlanner([inspect_request(action="search", query="single flush"), self.ready()])
         self.service.planner = planner
@@ -149,8 +170,53 @@ class DiscoveryTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("scope_fingerprint", planner.calls[1])
         self.assertNotIn(str(self.path), json.dumps(planner.calls))
 
+    async def test_compact_inspection_and_plan_resolve_to_canonical_public_evidence(self):
+        owner = self.model.by_step[self.doors[0].id()]
+        expected = "e#" + str(self.doors[0].id())
+        ready = self.ready()
+        ready["steps"][0]["operation"]["where"] = {"kind": "compare",
+            "field": {"kind": "entity_id", "key": "entity_id"}, "operator": "eq",
+            "value": {"kind": "references", "entity_ids": [expected]}}
+        planner = ScriptedPlanner([inspect_request(action="inspect", entity_ids=[expected],
+            property_keys=[attribute_key("Name")]), ready])
+        self.service.planner = planner
+        response = await self.service.question(self.request(), "request:compact")
+        self.assertEqual(response.result.status, "answered")
+        self.assertEqual(response.result.claims[0].value.value, 1)
+        observed = planner.calls[1]["inspection_history"][0]
+        self.assertEqual(observed["request"]["entity_ids"], [expected])
+        self.assertEqual(observed["result"]["records"][0]["entity_id"], expected)
+        self.assertEqual(response.plan.steps[0].operation.where.value.entity_ids, [owner])
+        self.assertEqual([element.entity_id for element in response.included_elements], [owner])
+        self.assertTrue(response.anchors)
+        self.assertTrue(all(anchor.id.startswith("anchor:") for anchor in response.anchors))
+        self.assertNotIn('"entity_ids":["e#', response.model_dump_json())
+
+    async def test_ignored_named_room_is_repaired_before_any_plan_executes(self):
+        plan = self.model.engine.plan("space")
+        broad = {"status": "ready", "interpretation": "Count only room 7.16.",
+            "explicitly_requests_entire_model": False,
+            "steps": [step.model_dump(mode="json") for step in plan.steps],
+            "output_step_id": next(iter(plan.outputs.values()))}
+        corrected = json.loads(json.dumps(broad))
+        corrected["steps"][0]["operation"]["where"] = {"kind": "compare",
+            "field": {"kind": "property", "key": attribute_key("Name")}, "operator": "eq",
+            "value": {"kind": "text", "value": {"text": "7.16"}}}
+        planner = ScriptedPlanner([broad, corrected])
+        self.service.planner = planner
+        request = self.request().model_copy(update={"question": "How many instances of room 7.16 exist?"})
+        with patch.object(self.model.engine, "execute", wraps=self.model.engine.execute) as execute:
+            response = await self.service.question(request, "request:room-repair")
+        self.assertEqual(response.result.status, "answered")
+        self.assertEqual(response.result.claims[0].value.value, 1)
+        self.assertEqual(execute.call_count, 1)
+        self.assertEqual(response.planning.model_requests, 2)
+        self.assertIn("plan_repair", planner.calls[1])
+        self.assertEqual(len(response.included_elements), 1)
+        self.assertEqual(response.included_elements[0].step_id, self.rooms[0].id())
+
     async def test_inspection_budget_and_model_request_limit_return_honest_nonanswer(self):
-        for settings in [IfcSettings(max_model_requests=1), IfcSettings(max_inspections=0)]:
+        for settings in [IfcSettings(max_model_requests=1, fast_plans=False), IfcSettings(max_inspections=0, fast_plans=False)]:
             with self.subTest(settings=settings):
                 planner = ScriptedPlanner([inspect_request(action="search", query="doors")])
                 self.service.planner, self.service.settings = planner, settings

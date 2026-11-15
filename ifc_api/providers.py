@@ -73,13 +73,15 @@ def gemini_schema(schema: dict) -> dict:
 
 
 def gemini_plan_schema(schema: dict) -> dict:
-    """Constrain the plan envelope without compiling recursive operation unions.
+    """Constrain operations while transporting recursive predicates as JSON text.
 
     The recursive Predicate/Value grammar is much more complex than the small
     plan needed for one question. Native decoding still enforces each supported
-    operation's required arguments and flat CountPolicy/FieldRef types. Predicate
-    payloads use opaque JSON objects, validated against the complete original
-    schema locally. Keep that schema in the instructions as well.
+    operation's required arguments and flat CountPolicy/FieldRef types. Opaque
+    predicate objects let the decoder emit empty objects; finite nested unions
+    were rejected by the provider in actual checks. JSON strings preserve the
+    complete predicate grammar without a recursive decoder. Parse only those
+    declared slots back into data, then apply unchanged local validation.
     """
     properties = schema.get("properties", {})
     if not {"steps", "interpretation", "explicitly_requests_entire_model"} <= properties.keys():
@@ -98,7 +100,8 @@ def gemini_plan_schema(schema: dict) -> dict:
     step = resolve(properties["steps"]["items"])
     operation = step["properties"]["operation"]
     variants = operation.get("oneOf", operation.get("anyOf", []))
-    supported = {"select", "traverse", "aggregate", "spatial_query", "related_entities", "project", "rank", "arithmetic"}
+    supported = {"select", "traverse", "aggregate", "spatial_query", "related_entities", "project", "rank", "arithmetic",
+                 "measure", "table_calculate", "network_query", "material_quantity", "route_query"}
     operations = []
     for variant in variants:
         original = resolve(variant)
@@ -107,8 +110,8 @@ def gemini_plan_schema(schema: dict) -> dict:
         converted = gemini_schema(original)
         for name in ("where", "exclude"):
             if name in converted.get("properties", {}):
-                converted["properties"][name] = {"type": ["object", "null"],
-                    "description": "Typed predicate; the host validates the full schema."}
+                converted["properties"][name] = {"type": ["string", "null"],
+                    "description": "JSON-encoded typed predicate from the full schema, or null to select all category candidates. Include its kind and every requested filter."}
         operations.append(converted)
     if not operations:
         raise ValueError("The IFC planner schema has no registered operation kinds.")
@@ -134,6 +137,29 @@ def gemini_plan_schema(schema: dict) -> dict:
             "type": "array", "items": gemini_schema(resolve(properties["requests"]["items"])),
         }
     return compact
+
+
+def decode_gemini_predicates(text: str) -> str:
+    """Decode data in select filter slots only; malformed data stays invalid.
+
+    Keep the original reply on parse failure so the service can account for
+    its real usage and apply the same bounded repair and safe diagnostics.
+    Text values, interpretation, source labels and step IDs are never decoded.
+    """
+    try:
+        value = json.loads(text)
+        if not isinstance(value, dict) or not isinstance(value.get("steps"), list):
+            return text
+        for step in value["steps"]:
+            operation = step.get("operation") if isinstance(step, dict) else None
+            if not isinstance(operation, dict) or operation.get("kind") != "select":
+                continue
+            for key in ("where", "exclude"):
+                if isinstance(operation.get(key), str):
+                    operation[key] = json.loads(operation[key])
+        return json.dumps(value, ensure_ascii=False)
+    except (ValueError, RecursionError):
+        return text
 
 
 def _counter(value) -> int | None:
@@ -197,7 +223,10 @@ class GeminiPlanner:
     async def generate(self, payload: str, *, system: str, schema: dict) -> PlannerReply:
         try:
             reply = await self.client.generate_plan(payload,
-                system=system + "\nFull schema, including locally enforced constraints:\n" + json.dumps(schema, ensure_ascii=False),
+                system=system + "\nFull schema, including locally enforced constraints:\n" + json.dumps(schema, ensure_ascii=False)
+                + "\nNative wire override: select.where and select.exclude must be JSON-encoded strings containing the complete typed predicate, or null. "
+                  "For example where=\"{\\\"kind\\\":\\\"compare\\\",\\\"field\\\":{\\\"kind\\\":\\\"property\\\",\\\"key\\\":\\\"ifc:attribute/Name\\\"},\\\"operator\\\":\\\"eq\\\",\\\"value\\\":{\\\"kind\\\":\\\"text\\\",\\\"value\\\":{\\\"text\\\":\\\"ORIGINAL_ROOM_ID\\\"}}}\". "
+                  "The server decodes those two slots and validates against the full schema before execution. Never omit a required filter to avoid encoding it.",
                 schema=gemini_plan_schema(schema), thinking_level=self.settings.gemini_thinking_level,
                 max_output_tokens=self.settings.gemini_max_output_tokens)
         except GeminiRequestTooLarge:
@@ -212,5 +241,5 @@ class GeminiPlanner:
                 raise ApiError(503, "provider_unavailable", "The IFC inference provider is temporarily unavailable.", True, **diagnostics) from None
             raise ApiError(502, "provider_error", "The IFC inference provider could not complete the query plan.", **diagnostics) from None
         usage = reply.usage
-        return PlannerReply(reply.text, reply.model, None if usage is None else PlannerUsage(
+        return PlannerReply(decode_gemini_predicates(reply.text), reply.model, None if usage is None else PlannerUsage(
             usage.prompt_tokens, usage.completion_tokens, usage.output_tokens, usage.thought_tokens))

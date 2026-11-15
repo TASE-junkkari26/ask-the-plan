@@ -24,6 +24,9 @@ The core distinction is **source evidence → canonical entities and facts → a
 
 | Root | What crosses this boundary | Generated JSON Schema |
 |---|---|---|
+| `AnswerRequest` | Source-bound question for the common IFC/image/PDF/DXF answer coordinator | [AnswerRequest](../contracts/jsonschema/AnswerRequest.schema.json) |
+| `AnswerResponse` | Independently qualified requested parts, narrative, source evidence and exports | [AnswerResponse](../contracts/jsonschema/AnswerResponse.schema.json) |
+| `AnswerStreamEvent` | Progress/handoff events and final common answer | [AnswerStreamEvent](../contracts/jsonschema/AnswerStreamEvent.schema.json) |
 | `KnowledgeBundle` | Immutable source metadata, extraction provenance, catalogs, geometry, canonical facts, and coverage | [KnowledgeBundle](../contracts/jsonschema/KnowledgeBundle.schema.json) |
 | `QuestionRequest` | Original multilingual question and attached asset/view IDs; previous request IDs are context | [QuestionRequest](../contracts/jsonschema/QuestionRequest.schema.json) |
 | `QueryPlan` | Resolved scope and an allowlisted operation DAG with named outputs | [QueryPlan](../contracts/jsonschema/QueryPlan.schema.json) |
@@ -32,6 +35,8 @@ The core distinction is **source evidence → canonical entities and facts → a
 | `BenchmarkCase` | Reference answer, source JSONL location, split/leakage group, tolerance, and adjudication | [BenchmarkCase](../contracts/jsonschema/BenchmarkCase.schema.json) |
 | `ImageCandidateResponse` | One image's candidate boxes, uncertainty, status, provenance and metrics; no final count/answer | [ImageCandidateResponse](../contracts/jsonschema/ImageCandidateResponse.schema.json) |
 | `ImageCandidateError` | Versioned safe HTTP failure with request ID, code, message and retryability | [ImageCandidateError](../contracts/jsonschema/ImageCandidateError.schema.json) |
+| `ImageCandidateStreamEvent` | Candidate progress/handoff events and final proposal | [ImageCandidateStreamEvent](../contracts/jsonschema/ImageCandidateStreamEvent.schema.json) |
+| `ImageRegionResponse` | Bounded source-bound candidate regions for detailed drawing scans | [ImageRegionResponse](../contracts/jsonschema/ImageRegionResponse.schema.json) |
 | `DxfPreviewResponse` | One source-hash-bound SVG layout, display dimensions, layout names, literal units metadata and rendering warnings; no native CAD inventory or measurements | [DxfPreviewResponse](../contracts/jsonschema/DxfPreviewResponse.schema.json) |
 | `PreparedDrawing` | Original/source raster artifacts, candidate regions, pixel transforms and optional source-frame OCR | [PreparedDrawing](../contracts/jsonschema/PreparedDrawing.schema.json) |
 | `IfcModelResponse` | Temporary uploaded source handle, verified revision hash and extraction warnings | [IfcModelResponse](../contracts/jsonschema/IfcModelResponse.schema.json) |
@@ -163,10 +168,19 @@ For a model-wide question attached to a floor PDF, resolve the associated model/
 | `aggregate` | Count/sum/mean/min/max, optional grouping, declared missing-value handling, and requested output unit. Numeric aggregates require a field; count does not. A grouped result's measure column uses `value_key` (default `value`); group columns use their field keys. |
 | `project` | Retrieve catalog fields such as dimensions, materials, or localized descriptions. |
 | `rank` | Sort by a field and retain a bounded number of rows/entities. |
-| `measure` | Compute area/union area/length/perimeter/volume/distance/angle from geometry, with basis, unit, optional reference entities, and calibrations. |
+| `measure` | Compute represented area/union area/length/perimeter/volume/distance, height or base elevation with explicit basis, unit and source/reference objects. Angle remains representable but not implemented by the IFC engine. Per-object IFC measures return subject/reference/value tables; footprint union returns a scalar. |
 | `arithmetic` | Add/subtract/multiply/divide earlier scalar outputs, with dimension checking. |
+| `table_calculate` | Derive checked row arithmetic, within-group percentages or ordered consecutive differences from typed result columns, with per-cell input calculations. |
+| `network_query` | Compute explicitly defined metrics from the selected native distribution-port graph, optionally with a separate component inventory denominator. |
+| `material_quantity` | Derive qualified material quantities from ordered source layers and verified host geometry. |
+| `route_query` | Return bounded modeled walking-path evidence between selected spaces and source doorways, retaining unresolved exits and clearance. |
 
 Arithmetic inputs are ordered. Subtraction and division fold from left to right; an executor must check compatible dimensions for addition/subtraction and derive the dimensions for multiplication/division. The current validator checks scalar input shapes and declared unit references; it does not implement full dimensional type inference or recompute arithmetic.
+The IFC executor now performs those numeric/unit/basis checks and records operand
+calculations and unit conversions. Measurement and network nodes carry typed
+`measurement_evidence` and `network_evidence` separately from spatial relations.
+Unclassified grouping bins preserve absent/null/ambiguous source states; their
+known occurrence cardinalities do not imply known classifications.
 
 `FieldRef` identifies a property, label, concept, native identifier, entity ID, or `result_column`. Source/catalog fields apply to entity-set inputs; `result_column` resolves only against columns produced by an earlier rowset step. Group keys and the aggregate `value_key` must be distinct. This prevents treating a calculated count column as if it were a stored building property. `project` retrieves a rowset; it does not silently unwrap a singleton as a scalar. Use a scalar aggregate after an explicit singleton selection when a numeric scalar is needed.
 

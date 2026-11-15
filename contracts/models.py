@@ -393,7 +393,7 @@ class Fact(Model):
 class Relation(Model):
     id: Id
     subject_id: Id
-    predicate: Literal["contains", "aggregates", "typed_by", "assigned_to_system", "has_material", "belongs_to_unit", "adjacent_to", "connected_to", "hosted_by", "depicts", "same_as", "custom", "bounded_by", "has_opening", "filled_by", "assigned_to_zone", "corresponding_boundary", "external_boundary"]
+    predicate: Literal["contains", "aggregates", "typed_by", "assigned_to_system", "has_material", "belongs_to_unit", "adjacent_to", "connected_to", "hosted_by", "depicts", "same_as", "custom", "bounded_by", "has_opening", "filled_by", "assigned_to_zone", "corresponding_boundary", "external_boundary", "has_port", "port_connected_to"]
     object_id: Id
     native_predicate: str | None = None
     provenance: Provenance
@@ -559,6 +559,7 @@ class AggregateOperation(Model):
     value_key: Id = "value"  # Derived result column; group columns use field.key.
     output_unit_id: Id | None = None
     missing_values: Literal["fail", "partial"] = "fail"
+    missing_groups: Literal["fail", "unclassified"] = "fail"
 
     @model_validator(mode="after")
     def check_field(self):
@@ -610,12 +611,13 @@ class RankOperation(Model):
     field: FieldRef
     direction: Literal["ascending", "descending"]
     limit: PositiveInt
+    include_ties: bool = False
 
 
 class MeasureOperation(Model):
     kind: Literal["measure"]
     input_step_id: Id
-    metric: Literal["area", "union_area", "length", "perimeter", "volume", "distance", "angle"]
+    metric: Literal["area", "union_area", "enclosed_area", "length", "perimeter", "volume", "distance", "angle", "height", "base_elevation", "horizontal_distance"]
     reference_entity_ids: list[Id] = Field(default_factory=list)
     output_unit_id: Id
     basis: str
@@ -629,7 +631,90 @@ class ArithmeticOperation(Model):
     output_unit_id: Id | None = None
 
 
-Operation = Annotated[Union[SelectOperation, TraverseOperation, AggregateOperation, SpatialQueryOperation, RelatedEntitiesOperation, ProjectOperation, RankOperation, MeasureOperation, ArithmeticOperation], Field(discriminator="kind")]
+class TableCalculateOperation(Model):
+    """Bounded arithmetic over source-derived table cells, never expressions."""
+
+    kind: Literal["table_calculate"]
+    input_step_id: Id
+    operator: Literal["add", "subtract", "multiply", "divide", "percent_of_total", "consecutive_difference"]
+    fields: list[FieldRef] = Field(min_length=1, max_length=8)
+    value_key: Id = "calculated"
+    output_unit_id: Id | None = None
+    group_by: list[FieldRef] = Field(default_factory=list, max_length=8)
+    order_by: FieldRef | None = None
+    next_key: Id = "following"
+
+    @model_validator(mode="after")
+    def check_fields(self):
+        refs = [*self.fields, *self.group_by, *([self.order_by] if self.order_by else [])]
+        if any(ref.kind != "result_column" for ref in refs):
+            raise ValueError("table calculations require result-column fields")
+        if self.operator in {"percent_of_total", "consecutive_difference"}:
+            if len(self.fields) != 1:
+                raise ValueError("shares and consecutive differences require one numeric field")
+        elif len(self.fields) < 2:
+            raise ValueError("row arithmetic requires at least two numeric fields")
+        if (self.operator == "consecutive_difference") != (self.order_by is not None):
+            raise ValueError("only consecutive differences require an order field")
+        if self.value_key == self.next_key:
+            raise ValueError("the result and following-row column keys must differ")
+        return self
+
+
+class NetworkQueryOperation(Model):
+    """Metrics of an explicitly selected native distribution-port graph."""
+
+    kind: Literal["network_query"]
+    input_step_id: Id
+    component_step_id: Id | None = None
+
+
+class MaterialQuantityOperation(Model):
+    """Recorded homogeneous net volumes or source-verified material estimates."""
+
+    kind: Literal["material_quantity"]
+    input_step_id: Id
+    material_names: list[Annotated[str, Field(min_length=1, max_length=500)]] = Field(default_factory=list, max_length=32)
+    method: Literal["auto", "recorded_net", "geometry"] = "auto"
+    output_unit_id: Id = "unit:m3"
+    tolerance_m: float = Field(default=0.001, ge=0.000001, le=0.05, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def unique_materials(self):
+        if len(set(self.material_names)) != len(self.material_names):
+            raise ValueError("material names must be distinct literal source values")
+        return self
+
+
+RouteCoordinate = Annotated[float, Field(allow_inf_nan=False)]
+RoutePoint = tuple[RouteCoordinate, RouteCoordinate, RouteCoordinate]
+
+
+class RouteQueryOperation(Model):
+    """A bounded modeled walking route, separate from straight-line distance."""
+
+    kind: Literal["route_query"]
+    input_step_id: Id
+    target_step_id: Id | None = None
+    mode: Literal["shortest", "farthest"] = "shortest"
+    start_basis: Literal["modeled_interior_point", "explicit_point", "farthest_sampled"] = "modeled_interior_point"
+    start_point_m: RoutePoint | None = None
+    target_basis: Literal["recorded_external_boundary", "certified_fire_exit"] = "recorded_external_boundary"
+    include_stairs: bool = True
+    clearance_m: float = Field(default=0, ge=0, le=2, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def check_start(self):
+        if (self.start_basis == "explicit_point") != (self.start_point_m is not None):
+            raise ValueError("an explicit route start requires exactly one physical point")
+        if self.mode == "farthest" and self.start_basis != "farthest_sampled":
+            raise ValueError("farthest routes require the bounded sampled start basis")
+        if self.mode != "farthest" and self.start_basis == "farthest_sampled":
+            raise ValueError("a farthest sampled start requires farthest mode")
+        return self
+
+
+Operation = Annotated[Union[SelectOperation, TraverseOperation, AggregateOperation, SpatialQueryOperation, RelatedEntitiesOperation, ProjectOperation, RankOperation, MeasureOperation, ArithmeticOperation, TableCalculateOperation, NetworkQueryOperation, MaterialQuantityOperation, RouteQueryOperation], Field(discriminator="kind")]
 
 
 class PlanStep(Model):
@@ -655,6 +740,10 @@ class QueryPlan(Contract):
             inputs = getattr(op, "input_step_ids", [])
             if hasattr(op, "input_step_id"):
                 inputs = [op.input_step_id]
+            if getattr(op, "component_step_id", None) is not None:
+                inputs = [*inputs, op.component_step_id]
+            if getattr(op, "target_step_id", None) is not None:
+                inputs = [*inputs, op.target_step_id]
             if not set(inputs) <= prior:
                 raise ValueError("step inputs must refer to earlier steps")
             prior.add(step.id)
@@ -697,10 +786,123 @@ class SpatialEvaluation(Model):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class MeasurementEvaluation(Model):
+    """Inspectably bounded evidence from a retained IFC geometry source."""
+
+    metric: Literal["area", "union_area", "enclosed_area", "length", "perimeter", "volume", "distance", "angle", "height", "base_elevation", "horizontal_distance"]
+    subject_id: Id
+    reference_entity_ids: list[Id] = Field(default_factory=list, max_length=2000)
+    method: Annotated[str, Field(min_length=1, max_length=200)]
+    frame: Literal["ifc_world"]
+    unit: Literal["m", "m2", "m3", "rad"]
+    tolerance_m: float = Field(gt=0, le=0.1, allow_inf_nan=False)
+    source_step_ids: list[PositiveInt] = Field(default_factory=list, max_length=2000)
+    representation_step_ids: list[PositiveInt] = Field(default_factory=list, max_length=2000)
+    status: Literal["verified", "unavailable"]
+    value: float | None = Field(default=None, allow_inf_nan=False)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class NetworkEvaluation(Model):
+    method: Literal["native_distribution_port_graph.v1"]
+    counting_basis: Annotated[str, Field(min_length=1, max_length=1000)]
+    selected_port_count: NonnegativeInt
+    selected_component_count: NonnegativeInt
+    connected_port_count: NonnegativeInt
+    isolated_port_count: NonnegativeInt
+    unique_connection_count: NonnegativeInt
+    port_component_count: NonnegativeInt
+    largest_component_port_count: NonnegativeInt
+    components_with_ports_count: NonnegativeInt
+    components_with_connected_ports_count: NonnegativeInt
+    connection_graph_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    cut_edge_count: NonnegativeInt = 0
+    component_network_count: NonnegativeInt = 0
+    largest_component_network_count: NonnegativeInt = 0
+
+    @model_validator(mode="after")
+    def check_cardinalities(self):
+        if self.connected_port_count + self.isolated_port_count != self.selected_port_count:
+            raise ValueError("connected and isolated port counts must partition selected ports")
+        if self.largest_component_port_count > self.selected_port_count or self.port_component_count > self.selected_port_count:
+            raise ValueError("port graph components exceed selected vertices")
+        if not self.components_with_connected_ports_count <= self.components_with_ports_count <= self.selected_component_count:
+            raise ValueError("component port memberships exceed selected components")
+        if self.largest_component_network_count > self.selected_component_count or self.component_network_count > self.selected_component_count:
+            raise ValueError("owner graph components exceed selected components")
+        return self
+
+
+class MaterialLayerInput(Model):
+    index: PositiveInt
+    layer_step_id: PositiveInt
+    material_step_id: PositiveInt | None = None
+    material_name: str | None = None
+    thickness: QuantityValue | None = None
+
+
+class MaterialEvaluation(Model):
+    subject_id: Id
+    material_name: str | None = None
+    material_step_ids: list[PositiveInt] = Field(default_factory=list, max_length=256)
+    layer_step_ids: list[PositiveInt] = Field(default_factory=list, max_length=256)
+    assignment_step_ids: list[PositiveInt] = Field(default_factory=list, max_length=256)
+    source_step_ids: list[PositiveInt] = Field(default_factory=list, max_length=2000)
+    method: Literal["recorded_net_homogeneous", "closed_mesh_homogeneous", "verified_uniform_layers", "recorded_not_used", "unavailable"]
+    status: Literal["verified", "recorded_not_used", "unavailable"]
+    frame: Literal["ifc_world", "native_quantity"]
+    unit: Literal["m3"] = "m3"
+    volume_m3: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    host_volume_m3: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    selected_thickness_m: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    total_thickness_m: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    tolerance_m: float = Field(gt=0, le=0.05, allow_inf_nan=False)
+    recorded_quantity: QuantityValue | None = None
+    specified_layers: list[MaterialLayerInput] = Field(default_factory=list, max_length=256)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def check_value(self):
+        if self.status != "unavailable" and self.volume_m3 is None:
+            raise ValueError("verified material quantities need a numeric value")
+        if self.status == "unavailable" and self.volume_m3 is not None:
+            raise ValueError("unavailable material quantities cannot carry a numeric volume")
+        if self.method == "verified_uniform_layers" and self.status == "verified" and (
+                self.host_volume_m3 is None or self.selected_thickness_m is None or self.total_thickness_m is None):
+            raise ValueError("layer allocation requires verified host volume and layer thicknesses")
+        return self
+
+
+class RouteEvaluation(Model):
+    subject_id: Id
+    target_id: Id | None = None
+    method: Annotated[str, Field(min_length=1, max_length=200)]
+    frame: Literal["ifc_world"]
+    unit: Literal["m"] = "m"
+    tolerance_m: float = Field(gt=0, le=0.1, allow_inf_nan=False)
+    quality: Literal["estimated"] = "estimated"
+    status: Literal["verified", "partial", "unavailable"]
+    path_points_m: list[RoutePoint] = Field(default_factory=list, max_length=2048)
+    room_ids: list[Id] = Field(default_factory=list, max_length=500)
+    door_ids: list[Id] = Field(default_factory=list, max_length=1000)
+    stair_ids: list[Id] = Field(default_factory=list, max_length=64)
+    source_step_ids: list[PositiveInt] = Field(default_factory=list, max_length=2000)
+    anchor_ids: list[Id] = Field(default_factory=list, max_length=10000)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def check_path(self):
+        if self.status == "verified" and len(self.path_points_m) < 2:
+            raise ValueError("verified routes require at least two physical path points")
+        if self.status == "unavailable" and self.path_points_m:
+            raise ValueError("unavailable routes cannot carry a verified physical path")
+        return self
+
+
 class CalculationNode(Model):
     id: Id
     plan_step_id: Id | None = None  # Internal calculation nodes may have no plan step.
-    operation: Literal["select", "traverse", "spatial_query", "related_entities", "project", "rank", "count", "sum", "mean", "min", "max", "lookup", "convert_unit", "add", "subtract", "multiply", "divide", "measure", "group_by", "filter", "deduplicate"]
+    operation: Literal["select", "traverse", "spatial_query", "related_entities", "network_query", "material_quantity", "route_query", "project", "rank", "count", "sum", "mean", "min", "max", "lookup", "convert_unit", "add", "subtract", "multiply", "divide", "measure", "group_by", "filter", "deduplicate"]
     input_node_ids: list[Id] = Field(default_factory=list)
     fact_ids: list[Id] = Field(default_factory=list)
     included_set_id: Id | None = None
@@ -711,6 +913,10 @@ class CalculationNode(Model):
     quality: Literal["exact", "estimated", "lower_bound", "upper_bound"]
     rule_key: str | None = None
     spatial_evidence: list[SpatialEvaluation] = Field(default_factory=list)
+    measurement_evidence: list[MeasurementEvaluation] = Field(default_factory=list)
+    network_evidence: list[NetworkEvaluation] = Field(default_factory=list)
+    material_evidence: list[MaterialEvaluation] = Field(default_factory=list)
+    route_evidence: list[RouteEvaluation] = Field(default_factory=list)
 
 
 class EvidenceBinding(Model):

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Check, CircleAlert, Download, Focus } from 'lucide-react';
 import type { AnswerResponse } from '../contracts/AnswerResponse';
 import type { Output } from '../contracts/QueryResult';
@@ -7,6 +8,44 @@ import type { AnswerEvidenceLocation, AnswerMemberGroup } from '../lib/answerEvi
 import { answerCost } from '../lib/answerMetrics';
 import { formatEstimatedUsd, formatResponseTime } from '../lib/responseMetrics';
 import './AnswerPanel.css';
+
+function LazyDetails({ className, summary, children }: {
+  className?: string;
+  summary: ReactNode;
+  children: () => ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return <details className={className} onToggle={(event) => setExpanded(event.currentTarget.open)}>
+    <summary>{summary}</summary>{expanded && children()}
+  </details>;
+}
+
+function PartCalculations({ response, partKey, fi }: { response: AnswerResponse; partKey: string; fi: boolean }) {
+  const [limit, setLimit] = useState(25);
+  const [factLimits, setFactLimits] = useState<Record<string, number>>({});
+  const part = response.parts.find((item) => item.key === partKey)!;
+  const bundle = response.evidence_contexts?.find((context) => context.id === part.evidence_context_id)?.bundle;
+  const units = useMemo(() => new Map((bundle?.units ?? []).map((unit) => [unit.id, unit.symbol])), [bundle]);
+  const facts = useMemo(() => new Map((bundle?.facts ?? []).map((fact) => [fact.id, fact])), [bundle]);
+  const calculations = part.result?.calculations ?? [];
+  return <div>
+    {response.parts.length > 1 && <h3>{response.interpretation.requested_parts.find((item) => item.key === partKey)?.question}</h3>}
+    {part.result?.claims?.map((claim) => <div className="source-answer-claim" key={claim.id}><strong>{claim.name}</strong><div><AnswerValue value={claim.value} units={units} /></div>{claim.count_policy && <small>{claim.count_policy.grain.replaceAll('_', ' ')} · {claim.count_policy.hierarchy.replaceAll('_', ' ')}</small>}</div>)}
+    {calculations.slice(0, limit).map((calculation) => {
+      const factLimit = factLimits[calculation.id] ?? 100;
+      const factIds = calculation.fact_ids ?? [];
+      return <div className="source-answer-calculation" key={calculation.id}>
+        <strong>{calculation.operation.replaceAll('_', ' ')}</strong><div><AnswerValue value={calculation.output} units={units} /></div>
+        {calculation.rule_key && <code>{calculation.rule_key}</code>}
+        {!!factIds.length && <LazyDetails summary={<>{fi ? 'Lähdetiedot' : 'Source inputs'} ({factIds.length})</>}>{() => <>
+          {factIds.slice(0, factLimit).map((id) => { const fact = facts.get(id); return <div key={id}><code>{fact?.original_property_path?.join('.') || fact?.property_key || id}</code>{fact?.value && <AnswerValue value={fact.value} units={units} />}</div>; })}
+          {factIds.length > factLimit && <button className="text-button" onClick={() => setFactLimits((current) => ({ ...current, [calculation.id]: factLimit + 100 }))}>{fi ? 'Näytä seuraavat 100' : 'Show next 100'} ({factLimit} / {factIds.length})</button>}
+        </>}</LazyDetails>}
+      </div>;
+    })}
+    {calculations.length > limit && <button className="text-button" onClick={() => setLimit((count) => count + 25)}>{fi ? 'Näytä seuraavat 25' : 'Show next 25'} ({limit} / {calculations.length})</button>}
+  </div>;
+}
 
 function AnswerValue({ value, units }: { value: Output; units: ReadonlyMap<string, string> }) {
   const [limit, setLimit] = useState(50);
@@ -105,6 +144,15 @@ export function AnswerPanel({ response, language = 'en', onLocate, imageUrl, sou
   const locations = selected ? sentenceEvidence(response, selected) : [];
   const complete = response.parts.every((part) => part.status === 'answered');
   const cost = answerCost(response.metrics);
+  const hasMemberEvidence = useMemo(() => response.parts.some((part) => {
+    const result = part.result;
+    const bundle = response.evidence_contexts?.find((context) => context.id === part.evidence_context_id)?.bundle;
+    if (!result || !bundle) return false;
+    if (result.entity_sets?.length || result.issues?.some((issue) =>
+      ['incomplete_coverage', 'conflicting_evidence', 'missing_information'].includes(issue.code) && issue.entity_ids?.length)) return true;
+    const coverageIds = new Set((result.claims ?? []).flatMap((claim) => claim.coverage_ids ?? []));
+    return bundle.coverage?.some((coverage) => coverageIds.has(coverage.id) && coverage.unresolved_entity_ids?.length);
+  }), [response]);
   return <section className="source-answer" aria-label={fi ? 'Vastaus ja lähteet' : 'Answer and source evidence'} aria-live="polite">
     <div className={`source-answer-outcome${complete ? '' : ' source-answer-outcome-partial'}`}>
       {complete ? <Check size={14} /> : <CircleAlert size={14} />}
@@ -145,7 +193,7 @@ export function AnswerPanel({ response, language = 'en', onLocate, imageUrl, sou
       </li>)}</ol>
       {locations.length > evidenceLimit && <button className="text-button" onClick={() => setEvidenceLimit((limit) => limit + 50)}>{fi ? 'Näytä seuraavat 50' : 'Show next 50'} ({evidenceLimit} / {locations.length})</button>}
     </section>}
-    <details className="source-answer-details"><summary>{fi ? 'Lisätiedot' : 'Details'}</summary>
+    <LazyDetails className="source-answer-details" summary={fi ? 'Lisätiedot' : 'Details'}>{() => <>
     <p className="source-answer-question">{response.question}</p>
     <p className="source-answer-scope"><strong>{fi ? 'Rajaus' : 'Scope'}</strong> {response.source.scope_label}</p>
     {response.interpretation.ambiguities?.map((item, index) => <p className="source-answer-part-status" key={index}>{item}</p>)}
@@ -157,8 +205,7 @@ export function AnswerPanel({ response, language = 'en', onLocate, imageUrl, sou
         {notes.map((note, index) => <p className="source-answer-note" key={index}>{note}</p>)}
       </details>;
     })}
-    {response.parts.some((part) => partMemberGroups(response, part.key).length > 0) && <details className="source-answer-structured">
-      <summary>{fi ? 'Laskennan lähdejäsenet' : 'Source members'}</summary>
+    {hasMemberEvidence && <LazyDetails className="source-answer-structured" summary={fi ? 'Laskennan lähdejäsenet' : 'Source members'}>{() => <>
       <p className="source-answer-scope">{fi ? 'Luettelot näyttävät laskennan lähdejäsenet. Havaintoehdokkaat voivat olla mukana myös ratkaisemattomissa jäsenissä; nämä luettelot eivät muodosta uutta kokonaismäärää.' : 'Lists show the executor’s source members. Detection candidates may also appear as unresolved; these evidence lists do not form a new total.'}</p>
       {response.parts.map((part) => {
         const bundle = response.evidence_contexts?.find((context) => context.id === part.evidence_context_id)?.bundle;
@@ -170,23 +217,11 @@ export function AnswerPanel({ response, language = 'en', onLocate, imageUrl, sou
           {groups.map((group) => <MemberGroup key={`${response.request_id}:${part.key}:${group.id}`} group={group} fi={fi} onLocate={onLocate} units={units} propertyLabels={propertyLabels} />)}
         </div>;
       })}
-    </details>}
-    <details className="source-answer-structured"><summary>{fi ? 'Arvot ja laskennan lähtötiedot' : 'Values and calculation inputs'}</summary>
-      {response.parts.map((part) => {
-        const bundle = response.evidence_contexts?.find((context) => context.id === part.evidence_context_id)?.bundle;
-        const units = new Map((bundle?.units ?? []).map((unit) => [unit.id, unit.symbol]));
-        return <div key={part.key}>
-          {response.parts.length > 1 && <h3>{response.interpretation.requested_parts.find((item) => item.key === part.key)?.question}</h3>}
-          {part.result?.claims?.map((claim) => <div className="source-answer-claim" key={claim.id}><strong>{claim.name}</strong><div><AnswerValue value={claim.value} units={units} /></div>{claim.count_policy && <small>{claim.count_policy.grain.replaceAll('_', ' ')} · {claim.count_policy.hierarchy.replaceAll('_', ' ')}</small>}</div>)}
-          {part.result?.calculations?.map((calculation) => <div className="source-answer-calculation" key={calculation.id}>
-            <strong>{calculation.operation.replaceAll('_', ' ')}</strong><div><AnswerValue value={calculation.output} units={units} /></div>
-            {calculation.rule_key && <code>{calculation.rule_key}</code>}
-            {!!calculation.fact_ids?.length && <details><summary>{fi ? 'Lähdetiedot' : 'Source inputs'} ({calculation.fact_ids.length})</summary>{calculation.fact_ids.map((id) => { const fact = bundle?.facts?.find((item) => item.id === id); return <div key={id}><code>{fact?.original_property_path?.join('.') || fact?.property_key || id}</code>{fact?.value && <AnswerValue value={fact.value} units={units} />}</div>; })}</details>}
-          </div>)}
-        </div>;
-      })}
+    </>}</LazyDetails>}
+    <LazyDetails className="source-answer-structured" summary={fi ? 'Arvot ja laskennan lähtötiedot' : 'Values and calculation inputs'}>{() => <>
+      {response.parts.map((part) => <PartCalculations key={`${response.request_id}:${part.key}`} response={response} partKey={part.key} fi={fi} />)}
       <p>{fi ? 'Vienti sisältää kaikki jäsenet, lähtötiedot ja laskentavaiheet.' : 'Export includes all members, source facts and calculation steps.'}</p>
-    </details>
+    </>}</LazyDetails>
     <details className="source-answer-structured"><summary>{fi ? 'Analyysin vaiheet ja kustannukset' : 'Analysis steps & usage'}</summary>
       <p>{formatResponseTime(response.metrics.elapsed_ms, fi ? 'fi' : 'en')} · {response.metrics.external_attempts ?? 0} {fi ? 'mallikutsua' : 'model calls'}{response.metrics.cache_hit ? (fi ? ' · Välimuistista' : ' · Cached result') : ''}</p>
       {(response.metrics.calls ?? []).length === 0 && <p>{fi ? 'Lähdetiedot ja laskenta käsiteltiin paikallisesti.' : 'Source facts and calculations were processed locally.'}</p>}
@@ -195,7 +230,7 @@ export function AnswerPanel({ response, language = 'en', onLocate, imageUrl, sou
       {cost.unknownCalls > 0 && <p>{fi ? 'Osasta mallikutsuja puuttuu kustannustieto.' : 'Cost information is missing for some model calls.'}</p>}
     </details>
     <details className="source-answer-revision"><summary>{fi ? 'Lähteen tunniste' : 'Source identity'}</summary><dl><dt>Original SHA-256</dt><dd><code>{response.source.source_sha256}</code></dd>{response.source.display_sha256 && <><dt>Display SHA-256</dt><dd><code>{response.source.display_sha256}</code></dd></>}</dl></details>
-    </details>
+    </>}</LazyDetails>
     <button className="text-button source-answer-export" onClick={() => exportAnswer(response, 'answer-evidence.json', sourcePreview)}><Download size={13} />{fi ? 'Vie vastaus' : 'Export answer'}</button>
   </section>;
 }

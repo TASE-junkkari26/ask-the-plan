@@ -27,6 +27,9 @@ as soon as the backend dispatches the selected analyzer. Inference credentials s
 on the Python backend. DXF previews upload the original to the local backend for
 2D rendering without inference. IFC viewing stays local until a question uploads the model
 to that backend for the independently selected IFC planner and CPU engine execution.
+Unambiguous supported IFC count/quantity grammar can compile locally on the
+backend with zero inference; other questions use its configured planner. The
+analysis details report the actual path and model-request/token usage.
 
 The [project scope](../docs/PROJECT_SCOPE.md) is the supplied dataset's question
 families. Build real integrations and evidence views for that set; unknown
@@ -175,6 +178,9 @@ Descriptive and spatial responses can include a source-backed natural-language
 summary above their structured results. Object references show original names
 and STEP IDs; select a reference to inspect its source object. The full canonical
 identities, facts and calculations remain available in the evidence export.
+Modeled walking paths are available in a collapsed evidence section, with an
+IFC source-XY projection and expandable source-world XYZ coordinates. The panel
+retains exit/width qualifications; export preserves every full-precision point.
 Switching away from IFC cancels conversion/loading and disposes its scene and
 workers. Only the most recent converted model buffer is cached in memory.
 

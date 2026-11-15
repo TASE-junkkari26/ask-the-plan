@@ -59,6 +59,10 @@
 .ifc-source-anchors summary span { color:#819174; margin-left:5px; }
 .ifc-source-anchors ol { padding-left:19px; margin:7px 0; }
 .ifc-source-anchors li { overflow-wrap:anywhere; margin:4px 0; }
+.ifc-route-evidence { margin-top:10px; padding:9px; border-radius:5px; background:#f6f8f2; }
+.ifc-route-evidence p { overflow-wrap:anywhere; }
+.ifc-route-evidence svg { display:block; width:100%; max-height:200px; background:#fff; border:1px solid #e3e9db; border-radius:4px; margin:8px 0; }
+.ifc-route-evidence small { display:block; color:#607153; }
 .ifc-evidence-export { display:flex; align-items:center; gap:5px; margin-top:18px; font-size:11px; }
 .ifc-answer-revision { display:block; font-size:9px; color:#8a987f; margin:13px 0 18px; }
 .ifc-answer-revision code { display:block; overflow-wrap:anywhere; font-size:8px; }

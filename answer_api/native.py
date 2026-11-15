@@ -393,7 +393,8 @@ def _execute(page, proposal, part, source, request_id, language):
     plan = m.QueryPlan(id=ids["context"] + ":plan", request_id=request_id, scope=scope,
         steps=[m.PlanStep(id="select", operation=m.SelectOperation(kind="select", concept_ids=[ids["concept"]], count_policy=policy,
             where=m.ComparePredicate(kind="compare", field=m.FieldRef(kind="entity_id", key="entity_id"), operator="in",
-                                     value=m.ReferencesValue(kind="references", entity_ids=members)))),
+                                     value=m.ListValue(kind="list", items=[m.ReferencesValue(kind="references", entity_ids=[member])
+                                         for member in members])))),
                m.PlanStep(id="result", operation=final_operation)], outputs={part.key: "result"})
     entity_sets = [m.EntitySet(id=ids["context"] + ":included", scope=scope, count_policy=policy,
                               count=len(members), entity_ids=members),

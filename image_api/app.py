@@ -14,9 +14,10 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from starlette.datastructures import UploadFile
+from starlette.datastructures import Headers, UploadFile
 from starlette.exceptions import HTTPException
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import JSONResponse, StreamingResponse
 
 from pydantic import ValidationError
@@ -42,6 +43,16 @@ from .routing import RoutedCandidateService
 from answer_api.routes import install_answer_routes, MAX_SOURCE_BODY_BYTES
 from answer_api.service import AnswerService
 from document_engine import DocumentStore
+
+
+class _EvidenceCompression(GZipMiddleware):
+    """Compress large proofs without buffering interactive NDJSON handoffs."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and "application/x-ndjson" in Headers(scope=scope).get("accept", "").lower():
+            await self.app(scope, receive, send)
+        else:
+            await super().__call__(scope, receive, send)
 
 
 def _error(request_id: str, status: int, code: str, message: str,
@@ -293,6 +304,9 @@ def create_app(settings: ApiSettings | None = None, *,
     app = FastAPI(title="Ask the Plan analysis", version="0.1.0", lifespan=lifespan,
                   description="Image candidate regions, local DXF layout previews and model-planned, engine-computed IFC answers with source evidence.")
     app.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_body_bytes)
+    # Large native network answers retain all source proof. Compress their wire
+    # representation without sampling objects or dropping calculation evidence.
+    app.add_middleware(_EvidenceCompression, minimum_size=64 * 1024, compresslevel=3)
     app.add_middleware(CORSMiddleware, allow_origins=settings.origins,
                        allow_methods=["GET", "POST", "DELETE"], allow_headers=["Content-Type"],
                        expose_headers=["X-Request-ID"])

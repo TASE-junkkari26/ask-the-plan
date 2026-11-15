@@ -119,6 +119,45 @@ try {
   const legacy = renderToString(createElement(DecisionTrace, { language: 'en' }));
   assert.match(legacy, /No decision path was recorded/);
   console.log('Collapsed decision trace renders shadow, thresholds, skipped steps, failures, Finnish and legacy states.');
+  const { AnswerPanel } = await server.ssrLoadModule('/src/components/AnswerPanel.tsx');
+  // Synthetic render sentinels: closed diagnostics must not enumerate a large
+  // calculation/fact collection. This is a rendering check, not source truth.
+  const result = {
+    claims: [{ id: 'claim', name: 'count', quality: 'exact', value: { kind: 'count', value: 3 }, evidence: [], coverage_ids: [] }],
+    entity_sets: [{ id: 'members', count: 3, entity_ids: ['one', 'two', 'three'] }], issues: [],
+  };
+  Object.defineProperty(result, 'calculations', { get() { throw new Error('Closed calculation diagnostics were eagerly read'); } });
+  const bundle = { anchors: [], assets: [], geometries: [], frames: [], units: [], coverage: [] };
+  Object.defineProperty(bundle, 'facts', { get() { throw new Error('Closed source diagnostics were eagerly indexed'); } });
+  const envelope = {
+    request_id: 'render-answer', question: 'How many modeled doors?',
+    source: { kind: 'ifc', source_id: 'ifc:render', source_sha256: 'a'.repeat(64), scope_label: 'Entire model' },
+    interpretation: { language: 'en', requested_parts: [{ key: 'answer', question: 'How many modeled doors?' }], ambiguities: [] },
+    parts: [{ key: 'answer', status: 'answered', result, evidence_context_id: 'evidence' }],
+    evidence_contexts: [{ id: 'evidence', bundle }],
+    narrative: [{ id: 'sentence', part_key: 'answer', kind: 'claim', text: 'Three modeled doors.', anchor_ids: [] }],
+    metrics: { elapsed_ms: 1, external_attempts: 0, calls: [] },
+  };
+  const concise = renderToString(createElement(AnswerPanel, { response: envelope }));
+  assert.match(concise, /Three modeled doors\./);
+  assert.match(concise, /<details class="source-answer-details"><summary>Details<\/summary><\/details>/);
+  assert.match(concise, /Export answer/);
+  assert.doesNotMatch(concise, /Values and calculation inputs|Source inputs|source-answer-calculation/);
+  const { default: RouteEvidence } = await server.ssrLoadModule('/src/components/IfcRouteEvidence.tsx');
+  const route = renderToString(createElement(RouteEvidence, { elements: new Map(), calculations: [{
+    route_evidence: [{ subject_id: 'origin', target_id: 'exit', frame: 'ifc_world', unit: 'm', status: 'partial',
+      path_points_m: [[0, 0, 3], [3, 4, 0]] }],
+  }] }));
+  assert.match(route, /Modeled walking paths/);
+  assert.doesNotMatch(route, /<details[^>]*open|<svg|Path coordinates/);
+  const { default: IfcQuestionPanel } = await server.ssrLoadModule('/src/components/IfcQuestionPanel.tsx');
+  const modelQuestion = renderToString(createElement(IfcQuestionPanel, {
+    source: { id: 'ifc:render', file: { name: 'render.ifc' } }, sourceHash: 'a'.repeat(64), ready: true, section: true,
+    highlight: async () => undefined, clearHighlights() {}, focus() {}, isolate() {}, onSelect() {},
+  }));
+  assert.match(modelQuestion, /Questions use the entire model, including hidden objects/);
+  assert.doesNotMatch(modelQuestion, /IFC answer scope|Current view|Reset the horizontal section/);
+  console.log('Common answers stay concise without reading closed large proofs; route evidence stays collapsed and IFC questions remain whole-model.');
 } finally {
   await server.close();
 }

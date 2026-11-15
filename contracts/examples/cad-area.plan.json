@@ -30,9 +30,14 @@
           },
           "operator": "in",
           "value": {
-            "kind": "references",
-            "entity_ids": [
-              "room:1"
+            "kind": "list",
+            "items": [
+              {
+                "kind": "references",
+                "entity_ids": [
+                  "room:1"
+                ]
+              }
             ]
           }
         },

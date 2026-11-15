@@ -17,7 +17,7 @@ from .models import CapabilityManifest, KnowledgeBundle, QueryPlan, QueryResult
 LENGTH = (1, 0, 0, 0, 0, 0, 0)
 DIMENSIONS = {
     "length": LENGTH, "distance": LENGTH, "perimeter": LENGTH,
-    "area": (2, 0, 0, 0, 0, 0, 0), "union_area": (2, 0, 0, 0, 0, 0, 0),
+    "area": (2, 0, 0, 0, 0, 0, 0), "union_area": (2, 0, 0, 0, 0, 0, 0), "enclosed_area": (2, 0, 0, 0, 0, 0, 0),
     "volume": (3, 0, 0, 0, 0, 0, 0), "mass": (0, 1, 0, 0, 0, 0, 0),
     "time": (0, 0, 1, 0, 0, 0, 0), "temperature": (0, 0, 0, 0, 1, 0, 0),
     "angle": (0, 0, 0, 0, 0, 0, 0), "ratio": (0, 0, 0, 0, 0, 0, 0),
@@ -549,6 +549,8 @@ def _field(field: Any, ctx: _Context, capabilities: CapabilityManifest | None,
         if capabilities is not None and field.key not in capabilities.property_keys:
             _fail(f"unsupported property: {field.key}")
         return definition.value_kind, definition.dimension
+    if field.kind == "native_identifier" and field.key not in {"step_id", "ifc_guid"}:
+        _fail("native identifiers require a supported step_id or ifc_guid field")
     return ("references" if field.kind == "entity_id" else "text"), None
 
 
@@ -562,7 +564,22 @@ def _predicate(predicate: Any, ctx: _Context, capabilities: CapabilityManifest |
         _field(predicate.field, ctx, capabilities)
         if predicate.kind == "compare":
             definition = ctx.properties[predicate.field.key] if predicate.field.kind == "property" else None
-            _value(predicate.value, ctx, definition if predicate.operator != "in" else None)
+            if predicate.operator == "in":
+                if predicate.value.kind != "list":
+                    _fail("the in operator requires a typed list of comparison values")
+                values = predicate.value.items
+            else:
+                values = [predicate.value]
+            if predicate.field.kind == "entity_id":
+                if predicate.operator not in {"eq", "ne", "in"}:
+                    _fail("entity_id supports only eq, ne, or in identity comparisons")
+                if any(value.kind != "references" or len(value.entity_ids) != 1 for value in values):
+                    _fail("entity_id comparisons require singleton references values, including each in-list item")
+            elif predicate.field.kind in {"native_identifier", "label"}:
+                if any(value.kind != "text" for value in values):
+                    _fail("native identifier and label comparisons require literal text values")
+            for value in values:
+                _value(value, ctx, definition)
     elif predicate.kind == "related_to":
         _refs(ctx.entities, predicate.entity_ids, "predicate entity")
         if capabilities is not None and predicate.predicate not in capabilities.relation_predicates:
@@ -576,15 +593,18 @@ def _predicate(predicate: Any, ctx: _Context, capabilities: CapabilityManifest |
 
 
 def _operation_key(operation: Any) -> str:
-    detail = {"aggregate": "method", "measure": "metric", "arithmetic": "operator"}.get(operation.kind)
+    detail = {"aggregate": "method", "measure": "metric", "arithmetic": "operator", "table_calculate": "operator"}.get(operation.kind)
     return f"{operation.kind}.{getattr(operation, detail)}" if detail else operation.kind
 
 
 def _measure(operation: Any, candidates: set[str], scope: Any, ctx: _Context) -> None:
     unit = _get(ctx.units, operation.output_unit_id, "measurement output unit")
-    if unit.kind != "physical" or unit.dimension != DIMENSIONS[operation.metric]:
+    dimension_key = {"height": "length", "base_elevation": "length", "horizontal_distance": "length"}.get(operation.metric, operation.metric)
+    if unit.kind != "physical" or unit.dimension != DIMENSIONS[dimension_key]:
         _fail("measurement output unit has incompatible dimensions")
     _refs(ctx.entities, operation.reference_entity_ids, "measurement reference entity")
+    if not set(operation.reference_entity_ids) <= _scope_members(scope, ctx):
+        _fail("measurement reference objects are outside the captured scope")
     for identifier in operation.calibration_ids:
         calibration = _get(ctx.calibrations, identifier, "measurement calibration")
         if scope.view_ids and calibration.view_id not in scope.view_ids:
@@ -594,6 +614,13 @@ def _measure(operation: Any, candidates: set[str], scope: Any, ctx: _Context) ->
                            if r.entity_id == entity_id and (not scope.view_ids or r.view_id in scope.view_ids)]
         geometries = [(r.view_id, ctx.geometries[g]) for r in representations for g in r.geometry_ids]
         if not geometries:
+            # Native IFC source geometry is loaded lazily by the bounded IFC
+            # executor. A source anchor permits preflight, never proves usable
+            # shape geometry or calibration; that executor must verify it.
+            if representations and all(ctx.assets[r.asset_id].format == "ifc" for r in representations):
+                native = [ctx.anchors[anchor].selector for r in representations for anchor in r.anchor_ids]
+                if any(selector.kind == "step_id" and not selector.property_path for selector in native):
+                    continue
             _fail(f"measurement has no explicit geometry for {entity_id}")
         usable = False
         for view_id, geometry in geometries:
@@ -714,6 +741,36 @@ def validate_plan(plan: QueryPlan, bundle: KnowledgeBundle,
             if op.column not in columns or columns[op.column][0] != "references":
                 _fail("related_entities requires a references column")
             shape = "entities"
+        elif op.kind == "network_query":
+            if shape != "entities":
+                _fail("network queries require selected source port entities")
+            if op.component_step_id is not None:
+                if shapes[op.component_step_id] != "entities":
+                    _fail("network component input must be a source entity selection")
+                current = current | candidates[op.component_step_id]
+            shape = "scalar"
+        elif op.kind == "material_quantity":
+            if shape != "entities":
+                _fail("material quantities require source occurrence inputs")
+            unit = _get(ctx.units, op.output_unit_id, "material volume output unit")
+            if unit.kind != "physical" or unit.dimension != DIMENSIONS["volume"]:
+                _fail("material quantities require a physical volume output unit")
+            result_columns[step.id] = {"subject": ("references", None), "material": ("text", None),
+                                       "volume": ("quantity", DIMENSIONS["volume"]), "method": ("text", None)}
+            shape = "table"
+        elif op.kind == "route_query":
+            if shape != "entities":
+                _fail("routes require a selected origin space set")
+            if op.target_step_id is not None:
+                if shapes[op.target_step_id] != "entities":
+                    _fail("route targets must be a source entity selection")
+                current = current | candidates[op.target_step_id]
+            result_columns[step.id] = {key: ("references", None) for key in
+                                       ("subject", "target", "rooms", "doors", "stairs")}
+            result_columns[step.id].update({key: ("quantity", LENGTH) for key in
+                ("distance", "nominal_door_width", "geometric_opening_width", "sampled_clearance")})
+            result_columns[step.id]["status"] = ("text", None)
+            shape = "table"
         elif op.kind == "project":
             if shape == "scalar":
                 _fail("projection requires entities or table rows")
@@ -730,7 +787,14 @@ def validate_plan(plan: QueryPlan, bundle: KnowledgeBundle,
             if shape != "entities":
                 _fail("measurement requires an entity-set input")
             _measure(op, current, plan.scope, ctx)
-            shape = "scalar"
+            if op.metric != "union_area" and all(ctx.assets[representation.asset_id].format == "ifc"
+                   for entity in current for representation in ctx.representations.values()
+                   if representation.entity_id == entity):
+                shape = "table"
+                result_columns[step.id] = {"subject": ("references", None), "reference": ("references", None),
+                                           "value": ("quantity", DIMENSIONS[{"height": "length", "base_elevation": "length", "horizontal_distance": "length"}.get(op.metric, op.metric)])}
+            else:
+                shape = "scalar"
         elif op.kind == "arithmetic":
             if any(shapes[i] != "scalar" for i in op.input_step_ids):
                 _fail("arithmetic requires scalar inputs")
@@ -740,6 +804,37 @@ def validate_plan(plan: QueryPlan, bundle: KnowledgeBundle,
                     _fail("arithmetic output cannot use presentation units")
             current = set().union(*(candidates[i] for i in op.input_step_ids))
             shape = "scalar"
+        elif op.kind == "table_calculate":
+            if shape != "table" or columns is None:
+                _fail("table calculations require table inputs")
+            if op.value_key in columns or (op.operator == "consecutive_difference" and op.next_key in columns):
+                _fail("table calculation output columns must be new")
+            numeric = [_field(field, ctx, capabilities, columns) for field in op.fields]
+            if any(kind not in {"count", "quantity"} for kind, _ in numeric):
+                _fail("table arithmetic requires numeric result columns")
+            for field in [*op.group_by, *([op.order_by] if op.order_by else [])]:
+                _field(field, ctx, capabilities, columns)
+            if op.order_by is not None and _field(op.order_by, ctx, capabilities, columns)[0] not in {"count", "quantity"}:
+                _fail("consecutive differences require a numeric ordering field")
+            output_dimension = numeric[0][1]
+            output_kind = numeric[0][0]
+            if op.operator == "percent_of_total":
+                output_kind, output_dimension = "quantity", (0, 0, 0, 0, 0, 0, 0)
+            elif op.operator in {"multiply", "divide"}:
+                dimensions = [dimension if kind == "quantity" else (0, 0, 0, 0, 0, 0, 0) for kind, dimension in numeric]
+                output_dimension = dimensions[0]
+                for dimension in dimensions[1:]:
+                    output_dimension = (tuple(a - b if op.operator == "divide" else a + b for a,b in zip(output_dimension, dimension))
+                                        if output_dimension is not None and dimension is not None else None)
+                output_kind = "quantity"
+            if op.output_unit_id:
+                unit = _get(ctx.units, op.output_unit_id, "table calculation output unit")
+                if unit.kind != "physical" or (output_dimension is not None and unit.dimension != output_dimension):
+                    _fail("table arithmetic output unit has incompatible dimensions")
+            result_columns[step.id] = {**columns, op.value_key: (output_kind, output_dimension)}
+            if op.operator == "consecutive_difference":
+                result_columns[step.id][op.next_key] = ("record", None)
+            shape = "table"
         candidates[step.id] = current
         shapes[step.id] = shape
 
@@ -801,6 +896,31 @@ def validate_result(result: QueryResult, bundle: KnowledgeBundle,
             _refs(ctx.anchors, spatial.anchor_ids, "spatial evidence anchor")
             if plan is not None and not {spatial.subject_id, *spatial.related_ids} <= _scope_members(plan.scope, ctx):
                 _fail("spatial evidence objects are outside the captured scope")
+        for measurement in node.measurement_evidence:
+            _refs(ctx.entities, [measurement.subject_id, *measurement.reference_entity_ids], "measurement evidence object")
+            if plan is not None and not {measurement.subject_id, *measurement.reference_entity_ids} <= _scope_members(plan.scope, ctx):
+                _fail("measurement evidence objects are outside the captured scope")
+            if measurement.status == "verified" and measurement.value is None:
+                _fail("verified measurement evidence requires a numeric value")
+        for material in node.material_evidence:
+            _refs(ctx.entities, [material.subject_id], "material quantity subject")
+            if plan is not None and material.subject_id not in _scope_members(plan.scope, ctx):
+                _fail("material quantity subject is outside the captured scope")
+            if material.recorded_quantity is not None:
+                _quantity(material.recorded_quantity, ctx, DIMENSIONS["volume"], "volume")
+            for layer in material.specified_layers:
+                if layer.thickness is not None:
+                    _quantity(layer.thickness, ctx, LENGTH, "length")
+        for route in node.route_evidence:
+            objects = {route.subject_id, *route.room_ids, *route.door_ids, *route.stair_ids}
+            if route.target_id is not None:
+                objects.add(route.target_id)
+            _refs(ctx.entities, objects, "route evidence object")
+            _refs(ctx.anchors, route.anchor_ids, "route evidence anchor")
+            if plan is not None and not objects <= _scope_members(plan.scope, ctx):
+                _fail("route evidence objects are outside the captured scope")
+            if node.quality == "exact":
+                _fail("modeled walking routes must retain estimated quality")
         if node.operation in {"count", "sum", "mean", "min", "max", "group_by"} and node.quality == "exact" and any(
                 spatial.status in {"candidate", "unavailable"} for spatial in node.spatial_evidence):
             _fail("exact aggregation cannot consume unresolved spatial evidence")

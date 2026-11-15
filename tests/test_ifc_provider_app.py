@@ -92,7 +92,7 @@ class IfcProviderAppTests(unittest.IsolatedAsyncioTestCase):
                 client_factory=nemotron_factory,
                 gemini_client_factory=lambda: gemini_factory("gemini_image"),
                 ifc_gemini_client_factory=lambda: gemini_factory("gemini_ifc"),
-                ifc_settings=None if invalid_ifc_settings else IfcSettings(provider=ifc_provider, gemini_thinking_level="high"))
+                ifc_settings=None if invalid_ifc_settings else IfcSettings(provider=ifc_provider, gemini_thinking_level="high", fast_plans=False))
         async with app.router.lifespan_context(app):
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://test") as client:
                 yield client, app
@@ -176,7 +176,7 @@ class IfcProviderAppTests(unittest.IsolatedAsyncioTestCase):
                 with patch("image_api.app.GeminiSettings.from_env", return_value=image_settings), \
                      patch("image_api.app.AsyncGeminiClient", side_effect=factory):
                     app = create_app(ApiSettings(provider="gemini", preprocess_mode="off", routing_mode=routing_mode),
-                        client_factory=lambda: None, ifc_settings=IfcSettings(provider="gemini"),
+                        client_factory=lambda: None, ifc_settings=IfcSettings(provider="gemini", fast_plans=False),
                         decisions_client_factory=lambda: decisions)
                     try:
                         async with app.router.lifespan_context(app):

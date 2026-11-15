@@ -99,6 +99,11 @@ production planning does not import it.
 
 These evidence checks establish declared fixture identities and relationship
 anchors, not independent visual correctness or physical building completeness.
+Deterministic grammar shortcuts are disabled for every paired provider and replay
+so the comparison actually exercises the selected adapter or fixed proposal.
+Mandatory source/scope guards remain active: the explicit whole-building
+question captured in a view is clarified before planning, so the 24-case replay
+now makes 23 replay calls and one deterministic zero-call scope response.
 The small-run latency percentiles do not establish production performance.
 Compare real source-backed quality separately before promoting a provider, as
 described in the [assessment](../../docs/GEMINI_IFC_ASSESSMENT.md). Visual inputs

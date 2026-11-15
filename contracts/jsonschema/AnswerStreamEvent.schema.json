@@ -43,6 +43,15 @@
           "title": "Method",
           "type": "string"
         },
+        "missing_groups": {
+          "default": "fail",
+          "enum": [
+            "fail",
+            "unclassified"
+          ],
+          "title": "Missing Groups",
+          "type": "string"
+        },
         "missing_values": {
           "default": "fail",
           "enum": [
@@ -1576,12 +1585,36 @@
           "title": "Input Node Ids",
           "type": "array"
         },
+        "material_evidence": {
+          "items": {
+            "$ref": "#/$defs/MaterialEvaluation"
+          },
+          "title": "Material Evidence",
+          "type": "array"
+        },
+        "measurement_evidence": {
+          "items": {
+            "$ref": "#/$defs/MeasurementEvaluation"
+          },
+          "title": "Measurement Evidence",
+          "type": "array"
+        },
+        "network_evidence": {
+          "items": {
+            "$ref": "#/$defs/NetworkEvaluation"
+          },
+          "title": "Network Evidence",
+          "type": "array"
+        },
         "operation": {
           "enum": [
             "select",
             "traverse",
             "spatial_query",
             "related_entities",
+            "network_query",
+            "material_quantity",
+            "route_query",
             "project",
             "rank",
             "count",
@@ -1671,6 +1704,13 @@
           ],
           "title": "Quality",
           "type": "string"
+        },
+        "route_evidence": {
+          "items": {
+            "$ref": "#/$defs/RouteEvaluation"
+          },
+          "title": "Route Evidence",
+          "type": "array"
         },
         "rule_key": {
           "anyOf": [
@@ -4540,6 +4580,301 @@
       "title": "LocalizedText",
       "type": "object"
     },
+    "MaterialEvaluation": {
+      "additionalProperties": false,
+      "properties": {
+        "assignment_step_ids": {
+          "items": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 256,
+          "title": "Assignment Step Ids",
+          "type": "array"
+        },
+        "frame": {
+          "enum": [
+            "ifc_world",
+            "native_quantity"
+          ],
+          "title": "Frame",
+          "type": "string"
+        },
+        "host_volume_m3": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Host Volume M3"
+        },
+        "layer_step_ids": {
+          "items": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 256,
+          "title": "Layer Step Ids",
+          "type": "array"
+        },
+        "material_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Material Name"
+        },
+        "material_step_ids": {
+          "items": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 256,
+          "title": "Material Step Ids",
+          "type": "array"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "method": {
+          "enum": [
+            "recorded_net_homogeneous",
+            "closed_mesh_homogeneous",
+            "verified_uniform_layers",
+            "recorded_not_used",
+            "unavailable"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "recorded_quantity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QuantityValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "selected_thickness_m": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Thickness M"
+        },
+        "source_step_ids": {
+          "items": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 2000,
+          "title": "Source Step Ids",
+          "type": "array"
+        },
+        "specified_layers": {
+          "items": {
+            "$ref": "#/$defs/MaterialLayerInput"
+          },
+          "maxItems": 256,
+          "title": "Specified Layers",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "verified",
+            "recorded_not_used",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "subject_id": {
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "tolerance_m": {
+          "exclusiveMinimum": 0,
+          "maximum": 0.05,
+          "title": "Tolerance M",
+          "type": "number"
+        },
+        "total_thickness_m": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Thickness M"
+        },
+        "unit": {
+          "const": "m3",
+          "default": "m3",
+          "title": "Unit",
+          "type": "string"
+        },
+        "volume_m3": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Volume M3"
+        }
+      },
+      "required": [
+        "subject_id",
+        "method",
+        "status",
+        "frame",
+        "tolerance_m"
+      ],
+      "title": "MaterialEvaluation",
+      "type": "object"
+    },
+    "MaterialLayerInput": {
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "exclusiveMinimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "layer_step_id": {
+          "exclusiveMinimum": 0,
+          "title": "Layer Step Id",
+          "type": "integer"
+        },
+        "material_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Material Name"
+        },
+        "material_step_id": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Material Step Id"
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QuantityValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "index",
+        "layer_step_id"
+      ],
+      "title": "MaterialLayerInput",
+      "type": "object"
+    },
+    "MaterialQuantityOperation": {
+      "additionalProperties": false,
+      "description": "Recorded homogeneous net volumes or source-verified material estimates.",
+      "properties": {
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "material_quantity",
+          "title": "Kind",
+          "type": "string"
+        },
+        "material_names": {
+          "items": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Material Names",
+          "type": "array"
+        },
+        "method": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "recorded_net",
+            "geometry"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "output_unit_id": {
+          "default": "unit:m3",
+          "minLength": 1,
+          "title": "Output Unit Id",
+          "type": "string"
+        },
+        "tolerance_m": {
+          "default": 0.001,
+          "maximum": 0.05,
+          "minimum": 1e-06,
+          "title": "Tolerance M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id"
+      ],
+      "title": "MaterialQuantityOperation",
+      "type": "object"
+    },
     "MeasureOperation": {
       "additionalProperties": false,
       "properties": {
@@ -4569,11 +4904,15 @@
           "enum": [
             "area",
             "union_area",
+            "enclosed_area",
             "length",
             "perimeter",
             "volume",
             "distance",
-            "angle"
+            "angle",
+            "height",
+            "base_elevation",
+            "horizontal_distance"
           ],
           "title": "Metric",
           "type": "string"
@@ -4600,6 +4939,124 @@
         "basis"
       ],
       "title": "MeasureOperation",
+      "type": "object"
+    },
+    "MeasurementEvaluation": {
+      "additionalProperties": false,
+      "description": "Inspectably bounded evidence from a retained IFC geometry source.",
+      "properties": {
+        "frame": {
+          "const": "ifc_world",
+          "title": "Frame",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "method": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Method",
+          "type": "string"
+        },
+        "metric": {
+          "enum": [
+            "area",
+            "union_area",
+            "enclosed_area",
+            "length",
+            "perimeter",
+            "volume",
+            "distance",
+            "angle",
+            "height",
+            "base_elevation",
+            "horizontal_distance"
+          ],
+          "title": "Metric",
+          "type": "string"
+        },
+        "reference_entity_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 2000,
+          "title": "Reference Entity Ids",
+          "type": "array"
+        },
+        "representation_step_ids": {
+          "items": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 2000,
+          "title": "Representation Step Ids",
+          "type": "array"
+        },
+        "source_step_ids": {
+          "items": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 2000,
+          "title": "Source Step Ids",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "verified",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "subject_id": {
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "tolerance_m": {
+          "exclusiveMinimum": 0,
+          "maximum": 0.1,
+          "title": "Tolerance M",
+          "type": "number"
+        },
+        "unit": {
+          "enum": [
+            "m",
+            "m2",
+            "m3",
+            "rad"
+          ],
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "metric",
+        "subject_id",
+        "method",
+        "frame",
+        "unit",
+        "tolerance_m",
+        "status"
+      ],
+      "title": "MeasurementEvaluation",
       "type": "object"
     },
     "MeshShape": {
@@ -4732,6 +5189,141 @@
       "title": "NativeSelector",
       "type": "object"
     },
+    "NetworkEvaluation": {
+      "additionalProperties": false,
+      "properties": {
+        "component_network_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Component Network Count",
+          "type": "integer"
+        },
+        "components_with_connected_ports_count": {
+          "minimum": 0,
+          "title": "Components With Connected Ports Count",
+          "type": "integer"
+        },
+        "components_with_ports_count": {
+          "minimum": 0,
+          "title": "Components With Ports Count",
+          "type": "integer"
+        },
+        "connected_port_count": {
+          "minimum": 0,
+          "title": "Connected Port Count",
+          "type": "integer"
+        },
+        "connection_graph_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Connection Graph Sha256",
+          "type": "string"
+        },
+        "counting_basis": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Counting Basis",
+          "type": "string"
+        },
+        "cut_edge_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Cut Edge Count",
+          "type": "integer"
+        },
+        "isolated_port_count": {
+          "minimum": 0,
+          "title": "Isolated Port Count",
+          "type": "integer"
+        },
+        "largest_component_network_count": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Largest Component Network Count",
+          "type": "integer"
+        },
+        "largest_component_port_count": {
+          "minimum": 0,
+          "title": "Largest Component Port Count",
+          "type": "integer"
+        },
+        "method": {
+          "const": "native_distribution_port_graph.v1",
+          "title": "Method",
+          "type": "string"
+        },
+        "port_component_count": {
+          "minimum": 0,
+          "title": "Port Component Count",
+          "type": "integer"
+        },
+        "selected_component_count": {
+          "minimum": 0,
+          "title": "Selected Component Count",
+          "type": "integer"
+        },
+        "selected_port_count": {
+          "minimum": 0,
+          "title": "Selected Port Count",
+          "type": "integer"
+        },
+        "unique_connection_count": {
+          "minimum": 0,
+          "title": "Unique Connection Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "method",
+        "counting_basis",
+        "selected_port_count",
+        "selected_component_count",
+        "connected_port_count",
+        "isolated_port_count",
+        "unique_connection_count",
+        "port_component_count",
+        "largest_component_port_count",
+        "components_with_ports_count",
+        "components_with_connected_ports_count",
+        "connection_graph_sha256"
+      ],
+      "title": "NetworkEvaluation",
+      "type": "object"
+    },
+    "NetworkQueryOperation": {
+      "additionalProperties": false,
+      "description": "Metrics of an explicitly selected native distribution-port graph.",
+      "properties": {
+        "component_step_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Component Step Id"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "network_query",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id"
+      ],
+      "title": "NetworkQueryOperation",
+      "type": "object"
+    },
     "NormalizedQuantity": {
       "additionalProperties": false,
       "properties": {
@@ -4766,12 +5358,16 @@
             "mapping": {
               "aggregate": "#/$defs/AggregateOperation",
               "arithmetic": "#/$defs/ArithmeticOperation",
+              "material_quantity": "#/$defs/MaterialQuantityOperation",
               "measure": "#/$defs/MeasureOperation",
+              "network_query": "#/$defs/NetworkQueryOperation",
               "project": "#/$defs/ProjectOperation",
               "rank": "#/$defs/RankOperation",
               "related_entities": "#/$defs/RelatedEntitiesOperation",
+              "route_query": "#/$defs/RouteQueryOperation",
               "select": "#/$defs/SelectOperation",
               "spatial_query": "#/$defs/SpatialQueryOperation",
+              "table_calculate": "#/$defs/TableCalculateOperation",
               "traverse": "#/$defs/TraverseOperation"
             },
             "propertyName": "kind"
@@ -4803,6 +5399,18 @@
             },
             {
               "$ref": "#/$defs/ArithmeticOperation"
+            },
+            {
+              "$ref": "#/$defs/TableCalculateOperation"
+            },
+            {
+              "$ref": "#/$defs/NetworkQueryOperation"
+            },
+            {
+              "$ref": "#/$defs/MaterialQuantityOperation"
+            },
+            {
+              "$ref": "#/$defs/RouteQueryOperation"
             }
           ],
           "title": "Operation"
@@ -5430,6 +6038,11 @@
         "field": {
           "$ref": "#/$defs/FieldRef"
         },
+        "include_ties": {
+          "default": false,
+          "title": "Include Ties",
+          "type": "boolean"
+        },
         "input_step_id": {
           "minLength": 1,
           "title": "Input Step Id",
@@ -5617,7 +6230,9 @@
             "filled_by",
             "assigned_to_zone",
             "corresponding_boundary",
-            "external_boundary"
+            "external_boundary",
+            "has_port",
+            "port_connected_to"
           ],
           "title": "Predicate",
           "type": "string"
@@ -5746,6 +6361,247 @@
         "provenance"
       ],
       "title": "Representation",
+      "type": "object"
+    },
+    "RouteEvaluation": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 10000,
+          "title": "Anchor Ids",
+          "type": "array"
+        },
+        "door_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Door Ids",
+          "type": "array"
+        },
+        "frame": {
+          "const": "ifc_world",
+          "title": "Frame",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "method": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Method",
+          "type": "string"
+        },
+        "path_points_m": {
+          "items": {
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "maxItems": 2048,
+          "title": "Path Points M",
+          "type": "array"
+        },
+        "quality": {
+          "const": "estimated",
+          "default": "estimated",
+          "title": "Quality",
+          "type": "string"
+        },
+        "room_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 500,
+          "title": "Room Ids",
+          "type": "array"
+        },
+        "source_step_ids": {
+          "items": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 2000,
+          "title": "Source Step Ids",
+          "type": "array"
+        },
+        "stair_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "title": "Stair Ids",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "verified",
+            "partial",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "subject_id": {
+          "minLength": 1,
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "target_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Id"
+        },
+        "tolerance_m": {
+          "exclusiveMinimum": 0,
+          "maximum": 0.1,
+          "title": "Tolerance M",
+          "type": "number"
+        },
+        "unit": {
+          "const": "m",
+          "default": "m",
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_id",
+        "method",
+        "frame",
+        "tolerance_m",
+        "status"
+      ],
+      "title": "RouteEvaluation",
+      "type": "object"
+    },
+    "RouteQueryOperation": {
+      "additionalProperties": false,
+      "description": "A bounded modeled walking route, separate from straight-line distance.",
+      "properties": {
+        "clearance_m": {
+          "default": 0,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Clearance M",
+          "type": "number"
+        },
+        "include_stairs": {
+          "default": true,
+          "title": "Include Stairs",
+          "type": "boolean"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "route_query",
+          "title": "Kind",
+          "type": "string"
+        },
+        "mode": {
+          "default": "shortest",
+          "enum": [
+            "shortest",
+            "farthest"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "start_basis": {
+          "default": "modeled_interior_point",
+          "enum": [
+            "modeled_interior_point",
+            "explicit_point",
+            "farthest_sampled"
+          ],
+          "title": "Start Basis",
+          "type": "string"
+        },
+        "start_point_m": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Start Point M"
+        },
+        "target_basis": {
+          "default": "recorded_external_boundary",
+          "enum": [
+            "recorded_external_boundary",
+            "certified_fire_exit"
+          ],
+          "title": "Target Basis",
+          "type": "string"
+        },
+        "target_step_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Step Id"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id"
+      ],
+      "title": "RouteQueryOperation",
       "type": "object"
     },
     "Scope": {
@@ -6275,6 +7131,95 @@
         "relation"
       ],
       "title": "SpatialQueryOperation",
+      "type": "object"
+    },
+    "TableCalculateOperation": {
+      "additionalProperties": false,
+      "description": "Bounded arithmetic over source-derived table cells, never expressions.",
+      "properties": {
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/FieldRef"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Fields",
+          "type": "array"
+        },
+        "group_by": {
+          "items": {
+            "$ref": "#/$defs/FieldRef"
+          },
+          "maxItems": 8,
+          "title": "Group By",
+          "type": "array"
+        },
+        "input_step_id": {
+          "minLength": 1,
+          "title": "Input Step Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "table_calculate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "next_key": {
+          "default": "following",
+          "minLength": 1,
+          "title": "Next Key",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "add",
+            "subtract",
+            "multiply",
+            "divide",
+            "percent_of_total",
+            "consecutive_difference"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "order_by": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_unit_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Unit Id"
+        },
+        "value_key": {
+          "default": "calculated",
+          "minLength": 1,
+          "title": "Value Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "input_step_id",
+        "operator",
+        "fields"
+      ],
+      "title": "TableCalculateOperation",
       "type": "object"
     },
     "TableColumn": {

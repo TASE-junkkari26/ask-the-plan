@@ -17,9 +17,18 @@ from contracts import models as m
 from contracts.validation import validate_bundle
 from . import __version__
 from .catalog import ATTRIBUTES, CLASS_KEY, CONCEPT_CLASSES, LENGTH_ATTRIBUTES, attribute_key, property_key
-from .units import DIMENSIONS, SI_TARGETS, UNIT_TYPES, convert, decimal_string, source_unit, standard_units
+from .units import DIMENSIONS, MEASURE_KINDS, SI_TARGETS, UNIT_TYPES, convert, decimal_string, source_unit, standard_units
+from .type_candidates import type_candidates, inherited_property_records, absent_candidate_keys, typing_anchor_ids, emit_ambiguous_inheritance, assignment_materials
 
-EXTRACTOR_REVISION = "spatial-boundary-records-v1"
+EXTRACTOR_REVISION = "source-metadata-aliases-v6"
+DEFER_PROPERTY_BYTES = 32 * 1024 * 1024
+DEFER_PRODUCT_COUNT = 15000
+MAX_SOURCE_APPLICATIONS = 256
+APPLICATION_IDENTIFIERS_DEFINITION = (
+    "Complete bounded inventory of native IfcApplication.ApplicationIdentifier records in source STEP order. "
+    "Each list record preserves step_id text, present/explicit_null status, and ApplicationIdentifier text when present; "
+    "all native record anchors are retained. Empty means no native IfcApplication records. "
+    "This file-level metadata is separate from the project's owning ApplicationIdentifier and does not classify modeled objects.")
 
 
 def file_sha256(path: Path) -> str:
@@ -44,26 +53,40 @@ class LoadedModel:
     schema: str
     warnings: list[str]
     cache_hit: bool = False
+    hydrator: object | None = None
 
 
 def load_ifc(path: str | Path, *, cache_dir: str | Path | None = None,
              source_collection: str = "local", attribution: str = "unspecified",
-             license: str = "unspecified") -> LoadedModel:
+             license: str = "unspecified", defer_properties: bool | None = None) -> LoadedModel:
     """No network, geometry generation, or changes to the original IFC."""
     path = Path(path).resolve(strict=True)
+    deferred = path.stat().st_size >= DEFER_PROPERTY_BYTES if defer_properties is None else defer_properties
     digest = file_sha256(path)
     config = {"engine": __version__, "extractor_revision": EXTRACTOR_REVISION, "ifcopenshell": ifcopenshell.version,
               "uri": path.as_uri(), "sha256": digest, "source_collection": source_collection,
-              "attribution": attribution, "license": license}
+              "attribution": attribution, "license": license, "deferred_properties": deferred,
+              "defer_policy": "auto" if defer_properties is None else "forced"}
     config_hash = hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()
-    cached = Path(cache_dir) / (config_hash + ".json") if cache_dir else None
+    # A deferred catalog needs its retained native source to distinguish an
+    # unqueried property from an absent one. Do not serialize it as an eager
+    # standalone bundle that would lose that property provider on reload.
+    cached = Path(cache_dir) / (config_hash + ".json") if cache_dir and not deferred else None
     if cached and cached.exists():
         data = json.loads(cached.read_text())
         bundle = m.KnowledgeBundle.model_validate(data["bundle"])
         validate_bundle(bundle)
         return LoadedModel(bundle, data["schema"], data["warnings"], True)
     model = ifcopenshell.open(str(path))
-    result = _Extractor(model, path, digest, config_hash, config).extract()
+    if defer_properties is None and not deferred and len(model.by_type("IfcProduct")) >= DEFER_PRODUCT_COUNT:
+        # Dense, compact STEP files can contain enough occurrence properties to
+        # overwhelm eager extraction despite a moderate byte size. The native
+        # count is cheap and requires no per-occurrence fact materialization.
+        deferred = True
+        config["deferred_properties"] = True
+        config_hash = hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()
+        cached = None
+    result = _Extractor(model, path, digest, config_hash, config, defer_properties=deferred).extract()
     # Detect concurrent edits rather than attaching an old hash to new content.
     if file_sha256(path) != digest:
         raise ValueError("IFC changed during extraction; retry with an immutable revision")
@@ -80,8 +103,10 @@ def load_ifc(path: str | Path, *, cache_dir: str | Path | None = None,
 
 
 class _Extractor:
-    def __init__(self, model, path, digest, config_hash, config):
+    def __init__(self, model, path, digest, config_hash, config, *, defer_properties=False):
         self.model, self.path, self.digest = model, path, digest
+        self.defer_properties = defer_properties
+        self.ambiguous_property_keys = set()
         self.schema = ifcopenshell.ifcopenshell_wrapper.schema_by_name(model.schema_identifier)
         projects = model.by_type("IfcProject")
         if len(projects) != 1:
@@ -154,12 +179,12 @@ class _Extractor:
                      for name, cls in CONCEPT_CLASSES.items()]
         return concepts
 
-    def add_fact(self, subject, key, path, source, value=None, status="present"):
+    def add_fact(self, subject, key, path, source, value=None, status="present", *, extra_anchors=(), method="native"):
         anchor = self.anchor(source, path)
         self.property_labels[key] = ".".join(path)
         self.facts.append(m.Fact(id=_id("fact", subject + key + anchor), subject_id=subject,
                                  property_key=key, original_property_path=list(path),
-                                 status=status, value=value, provenance=self.provenance(anchor)))
+                                 status=status, value=value, provenance=self.provenance(anchor, *sorted(set(extra_anchors) - {anchor}), method=method)))
 
     def quantity(self, value, kind, source, *, unit=None, measure_class=None, basis="modeled", explicit=False):
         unit_id, resolution, unit_anchors, normalized = None, "unknown", [], None
@@ -186,6 +211,9 @@ class _Extractor:
                                normalized=normalized)
 
     def property_value(self, prop):
+        if prop.is_a("IfcPropertyEnumeratedValue") or prop.is_a("IfcPropertyListValue"):
+            from .property_values import collection_property_value
+            return collection_property_value(self, prop)
         if prop.is_a("IfcPropertySingleValue"):
             raw = prop.NominalValue
             if raw is None:
@@ -202,13 +230,17 @@ class _Extractor:
             unit = unit_util.get_property_unit(prop, self.model)
             kind = UNIT_TYPES.get(getattr(unit, "UnitType", None))
             # Measure type establishes semantics even if a unit is unavailable.
-            for term, candidate in [("Length", "length"), ("Area", "area"), ("Volume", "volume"),
-                                    ("Mass", "mass"), ("Time", "time"), ("Angle", "angle"), ("Ratio", "ratio")]:
-                if term in cls:
-                    kind = candidate
-                    break
+            if cls in MEASURE_KINDS:
+                kind = MEASURE_KINDS[cls]
+            else:
+                for term, candidate in [("Length", "length"), ("Area", "area"), ("Volume", "volume"),
+                                        ("Mass", "mass"), ("Time", "time"), ("Angle", "angle"), ("Ratio", "ratio")]:
+                    if term in cls:
+                        kind = candidate
+                        break
             return self.quantity(value, kind or "number", prop, unit=unit,
-                                 measure_class=cls, explicit=prop.Unit is not None), "present"
+                                 measure_class=cls, explicit=prop.Unit is not None,
+                                 basis=self.native_quantity_basis(prop.Name, kind)), "present"
         quantities = {"IfcQuantityLength": ("length", "LengthValue"),
                       "IfcQuantityArea": ("area", "AreaValue"),
                       "IfcQuantityVolume": ("volume", "VolumeValue"),
@@ -216,17 +248,25 @@ class _Extractor:
                       "IfcQuantityTime": ("time", "TimeValue")}
         if prop.is_a() in quantities:
             kind, field = quantities[prop.is_a()]
-            name = prop.Name.casefold()
-            basis = "net" if name.startswith("net") else "gross" if name.startswith("gross") else "modeled"
+            if getattr(prop, field) is None:
+                return None, "explicit_null"
+            basis = self.native_quantity_basis(prop.Name, kind)
             return self.quantity(getattr(prop, field), kind, prop,
                                  unit=unit_util.get_property_unit(prop, self.model),
                                  measure_class="Ifc" + kind.title() + "Measure", basis=basis,
                                  explicit=prop.Unit is not None), "present"
         if prop.is_a("IfcQuantityCount"):
             value = prop.CountValue
+            if value is None:
+                return None, "explicit_null"
             if value is not None and float(value).is_integer() and value >= 0:
                 return m.CountValue(kind="count", value=int(value)), "present"
         return None, "not_extracted"
+
+    @staticmethod
+    def native_quantity_basis(name, kind):
+        from .source_quantities import native_quantity_basis
+        return native_quantity_basis(name, kind)
 
     def extract(self):
         concepts = self.concepts()
@@ -237,13 +277,21 @@ class _Extractor:
             value = rel.RelatingPropertyDefinition
             for obj in rel.RelatedObjects:
                 definitions[obj.id()].extend(value if isinstance(value, tuple) else [value])
-        types = {}
+        for definition in self.model.by_type("IfcMaterialProperties"):
+            material = getattr(definition, "Material", None)
+            if material is not None and material.id() in objects:
+                definitions[material.id()].append(definition)
+        types, candidates = {}, defaultdict(dict)
+        self.typing_relations = defaultdict(list)
         for rel in self.model.by_type("IfcRelDefinesByType"):
             for obj in rel.RelatedObjects:
-                if obj.id() in types and types[obj.id()].id() != rel.RelatingType.id():
-                    raise ValueError(f"multiple type definitions for IFC record #{obj.id()}")
-                types[obj.id()] = rel.RelatingType
+                candidates[obj.id()][rel.RelatingType.id()] = rel.RelatingType
+                self.typing_relations[obj.id()].append(rel)
                 self.add_relation(obj, "typed_by", rel.RelatingType, rel, objects)
+        types = {identifier: next(iter(values.values())) if len(values) == 1 else tuple(values.values())
+                 for identifier, values in candidates.items()}
+        if any(isinstance(value, tuple) for value in types.values()):
+            self.warnings.add("Some occurrences have multiple distinct native type assignments; type identity and conflicting inheritance remain ambiguous.")
         parents, children = set(), set()
         for root, predicate, parent_field, child_field in [
             ("IfcRelAggregates", "aggregates", "RelatingObject", "RelatedObjects"),
@@ -256,6 +304,23 @@ class _Extractor:
                     if predicate == "aggregates":
                         parents.add(parent.id())
                         children.add(child.id())
+                        if child.is_a("IfcPort"):
+                            self.add_relation(parent, "has_port", child, rel, objects)
+        # Distribution connectivity is modeled separately from element contact.
+        # Preserve each native relationship once; graph algorithms may inspect
+        # both directions without inventing a fluid-flow direction.
+        for root, predicate, subject_field, object_field in [
+            ("IfcRelConnectsPorts", "port_connected_to", "RelatingPort", "RelatedPort"),
+            ("IfcRelConnectsPortToElement", "has_port", "RelatedElement", "RelatingPort"),
+        ]:
+            try:
+                records = self.model.by_type(root)
+            except RuntimeError:
+                # Some IFC schema editions remove deprecated relation classes.
+                records = []
+            for rel in records:
+                self.add_relation(getattr(rel, subject_field), predicate,
+                                  getattr(rel, object_field), rel, objects)
         for rel in self.model.by_type("IfcRelAssignsToGroup"):
             if rel.RelatingGroup.is_a("IfcSystem") or rel.RelatingGroup.is_a("IfcZone"):
                 # IfcZone is an IfcSystem subtype in IFC4, but not in IFC2X3.
@@ -318,8 +383,9 @@ class _Extractor:
             if kind not in {"type", "system", "material", "zone"}:
                 semantic_classes = set(chain)
                 if obj.id() in types:
-                    semantic_classes.update(name.removesuffix("Type").removesuffix("Style")
-                                            for name in self.chain(types[obj.id()].is_a()))
+                    typed_classes = [{name.removesuffix("Type").removesuffix("Style") for name in self.chain(native_type.is_a())}
+                                     for native_type in type_candidates(types, obj.id())]
+                    semantic_classes.update(set.intersection(*typed_classes))
                 entity_concepts += ["concept:" + name for name, cls in CONCEPT_CLASSES.items() if cls in semantic_classes]
             anchor = self.anchor(obj)
             self.entities[identifier] = m.Entity(id=identifier, project_id=self.project_id,
@@ -337,6 +403,9 @@ class _Extractor:
                 asset_id=self.asset_id, anchor_ids=anchors, provenance=self.provenance(anchor)))
             self.add_fact(identifier, CLASS_KEY, ["class"], obj,
                           m.TextValue(kind="text", value=m.LocalizedText(text=obj.is_a())))
+            if self.defer_properties:
+                self.material_relations(obj, types, objects)
+                continue
             for name in ATTRIBUTES:
                 if hasattr(obj, name):
                     value = getattr(obj, name)
@@ -352,28 +421,142 @@ class _Extractor:
                         "present" if value is not None else "explicit_null")
             self.metadata_facts(obj, identifier)
             own = self.property_records([*definitions[obj.id()], *(getattr(obj, "HasPropertySets", None) or [])])
-            inherited = self.property_records(getattr(types.get(obj.id()), "HasPropertySets", None) or [])
+            inherited = inherited_property_records(self, types, obj.id())
+            inherited_anchors = typing_anchor_ids(self, obj, types) if inherited else []
             for key, entries in (inherited | own).items():
                 for path, record in entries:
                     value, status = self.property_value(record)
-                    self.add_fact(identifier, key, path, record, value, status)
-            if obj.is_a("IfcObjectDefinition"):
-                associations = [rel for rel in (getattr(obj, "HasAssociations", None) or []) if rel.is_a("IfcRelAssociatesMaterial")]
-                if not associations and obj.id() in types:
-                    associations = [rel for rel in (getattr(types[obj.id()], "HasAssociations", None) or []) if rel.is_a("IfcRelAssociatesMaterial")]
-                for material in element_util.get_materials(obj):
-                    for association in associations:
-                        self.add_relation(obj, "has_material", material, association, objects)
+                    self.add_fact(identifier, key, path, record, value, status,
+                                  extra_anchors=inherited_anchors if key not in own else [])
+            for key in absent_candidate_keys(self, types, obj.id()) - own.keys():
+                emit_ambiguous_inheritance(self, obj, key, inherited[key], types)
+            self.material_relations(obj, types, objects)
+        if not self.defer_properties:
+            from .enrichment import enrich_occurrences
+            enrich_occurrences(self, objects, types)
         properties = self.property_definitions()
+        if self.defer_properties:
+            native_catalog = self.deferred_catalog(objects, definitions, types)
+            properties = list({definition.key: definition for definition in [*native_catalog, *properties]}.values())
         bundle = m.KnowledgeBundle(**self.bundle_base, concepts=concepts, properties=properties,
             units=list(self.units.values()), anchors=list(self.anchors.values()),
             entities=list(self.entities.values()), facts=self.facts,
             relations=list({relation.id: relation for relation in self.relations}.values()),
             representations=self.representations, space_boundaries=self.space_boundaries)
-        return LoadedModel(bundle, self.model.schema_identifier, sorted(self.warnings))
+        result = LoadedModel(bundle, self.model.schema_identifier, sorted(self.warnings))
+        if self.defer_properties:
+            from .hydration import NativeHydrator
+            result.hydrator = NativeHydrator(self, objects, definitions, types)
+        return result
+
+    def material_relations(self, obj, types, objects):
+        if not obj.is_a("IfcObjectDefinition"):
+            return
+        associations = [rel for rel in (getattr(obj, "HasAssociations", None) or []) if rel.is_a("IfcRelAssociatesMaterial")]
+        inherited = False
+        if not associations and obj.id() in types:
+            associations = [rel for native_type in type_candidates(types, obj.id())
+                            for rel in (getattr(native_type, "HasAssociations", None) or []) if rel.is_a("IfcRelAssociatesMaterial")]
+            inherited = True
+        if associations:
+            for association in associations:
+                for material in assignment_materials(association.RelatingMaterial):
+                    anchors = [self.anchor(association), *(typing_anchor_ids(self, obj, types) if inherited else [])]
+                    self.add_relation(obj, "has_material", material, association, objects, anchors=anchors)
+
+    def deferred_catalog(self, objects, definitions, types):
+        """Catalog unique native field shapes without millions of fact objects.
+
+        Catalog presence is potential source vocabulary, never per-object value
+        availability. The retained native provider checks every requested pair.
+        """
+        def scalar_shape(raw):
+            if raw is None:
+                return "", "", False
+            value = getattr(raw, "wrappedValue", None)
+            # One declared IFC wrapper can produce distinct wire shapes:
+            # IfcLogical UNKNOWN is literal text, while true/false are bool;
+            # a nonnegative integral CountMeasure is a count rather than a
+            # signed/fractional numeric source value.
+            count = (raw.is_a() == "IfcCountMeasure" and not isinstance(value, bool)
+                     and isinstance(value, (int, float)) and value >= 0
+                     and (isinstance(value, int) or value.is_integer()))
+            return raw.is_a(), type(value).__name__, count
+
+        shapes, seen = defaultdict(set), set()
+        all_definitions = {definition.id(): definition for identifier in objects
+                           for definition in definitions.get(identifier, [])}
+        for obj in objects.values():
+            all_definitions.update({definition.id(): definition for definition in (getattr(obj, "HasPropertySets", None) or [])})
+        for definition in all_definitions.values():
+            for key, entries in self.property_records([definition]).items():
+                for path, record in entries:
+                    raw = getattr(record, "NominalValue", None)
+                    nominal = scalar_shape(raw)
+                    members = (record.ListValues if record.is_a("IfcPropertyListValue") else
+                               record.EnumerationValues if record.is_a("IfcPropertyEnumeratedValue") else None)
+                    explicit = getattr(record, "Unit", None)
+                    if record.is_a("IfcPropertyEnumeratedValue") and record.EnumerationReference is not None:
+                        explicit = record.EnumerationReference.Unit
+                    signature = (key, record.is_a(), nominal,
+                        members is None, tuple(sorted({scalar_shape(member) for member in members or ()})),
+                        getattr(explicit, "UnitType", None),
+                        record[3] is None if record.is_a("IfcPhysicalSimpleQuantity") else False)
+                    self.property_labels[key] = ".".join(path)
+                    if signature in seen:
+                        continue
+                    seen.add(signature)
+                    value, status = self.property_value(record)
+                    if status == "present" and value is not None:
+                        shapes[key].add((value.kind, getattr(value, "quantity_kind", None)))
+                    else:
+                        shapes.setdefault(key, set())
+
+        def declare(key, label, kind, quantity_kind=None):
+            self.property_labels[key] = label
+            shapes[key].add((kind, quantity_kind))
+
+        for name in ATTRIBUTES:
+            if any(hasattr(obj, name) for obj in objects.values()):
+                declare(attribute_key(name), name, "text")
+        for name in LENGTH_ATTRIBUTES:
+            if any(hasattr(obj, name) for obj in objects.values()):
+                declare(attribute_key(name), name, "quantity", "length")
+        # Metadata selectors are populated lazily from original header/owner/
+        # address records, with the same literal source semantics as eager mode.
+        for name in ("FILE_SCHEMA", "NativeFilename", "OriginatingSystem", "PreprocessorVersion", "ModelViewDefinition",
+                     "ApplicationFullName", "ApplicationIdentifier", "Version", "RefLatitude", "RefLongitude",
+                     "Address.InternalLocation", "Address.PostalBox", "Address.AddressLines", "Address.Town",
+                     "Address.Region", "Address.PostalCode", "Address.Country"):
+            declare(attribute_key(name), name, "text")
+        declare(attribute_key("ApplicationIdentifiers"), "ApplicationIdentifiers", "list")
+        for name in ("TypeId", "TypeName", "TypeClass", "StoreyId", "StoreyName", "BuildingId", "BuildingName"):
+            declare(property_key("SourceContext", name), "SourceContext." + name, "text")
+        declare(property_key("SourceContext", "StoreyElevation"), "SourceContext.StoreyElevation", "quantity", "length")
+        for name, kind, quantity_kind in (("Names", "text", None), ("Layers", "list", None),
+                ("LayerSetName", "text", None), ("CompositionComplete", "boolean", None),
+                ("TotalLayerThickness", "quantity", "length")):
+            declare(property_key("SourceMaterial", name), "SourceMaterial." + name, kind, quantity_kind)
+        for material in self.model.by_type("IfcMaterial"):
+            if material.Name is not None:
+                declare(property_key("SourceMaterialThickness", material.Name),
+                        "SourceMaterialThickness." + material.Name, "quantity", "length")
+        result = []
+        for key, variants in shapes.items():
+            if len(variants) > 1:
+                self.ambiguous_property_keys.add(key)
+            kind, quantity_kind = next(iter(variants)) if len(variants) == 1 else ("text", None)
+            result.append(m.PropertyDefinition(key=key, labels=[m.LocalizedText(text=self.property_labels[key])],
+                value_kind=kind, quantity_kind=quantity_kind, dimension=DIMENSIONS.get(quantity_kind),
+                definition=APPLICATION_IDENTIFIERS_DEFINITION if key == attribute_key("ApplicationIdentifiers") else
+                    "Literal FILE_NAME.name from the native IFC header, preserved independently of an upload title." if key == attribute_key("NativeFilename") else
+                    "Native source field vocabulary with deferred per-object values. Presence and explicit null/absence are checked against the retained original IFC when requested; catalog membership does not assert a value."))
+        from .source_quantities import source_quantity_definitions
+        result.extend(source_quantity_definitions(self, objects))
+        return result
 
     def add_relation(self, subject, predicate, obj, source, objects, *, anchors=None):
-        if subject.id() in objects and obj.id() in objects:
+        if subject is not None and obj is not None and subject.id() in objects and obj.id() in objects:
             self.relations.append(m.Relation(id=_id("relation", self.asset_id + f":{source.id()}:{predicate}:{subject.id()}:{obj.id()}"),
                 subject_id=self.entity_id(subject), predicate=predicate, object_id=self.entity_id(obj),
                 native_predicate=source.is_a(), provenance=self.provenance(*(anchors or [self.anchor(source)]))))
@@ -390,9 +573,31 @@ class _Extractor:
             # FILE_SCHEMA, not an inferred/legacy application standard label,
             # determines the actual schema declared in this immutable file.
             text_fact("FILE_SCHEMA", header.file_schema, "schema_identifiers", ", ".join(header.file_schema.schema_identifiers))
+            text_fact("NativeFilename", header.file_name, "name", header.file_name.name)
+            self.property_labels[attribute_key("NativeFilename")] = "NativeFilename"
             text_fact("OriginatingSystem", header.file_name, "originating_system", header.file_name.originating_system)
             text_fact("PreprocessorVersion", header.file_name, "preprocessor_version", header.file_name.preprocessor_version)
             text_fact("ModelViewDefinition", header.file_description, "description", "; ".join(header.file_description.description))
+            inventory_key = attribute_key("ApplicationIdentifiers")
+            requested = getattr(self, "requested_property_keys", None)
+            if requested is None or inventory_key in requested:
+                applications = sorted(self.model.by_type("IfcApplication"), key=lambda application: application.id())
+                if len(applications) > MAX_SOURCE_APPLICATIONS:
+                    self.warnings.add("The native application inventory exceeds the bounded 256-record metadata limit.")
+                    self.add_fact(identifier, inventory_key, [], obj, None, "not_extracted", method="computed")
+                else:
+                    anchors = [self.anchor(application, ["ApplicationIdentifier"]) for application in applications]
+                    rows = []
+                    for application in applications:
+                        value = application.ApplicationIdentifier
+                        fields = {"step_id": m.TextValue(kind="text", value=m.LocalizedText(text=str(application.id()))),
+                            "status": m.TextValue(kind="text", value=m.LocalizedText(text="present" if value is not None else "explicit_null"))}
+                        if value is not None:
+                            fields["ApplicationIdentifier"] = m.TextValue(kind="text", value=m.LocalizedText(text=value))
+                        rows.append(m.RecordValue(kind="record", fields=fields))
+                    self.add_fact(identifier, inventory_key, [], obj, m.ListValue(kind="list", items=rows),
+                        extra_anchors=anchors, method="computed")
+                self.property_labels[inventory_key] = "ApplicationIdentifiers"
         if obj.is_a("IfcSite"):
             # IfcCompoundPlaneAngleMeasure is an ordered tuple of source angle
             # components, not decimal degrees. Preserve it literally; no map
@@ -420,9 +625,13 @@ class _Extractor:
         result = defaultdict(list)
         seen = set()
         for definition in definitions:
-            records = getattr(definition, "HasProperties", None) or getattr(definition, "Quantities", None) or []
+            records = (getattr(definition, "HasProperties", None) or getattr(definition, "Quantities", None)
+                       or getattr(definition, "Properties", None) or getattr(definition, "ExtendedProperties", None) or [])
             for record in records:
-                path = [definition.Name or f"#{definition.id()}", record.Name or f"#{record.id()}"]
+                if record is None:
+                    self.warnings.add("A native property collection contains an unbound member; it supplies no scalar value.")
+                    continue
+                path = [getattr(definition, "Name", None) or f"#{definition.id()}", record.Name or f"#{record.id()}"]
                 key = property_key(*path)
                 if (key, record.id()) not in seen:
                     result[key].append((path, record))
@@ -435,6 +644,10 @@ class _Extractor:
             grouped[fact.property_key].append(fact)
         definitions = []
         for key, facts in grouped.items():
+            from .source_quantities import AUTHORED_ROOM_NET_AREA, source_quantity_definition
+            if key == AUTHORED_ROOM_NET_AREA:
+                definitions.append(source_quantity_definition())
+                continue
             shapes = {(fact.value.kind, getattr(fact.value, "quantity_kind", None))
                       for fact in facts if fact.value is not None}
             if len(shapes) > 1:
@@ -442,8 +655,16 @@ class _Extractor:
                 for fact in facts:
                     fact.value, fact.status = None, "ambiguous"
                 shapes = set()
-            value_kind, quantity_kind = next(iter(shapes), ("text", None))
+            value_kind, quantity_kind = ("list", None) if key == attribute_key("ApplicationIdentifiers") else next(iter(shapes), ("text", None))
             definition = "Native IFC attribute/property; original path and source record are retained."
+            if key == attribute_key("ApplicationIdentifiers"):
+                definition = APPLICATION_IDENTIFIERS_DEFINITION
+            elif key == attribute_key("NativeFilename"):
+                definition = "Literal FILE_NAME.name from the native IFC header, preserved independently of an upload title."
+            elif key.startswith(property_key("SourceContext", "")):
+                definition = "Effective occurrence context derived from native containment, aggregation or typing. Native names, values and relationship input anchors are retained; it does not broaden selected object membership."
+            elif key.startswith(property_key("SourceMaterial", "")) or key.startswith(property_key("SourceMaterialThickness", "")):
+                definition = "Native effective material association and ordered layer inputs, including inherited type associations. Thickness sums retain length units. No material volume or homogeneous-host assumption is inferred."
             if key in {attribute_key("RefLatitude"), attribute_key("RefLongitude")}:
                 definition = ("Native IfcCompoundPlaneAngleMeasure tuple: degrees, minutes, seconds, and optional millionths "
                               "of a second. Source components are preserved literally, not converted to decimal degrees.")
