@@ -6,6 +6,10 @@ materialized entity sets, source anchors, facts, and calculation nodes. It runs
 locally on a CPU. The [IFC question API](IFC_QUESTIONS.md) uses a Nemotron or Hydrogen planner to
 produce validated plans and returns the engine's answer with source evidence.
 
+Browser questions use the engine inside the local Python API. Starting that
+backend makes IFC execution available alongside drawing analysis. The engine's
+standalone CLI is another entry point to the same extraction/execution code.
+
 The `exterior_doors` spatial operation selects door occurrences using recorded
 exterior classifications and/or physical external door/filled-opening boundaries.
 It preserves unknown membership, lower bounds and source proofs, separately from

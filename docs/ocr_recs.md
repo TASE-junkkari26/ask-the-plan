@@ -3,18 +3,18 @@
 **Analysis date:** 13 November 2026  
 **Purpose:** Choose OCR and handwritten-text-recognition (HTR) components for the evidence-backed quantity engine described in [the stack recommendation](TECH_STACK_RECOMMENDATION.md), using [the shared contracts](SCHEMA.md).
 
-**Implementation status, 14 November:** This is a dated research and evaluation
-plan. The standalone [raster preprocessor](DRAWING_PREPROCESSOR.md) now supports
+**Implementation status, 15 November:** This is a dated research and evaluation
+plan. The standalone [raster preprocessor](DRAWING_PREPROCESSOR.md) supports
 optional local Tesseract word OCR with source-coordinate boxes and explicit
-availability/failure states. Its core works without an OCR executable; the
-recommended PaddleOCR pipeline below is still unimplemented. No handwriting,
-raster inventory, or model-routing pipeline is currently integrated.
-A separate [door-labeling pilot](../experiments/door_labeling/RESULTS.md)
-saves VLM proposals for one development image; it is not an evaluated inventory
-extractor or OCR benchmark. The repo contains a standalone [IFC engine](IFC_ENGINE.md) and a
-[mock frontend](../frontend/README.md). Model/version/benchmark statements below
-describe the original review, not measurements on this dataset; verify exact
-versions and checkpoint terms when implementing.
+availability/failure states. Its core works without an OCR executable. The
+recommended PaddleOCR and handwriting pipelines below remain proposals.
+The [current workbench](../frontend/README.md) connects IFC execution, native PDF
+tools and source-bound visual analysis. Optional Gemini capability routing and
+native crop/tile analysis are integrated; visual inventory completeness remains
+unverified. The early [door-labeling pilot](../experiments/door_labeling/RESULTS.md)
+is a separate development experiment. Model/version/benchmark statements below
+describe the original review. Current implementation is summarized in
+[the stack guide](TECH_STACK.md).
 
 **Scope:** The [supplied dataset's question families](PROJECT_SCOPE.md) define
 acceptance. Add OCR or a specialist only to answer those questions or to deliver

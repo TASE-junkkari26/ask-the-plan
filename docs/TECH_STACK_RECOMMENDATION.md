@@ -10,20 +10,19 @@ hosted Nemotron/Gemini where useful, native extraction and deterministic
 calculations, and a minimal evidence UI. Small-model training and self-hosting
 recommendations below are conditional options, not required sprint work.
 
-Current implementation: shared contracts, a standalone [CPU IFC query engine](IFC_ENGINE.md),
-and a [mock 2D frontend](../frontend/README.md). A [backend Nemotron client](nvidia_info.md)
-now provides sync/async text, image, and locally validated JSON requests with
-credential-free HTTP tests and successful live text/synthetic image checks.
-FastAPI, SQLite persistence,
-CAD/PDF extraction, OCR/detectors, language-model routing, and IFC viewing remain
-planned. Start the planner integration by testing the [supplied Nemotron endpoint](nvidia_info.md);
-Qwen is a self-hosted comparison candidate if access, accuracy, latency, or cost
-warrants it. Neither is connected to the frontend or a query planner yet.
+Implementation update, 15 November: [the current stack](TECH_STACK.md) includes
+the React workbench, FastAPI service, local IFC viewer/query engine, Gemini and
+Nemotron adapters, native PDF tools, DXF previews and optional local Tesseract.
+The [common answer pipeline](NATURAL_LANGUAGE_ANSWERS.md) connects executed results
+and qualified visual observations to source evidence. The architectural and
+training proposals below preserve the original research snapshot. SQLite
+persistence, self-hosted specialist models and general raster reconstruction
+remain possible extensions.
 
-Organizer clarification reported on 14 November: questions should mostly concern
-what is shown. Default to the selected drawing/view and require explicit scope
-for broader queries. Existing whole-model reference questions keep their stated
-scope; this clarification does not retroactively change those rows.
+Current scope follows the [repository instructions](../AGENTS.md). Drawing
+questions use the selected image/PDF page/DXF layout. IFC questions use the
+entire imported model, independently of viewer filters, while preserving explicit
+question filters. Existing reference rows retain their stated scope.
 
 The [project scope](PROJECT_SCOPE.md) is the supplied dataset's question families.
 A system that handles those correctly and verifiably is sufficient for the

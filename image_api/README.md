@@ -137,6 +137,10 @@ admission. An unavailable strong profile is reported before any model handoff.
 
 ## Install and run
 
+For the complete drawing/IFC workbench, follow [local setup](../docs/SETUP.md).
+The commands below install this API with preprocessing and test dependencies.
+Add the `vision` extra to enable optional OpenCV window checks.
+
 From the repository root on Linux, with Python 3.10+ (tested with 3.12):
 
 ```bash

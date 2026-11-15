@@ -1,6 +1,6 @@
 # Frontend visualization and evidence plan
 
-Prepared 13 November 2026; implementation status updated 14 November. This is a design guide using the [shared schema](SCHEMA.md). The [frontend README](../frontend/README.md) describes the implemented workbench: an import opening screen, image/PDF previews, a drawing chat panel connected to the [candidate API](../image_api/README.md), candidate overlays/close-ups, SVG/JSON export, and local [IFC 3D viewing and inspection](IFC_VIEWER.md). Synthetic drawings and prepared answers remain offline fixtures and are no longer shown in the application. Candidates are unverified proposals; final-answer planning and canonical answer/evidence resolution remain planned. The recommendations below are the target architecture, not a list of shipped features.
+Prepared 13 November 2026; implementation status updated 15 November. This design guide uses the [shared schema](SCHEMA.md). The [frontend README](../frontend/README.md) describes the implemented import/viewing workbench, PDF/DXF previews, drawing chat, SVG/JSON export and local [IFC 3D inspection](IFC_VIEWER.md). The [common answer pipeline](NATURAL_LANGUAGE_ANSWERS.md) now provides source-bound answers and evidence controls across formats. Visual observations retain partial/estimated qualifications. Synthetic drawings remain offline fixtures. The broader recommendations below preserve the design target, with implemented behavior summarized in [the stack guide](TECH_STACK.md).
 
 The [hackathon roadmap](ROADMAP.md#ui-direction) sets the current minimal layout
 and implementation order. Use this document for evidence/rendering mechanics;
@@ -8,7 +8,7 @@ its broader viewer options are conditional on a demonstrated question needing
 them. Source navigation should initially collapse into a picker, with individual
 evidence inspection taking priority over workspace chrome.
 
-Update, 14 November 2026: the user reports that the challenge organizer expects questions to be mostly limited to what is shown. The [mock frontend](../frontend/README.md) therefore defaults to the selected drawing/view and does not silently aggregate the whole model. Broader scope remains an explicit future capability. This clarification does not change the scope of existing reference rows that explicitly ask whole-model questions.
+Current scope follows the [repository instructions](../AGENTS.md). Image/PDF/DXF questions use the selected drawing/page/layout. IFC questions use the entire imported model, independently of viewer filters and section cuts. Explicit room/floor restrictions in the question still apply. Existing reference rows retain their stated scope.
 
 The [project scope](PROJECT_SCOPE.md) is the supplied dataset's demonstrated
 question families, with no requirement to anticipate unknown evaluation classes.

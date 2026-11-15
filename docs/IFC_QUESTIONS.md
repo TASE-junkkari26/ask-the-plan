@@ -10,7 +10,7 @@ does not supply the final count or calculate quantities from a screenshot.
 ## Run and ask
 
 Use the same local backend as image analysis, with the project's `api` extra and
-backend `.env` configured as described in the [README](../README.md#configure-nemotron):
+backend `.env` configured as described in [provider setup](SETUP.md#configure-providers):
 
 ```sh
 .venv/bin/python -m uvicorn image_api.app:app --host 127.0.0.1 --port 8000

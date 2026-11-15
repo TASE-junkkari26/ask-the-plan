@@ -29,5 +29,5 @@ environment, install `contracts/requirements.txt`, and run only the contract sui
 python -m unittest tests.test_contracts -v
 ```
 
-The [root README](../../README.md#install-and-use-the-ifc-engine) describes the
+The [development setup](../../docs/SETUP.md#development-checks) describes the
 full Python suite, which also requires IfcOpenShell.

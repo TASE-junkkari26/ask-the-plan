@@ -13,15 +13,17 @@ than model geometry. The transport itself does not implement an object detector
 or annotation batch job.
 The separate [image candidate API](../image_api/README.md) now wraps this client
 to accept one image/question over HTTP and return localized candidate proposals.
-The frontend now uses this API for imported drawings and displays candidate
-overlays, cues, and uncertainty. It does not produce final answers/counts.
+The workbench displays candidate overlays, cues and uncertainty through the
+[common answer pipeline](NATURAL_LANGUAGE_ANSWERS.md). The candidate endpoint
+retains its proposal-only contract; qualified answers and executed values use
+the common answer coordinator.
 Model predictions and syntactically valid JSON do not establish source truth,
 correct localization, or a complete object inventory.
 
 ## Local setup
 
 Install the project in a virtual environment using the platform commands in
-[README](../README.md#install-and-use-the-ifc-engine). Copy
+[local setup](SETUP.md#install-once). Copy
 [.env.example](../.env.example) to `.env` only if that local file is absent; preserve
 existing settings and keys. Set the inference credential in the ignored file:
 

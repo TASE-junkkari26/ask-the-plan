@@ -9,13 +9,13 @@ requirement. Rows describing extensions apply only if that capability is chosen.
 This document does not establish that all extractors, computations, or viewers
 are implemented.
 
-The [current frontend](../frontend/README.md) is a mock 2D workbench with prepared evidence. The [IFC engine](IFC_ENGINE.md) is a separate CLI/Python component. There is no connecting HTTP API, real-source annotation service, or 3D viewer yet. Following the organizer clarification reported on 14 November, default questions to the shown drawing/view; enable each broader capability only when its source and executor support it.
+Implementation update, 15 November: the [current workbench](../frontend/README.md) connects the local HTTP API, IFC 3D viewer/query engine, native PDF tools and visual candidate analysis through the [common answer pipeline](NATURAL_LANGUAGE_ANSWERS.md). Source buttons and exports retain the contributing objects, properties, regions and calculations. Drawing questions use the selected image/page/layout. IFC questions use the entire imported model while preserving question-defined filters. The capability requirements below remain design targets where an executor is still missing.
 
 ## Linux and Windows support
 
 The product should be a browser application available to users on either OS, with a common backend API and stable evidence artifacts. Most CPU components can also be developed natively on either platform. GPU inference should remain a separate deployment concern.
 
-This table describes the intended platform architecture. FastAPI/SQLite, GPU workers, planner routing, CAD/PDF extraction, and IFC viewing are proposed components. The backend [Nemotron client](nvidia_info.md) is implemented independently. Available packages do not establish an installed integration. External platform references below were consulted for the original 13 November design and must be rechecked when selecting exact versions.
+This table preserves the intended platform architecture from 13 November. The implemented stack now includes FastAPI, Gemini/Nemotron planning, native PDF tools, DXF rendering and IFC viewing/execution. SQLite persistence, PyMuPDF and dedicated GPU specialist workers remain proposals. [The current stack](TECH_STACK.md) and [verification record](VERIFICATION.md) describe delivered components and actual platform checks. External platform references below belong to the original design review.
 
 | Layer | Linux | Windows | Decision |
 |---|---|---|---|
@@ -26,7 +26,7 @@ This table describes the intended platform architecture. FastAPI/SQLite, GPU wor
 | IfcOpenShell/ezdxf/Shapely/PyMuPDF | Supported packages/builds | Supported packages/builds | Choose matching Python/architecture wheels and pin a tested dependency combination. |
 | GPU OCR/detection/HTR | Recommended worker environment | Possible for selected runtimes; installation/runtime compatibility varies | Invoke through an API or job queue; an optional specialist must not block the viewer startup. |
 | vLLM self-hosted model serving | Supported deployment OS | No official native support; WSL is an option | Use a Linux worker if self-hosting. |
-| Supplied Nemotron service | HTTP client in backend | HTTP client in backend | The sync/async adapter and mocked HTTP tests are implemented; dated live checks are recorded in the guide. Planner integration remains pending. Keep credentials on the backend. |
+| Supplied Nemotron service | HTTP client in backend | HTTP client in backend | The sync/async adapter and bounded IFC planner are connected. Dated live checks are recorded in the guide. Keep credentials on the backend. |
 
 IfcOpenShell documents Windows/Linux builds; Shapely provides binary wheels for both, and PyMuPDF documents both platforms. ezdxf also documents cross-platform dependency installation. These establish available packaging routes, not a tested application release. [IfcOpenShell](https://docs.ifcopenshell.org/ifcopenshell-python/installation.html), [Shapely](https://shapely.readthedocs.io/en/stable/installation.html), [PyMuPDF](https://pymupdf.readthedocs.io/en/latest/installation.html), [ezdxf](https://ezdxf.readthedocs.io/en/stable/setup.html).
 

@@ -43,6 +43,13 @@ The fixed PDF worker needs the installed frontend `pdfjs-dist` dependency and
 Node 22.12+. Follow the [startup instructions](../README.md). It runs with
 execution/output bounds and registered paths; browser spans are not native facts.
 
+Native PDF tool planning reuses the planner selected by `IFC_API_PROVIDER`.
+Direct literal lookup can finish locally. Other supported native questions make
+one bounded proposal call per part with extracted source spans to select lookup
+anchors or schedule headers, filters and operations. The host validates the
+proposal, reads the native values and executes arithmetic locally. This planner
+choice is independent of `IMAGE_API_PROVIDER`, which selects visual analysis.
+
 ## Budgets and presentation
 
 The common request owns a default 180-second deadline and at most 15 external
@@ -77,10 +84,12 @@ source audits, saved outputs and scoring. Runtime services do not import QA.
 All-family completion has **not** been established. Remaining work includes
 evaluated visual omission/false-positive protocols and larger inventories;
 complete schedule/type-diagram associations; automatic Swiss room/unit membership
-and geometry extraction; provenance-backed drawing-to-IFC links; row-wise IFC
-derived columns; required route, orientation, MEP and compliance executors; and
-measured live family/language/latency/cost outcomes. An unsupported answerable
-family remains an implementation gap.
+and geometry extraction; provenance-backed drawing-to-IFC links; orientation and
+compliance executors; and measured live family/language/latency/cost outcomes.
+The [IFC engine](IFC_ENGINE.md) now includes row-wise table calculations, modeled
+walking routes and recorded port-network metrics. These bounded operations still
+need broader source/family validation, including their partial and estimated
+outcomes. An unsupported answerable family remains an implementation gap.
 
 See [verification](VERIFICATION.md) for actual checks and limits. Schema checks,
 synthetic UI tests and native extraction success are not model-answer accuracy

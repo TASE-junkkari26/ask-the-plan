@@ -1509,3 +1509,67 @@ The Python run used `IFC_API_PROVIDER=nemotron` to keep the existing provider
 fixtures independent of local credentials/settings, with normal worker/loopback
 permissions. No paid inference or source-answer accuracy evaluation was performed
 for the merge. The common answer guide's remaining acceptance gaps still apply.
+
+## Windows startup and real IFC smoke — 15 November 2026
+
+Checked production revision `7904dbd` on Windows with Python 3.14.10 and
+IfcOpenShell 0.9.0.post1. The supplied `resbim-9_model.ifc` is a 157,204-byte IFC4
+source with SHA-256
+`3de49fc31db52c03ce20e251f4bb8b6bcc4953b10bfaa29f79850d1b2c9ec05a`.
+
+- `IfcQueryEngine.open()` extracted the source in 0.159 seconds. Its native
+  `door` count plan executed in 0.003 seconds and returned **2 exact modeled door
+  occurrences**. Independent IfcOpenShell `by_type("IfcDoor")` enumeration also
+  returned two.
+- Against the running backend, `POST /api/ifc/models` completed with HTTP 200 in
+  0.195 seconds. `POST /api/ifc/questions` with model scope and the question
+  “How many doors are there?” completed with HTTP 200 in 0.141 seconds.
+- The production response retained two included canonical source elements, two
+  source anchors, selection/count calculation nodes and the
+  `ifc.occurrence.v1` counting rule. Planning reported `provider=deterministic`,
+  zero model requests and zero input/output tokens. This elementary source check
+  establishes the native upload/query/evidence path for this model.
+
+Reproduce the local executor check from the repository root with the configured
+Python interpreter:
+
+```sh
+python -m ifc_engine count dataset/junction-dataset/data/ifc_models/resbim-9_model.ifc door
+```
+
+The frontend root/module, backend `/health` and `/docs`, and Vite-proxied
+`/api/v1/tools` returned HTTP 200 during this startup. Native IFC execution runs
+inside the backend process. The Vite launch used `--configLoader runner` to avoid
+the restricted environment's config-bundling filesystem failure. Source-bound
+responses and timings are saved locally under ignored
+`build/runtime-verification-20261115/`. This check made no inference request and
+did not exercise browser interaction or broader question-family accuracy.
+
+On the same Windows checkout with Node.js 24.22.3, `npm.cmd run test:frontend`
+passed all **148 frontend tests**. All **18 generated contract roots** were
+current. TypeScript and the production frontend build passed through
+`npm.cmd run build -- --configLoader runner` in 16.91 seconds, with the existing
+Three/WebGPU export and large-chunk warnings. The config-loader flag addresses
+the sandbox's parent-directory access restriction; normal startup remains
+documented in [setup](SETUP.md). No interactive browser pass was performed for
+these checks.
+
+The full Windows Python regression rerun completed with **1,053 tests run,
+1,051 passing and two skipped** in 118.955 seconds:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -q
+```
+
+Both skips require symbolic-link creation privileges unavailable to this Windows
+process (`WinError 1314`), covering escaped artifact links and escaped review
+server links. Provider calls in this suite use test transports; this result
+measures regressions rather than live answer accuracy.
+
+The first run exposed a test-fixture portability error in the saved-answer
+scorer check. It hashed an LF-terminated UTF-8 string, then wrote the reference
+through Windows text-mode newline conversion. The fixture now writes the exact
+reference bytes it hashes. The production scorer still rejects changed source
+bytes, and all 14 focused answer-evaluation checks passed after the fixture fix.
+The full-suite log is retained locally in ignored
+`build/dev-servers/20261115-101149/python-tests.log`.

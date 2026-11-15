@@ -72,7 +72,7 @@ On Linux, use `npm` instead of `npm.cmd`. These root scripts forward to this
 directory. The root has no dependency lockfile; do not run root `npm ci`. If
 already inside `frontend/`, use `npm.cmd ci --ignore-scripts` followed by
 `npm.cmd run dev` (or `npm` on Linux). Dependency installation does not install
-Node itself. See the [root README](../README.md#start-the-frontend) for Windows
+Node itself. See the [local setup](../docs/SETUP.md#install-once) for Windows
 PATH troubleshooting; `npm.cmd` avoids PowerShell's blocked `npm.ps1` wrapper.
 
 Open the printed local URL, normally <http://127.0.0.1:5173/>. From this directory,

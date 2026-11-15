@@ -191,15 +191,15 @@ class SavedAnswerEvaluationTests(unittest.TestCase):
         manifest, saved, references = fixture()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            reference_payload = json.dumps(references[1]) + '\n'
-            manifest['questions_sha256'] = hashlib.sha256(reference_payload.encode()).hexdigest()
+            reference_payload = (json.dumps(references[1]) + '\n').encode('utf-8')
+            manifest['questions_sha256'] = hashlib.sha256(reference_payload).hexdigest()
             manifest_path, outputs_path, refs_path = (root / name for name in ('manifest.json', 'outputs.jsonl', 'questions.jsonl'))
             manifest_path.write_text(json.dumps(manifest))
             outputs_path.write_text(json.dumps(saved['qa:case']) + '\n')
-            refs_path.write_text(reference_payload)
+            refs_path.write_bytes(reference_payload)
             report = score_files(manifest_path, outputs_path, refs_path)
             self.assertTrue(report['inputs']['references_opened_after_saved_outputs'])
-            refs_path.write_text(reference_payload + '\n')
+            refs_path.write_bytes(reference_payload + b'\n')
             with self.assertRaisesRegex(ValueError, 'bytes differ'):
                 score_files(manifest_path, outputs_path, refs_path)
             outputs_path.write_text((json.dumps(saved['qa:case']) + '\n') * 2)

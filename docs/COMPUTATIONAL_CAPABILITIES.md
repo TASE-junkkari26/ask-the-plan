@@ -5,7 +5,9 @@ Reviewed 14 November 2026 against the current source tree, documentation, and se
 15 November implementation update: the [common answer pipeline](NATURAL_LANGUAGE_ANSWERS.md)
 adds original/display source sessions, native PDF text/table tools, scalar IFC
 arithmetic and independent compound outputs with bound deterministic prose.
-The older row-level assessments below remain a dated backlog. Visual completeness,
+The [IFC engine](IFC_ENGINE.md) also executes row-wise table calculations,
+bounded geometry measurements, modeled walking routes and recorded port-network
+metrics. The older row-level assessments below remain a dated backlog. Visual completeness,
 automatic calibrated room extraction and the remaining specialist IFC operations
 are still gaps; the new tools do not establish full-family accuracy.
 
@@ -18,13 +20,13 @@ image/JSON requests passed. The [IFC question API](IFC_QUESTIONS.md) now connect
 bounded plan compilation to the local executor and frontend evidence panel.
 Drawing perception accuracy and complete IFC-family coverage remain unverified.
 
-Current implementation includes the shared contracts and validation, a [local IFC extractor and query executor](IFC_ENGINE.md), and an [import/viewing workbench](../frontend/README.md). IFC questions use bounded Nemotron plans, CPU execution, native topology and source evidence; natural-language summaries are generated deterministically from executed values. The frontend provides IFC 3D inspection and answer highlights. Synthetic 2D sources remain offline fixtures, while imported image/PDF questions return unverified candidate regions. [dataset_audit.py](../dataset/dataset_audit.py) supplies dataset/file/STEP-record/SVG inspection. A [one-image Nemotron door-labeling pilot](../experiments/door_labeling/RESULTS.md) saves provisional boxes and a separate assistant review. General detection inventories, database persistence and metric geometry computation remain gaps. Contract/frontend fixtures are synthetic; selected real-model checks do not establish dataset-wide accuracy.
+Current implementation includes the shared contracts and validation, a [local IFC extractor/query executor](IFC_ENGINE.md), and an [import/viewing workbench](../frontend/README.md). IFC questions use conservative native grammar or independently configured Nemotron/Gemini planning, followed by CPU execution and deterministic wording. The frontend provides IFC 3D inspection and answer highlights. Imported drawing questions can use native PDF tools or qualified visual observations. [dataset_audit.py](../dataset/dataset_audit.py) supplies dataset/file/STEP-record/SVG inspection. General complete raster inventories, automatic room reconstruction and database persistence remain gaps. [The stack guide](TECH_STACK.md) summarizes current components; the row-level inventory below retains its 14 November assessment date.
 
 [DXF import and layout previews](DXF_PREVIEW.md) now feed the same unverified
 image-candidate flow. This is rendering support; native CAD fact extraction,
 logical object inventories and geometric query execution remain gaps in E01/E04/E05.
 
-Organizer clarification reported on 14 November: prioritize questions about the drawing/view shown. Broader capabilities below are a backlog, not a requirement to enable every operation for every source. Preserve explicit model-wide scope in existing reference questions.
+Current question scope follows the selected image/PDF page/DXF layout, or the entire imported IFC model independently of viewer filters. Preserve explicit question filters and the stated scope of existing reference rows. Broader capabilities below remain a backlog.
 
 The [project scope](PROJECT_SCOPE.md) is the supplied dataset and its demonstrated
 question families. Working for that set is sufficient; unknown evaluation classes
@@ -42,7 +44,12 @@ Status terms below distinguish different kinds of progress:
 - **Recommended:** an existing document proposes the approach or tool; no integrated implementation was found.
 - **Gap:** the current operation set or implementation does not provide the capability directly.
 
-The first group turns source files into objects and measurements that can be queried.
+## 14 November backlog snapshot
+
+The rows below preserve that review's implementation assessments. Use the
+[runtime guide](NATURAL_LANGUAGE_ANSWERS.md) and [IFC guide](IFC_ENGINE.md) for
+the current operation set. The first group turns source files into objects and
+measurements that can be queried.
 
 | ID | Capability and why it is needed | How to achieve it | What the repo says or implements now |
 |---|---|---|---|

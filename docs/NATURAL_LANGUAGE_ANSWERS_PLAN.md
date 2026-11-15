@@ -24,9 +24,10 @@ including difficult IFC-Bench families and paraphrases/translations of those
 tasks. The [classification](QUESTION_CLASSIFICATION.md) reports 127,044 rows,
 234 internal semantic families and 14 requested-operation buckets. Those are
 analysis categories, not organizer-supplied labels or independent examples.
-The full extraction is absent in this checkout; the preview and full-corpus audit
-reports are available. Full-family completion cannot be established from the
-preview alone.
+The full extraction was absent at the planning baseline. It is now available
+locally under the ignored dataset directory, together with preview and
+full-corpus audits. Full-family completion still requires evaluated answers
+across the supplied families.
 
 Four criteria have equal weight: accuracy, verifiability, creativity and inference
 cost. The plan must improve all four rather than add fluent text around unchecked
@@ -51,13 +52,16 @@ Current product decisions remain authoritative:
   task**, with no review panels or user labeling dependency. Record the outcome as
   `agent_reviewed`, not human ground truth or a completeness certificate.
 
-Reuse the [older master plan](../ask-the-plan-implementation-master-plan.md)'s
-typed tool interfaces, schedule arithmetic, measurement recipes, budget controls
-and grouped evaluation ideas. Its older source-scope, training, model and hidden
-evaluation assumptions do not override current instructions. New training,
-general CAD support and unasked task classes are not prerequisites here.
+The earlier master plan has been retired. Current typed tools, schedule
+arithmetic, measurement methods and budgets are documented in the
+[runtime guide](NATURAL_LANGUAGE_ANSWERS.md), [IFC guide](IFC_ENGINE.md) and
+[evaluation guide](../experiments/answers/README.md). New training, general CAD
+support and unasked task classes are optional extensions.
 
 ## 2. What exists, and what is actually missing
+
+This table records the `833c5c8` planning baseline. Current behavior and remaining
+gaps are described in [the runtime guide](NATURAL_LANGUAGE_ANSWERS.md).
 
 | Area | Implemented baseline | Remaining answer work |
 | --- | --- | --- |
