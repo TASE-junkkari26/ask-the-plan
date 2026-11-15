@@ -16,11 +16,37 @@ from PIL import Image
 from gemini import AsyncGeminiClient, GeminiSettings
 from image_api.app import create_app
 from image_api.config import ApiSettings
+from image_api.service import _detail_resolution
 from nemotron import ConfigurationError
 
 
 KEY = "synthetic-detail-test-key"
 MODEL = "gemini-4-hydrogen"
+
+
+class DetailResolutionPolicyTests(unittest.TestCase):
+    def test_only_declared_doors_or_anchored_door_count_lead_ins_use_extra_resolution(self):
+        self.assertEqual(_detail_resolution("Inspect this symbol", {"target_kind":"door"}), "ultra_high")
+        for question in ("How many doors are shown?", "  Kuinka monta ovea on esitetty?",
+                         "Montako ovea on tässä?", "Wie viele Türen sind hier?",
+                         "Combien de portes sont dessinées?", "Quante porte sono qui?",
+                         "Hur många dörrar visas?", "Hvor mange døre er vist?",
+                         "Hoeveel deuren zijn er?", "Mitu ust on siin?", "Ile drzwi jest tutaj?"):
+            with self.subTest(question=question):
+                self.assertEqual(_detail_resolution(question, {"target_kind":"other"}), "ultra_high")
+                self.assertIsNone(_detail_resolution(question, None))
+                self.assertIsNone(_detail_resolution(question, {"target_kind":"window"}))
+
+    def test_other_categories_and_quoted_source_labels_keep_default_resolution(self):
+        for question in ("How many windows are shown?", "How many floors are shown?",
+                         "How many rooms labelled 'doors' are shown?",
+                         "How many windows labelled 'How many doors' are shown?",
+                         "What is the area of the room 'Kuinka monta ovea'?",
+                         "How many doorsets are shown?", "Show doors"):
+            with self.subTest(question=question):
+                self.assertIsNone(_detail_resolution(question, {"target_kind":"other"}))
+        self.assertIsNone(_detail_resolution("How many windows?", {
+            "target_kind":"other", "source_text":"How many doors?"}))
 
 
 def interaction(payload, *, input_tokens=100, output_tokens=20, thought_tokens=5):
@@ -104,8 +130,10 @@ class ImageDetailTests(unittest.IsolatedAsyncioTestCase):
             body, width, height, origin = image_details(request)
             if body["response_format"]["schema"]["properties"]["status"].get("enum") == ["selected","ambiguous","unreadable"]:
                 self.assertEqual((width,height),(1200,800))
-                return interaction(selection(),input_tokens=10,output_tokens=4,thought_tokens=2)
+                self.assertNotIn("resolution", body["input"][1])
+                return interaction({**selection(),"target_kind":"door"},input_tokens=10,output_tokens=4,thought_tokens=2)
             self.assertEqual((width,height,origin),(624,416,(288,192)))
+            self.assertEqual(body["input"][1]["resolution"],"ultra_high")
             return interaction(candidate())
         async with self.api(handler) as (client,app):
             response = await self.post(client)
@@ -126,6 +154,27 @@ class ImageDetailTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(body["metrics"]["completion_tokens"],31)
         self.assertEqual(len(self.requests),2)
         self.assertTrue(all(not p.exists() for p in self.paths))
+
+    async def test_small_source_fast_path_changes_resolution_only_for_door_count_queries(self):
+        questions = [("How many doors are shown?", "ultra_high"),
+                     ("Kuinka monta ovea on esitetty?", "ultra_high"),
+                     ("How many windows are shown?", None),
+                     ("How many floors are shown?", None),
+                     ("How many rooms labelled 'doors' are shown?", None)]
+        async with self.api(lambda _:interaction(candidate())) as (client,_):
+            for question,expected in questions:
+                with self.subTest(question=question):
+                    before=len(self.requests)
+                    response=await client.post("/api/v1/tools/detect-detail",
+                        data={"question":question,"options":json.dumps({"mode":"tiles","max_calls":1})},
+                        files={"image":("source.png",self.content,"image/png")})
+                    self.assertEqual(response.status_code,200,response.text)
+                    self.assertEqual(len(self.requests)-before,1)
+                    body=json.loads(self.requests[-1].content)
+                    if expected is None:
+                        self.assertNotIn("resolution",body["input"][1])
+                    else:
+                        self.assertEqual(body["input"][1]["resolution"],expected)
 
     async def test_explicit_regions_skip_selector_and_preserve_source_coordinates(self):
         async with self.api(lambda _:interaction(candidate())) as (client,_):

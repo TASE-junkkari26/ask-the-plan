@@ -4,11 +4,14 @@ from __future__ import annotations
 import hashlib
 import json
 import unittest
+from unittest.mock import patch
 
 from contracts import models as m
 from contracts.validation import validate_answer
 from tests import test_image_api as image_tests
 from tests import test_ifc_api as ifc_tests
+from tests import test_image_detail as detail_tests
+from tests import test_gemini_image_api as gemini_tests
 
 
 class DrawingAnswerApiTests(unittest.IsolatedAsyncioTestCase):
@@ -126,6 +129,60 @@ class DrawingAnswerApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(events[0].progress.requested_model, events[1].result.candidate_response.provenance.requested_model)
         self.assertEqual(events[1].result.request_id, response.headers['x-request-id'])
         validate_answer(events[1].result)
+
+
+class DetailedDrawingAnswerIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    api = detail_tests.ImageDetailTests.api
+    register = DrawingAnswerApiTests.register
+
+    def setUp(self):
+        detail_tests.ImageDetailTests.setUp(self)
+        self.image = image_tests.image_bytes()
+
+    async def ask_detail(self, client, session, question):
+        return await client.post('/api/v1/answers', json=dict(
+            source_id=session['source_id'], source_sha256=session['source_sha256'],
+            snapshot=session['snapshot'], question=question, detail=True))
+
+    async def test_answer_detail_preserves_tiles_and_door_reading_resolution(self):
+        async with self.api(lambda _: detail_tests.interaction(detail_tests.candidate())) as (client, _):
+            session = await self.register(client)
+            response = await self.ask_detail(client, session, 'How many doors are shown?')
+        self.assertEqual(response.status_code, 200, response.text)
+        answer = m.AnswerResponse.model_validate(response.json())
+        validate_answer(answer)
+        self.assertEqual(answer.parts[0].status, 'partial')
+        self.assertEqual(answer.candidate_response.detail.mode, 'tiles')
+        self.assertEqual(answer.candidate_response.detail.provider_calls, 1)
+        self.assertEqual(answer.candidate_response.provenance.prompt_version, 'detail-tools-v3')
+        self.assertEqual(answer.metrics.external_attempts, 1)
+        self.assertEqual(len(self.requests), 1)
+        self.assertEqual(json.loads(self.requests[0].content)['input'][1]['resolution'], 'ultra_high')
+        self.assertTrue(all(not path.exists() for path in self.paths))
+
+    async def test_answer_accounts_for_window_verification_without_claiming_zero(self):
+        def provider(request):
+            schema = json.loads(request.content)['response_format']['schema']
+            if 'verdict' in schema['properties']:
+                return detail_tests.interaction({'verdict': 'rejected', 'reason': 'The inspected source region is a solid wall.'})
+            return detail_tests.interaction(gemini_tests.proposals())
+
+        with patch('image_api.detail.find_solid_window_boxes', return_value=(0,)) as check:
+            async with self.api(provider) as (client, _):
+                session = await self.register(client)
+                response = await self.ask_detail(client, session, 'How many windows are shown?')
+        self.assertEqual(response.status_code, 200, response.text)
+        answer = m.AnswerResponse.model_validate(response.json())
+        validate_answer(answer)
+        check.assert_called_once()
+        self.assertEqual(answer.candidate_response.detail.mode, 'tiles')
+        self.assertEqual(answer.candidate_response.detail.provider_calls, 2)
+        self.assertEqual(answer.metrics.external_attempts, 2)
+        self.assertEqual([call.purpose for call in answer.metrics.calls], ['analysis', 'candidate_verification'])
+        self.assertEqual(answer.candidate_response.detail.membership_checks[0].verdict, 'rejected')
+        self.assertFalse(answer.candidate_response.candidates)
+        self.assertEqual(answer.parts[0].status, 'incomplete_coverage')
+        self.assertFalse(answer.parts[0].result.claims)
 
 
 class IfcAnswerApiTests(unittest.IsolatedAsyncioTestCase):

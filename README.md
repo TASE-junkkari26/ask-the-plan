@@ -29,7 +29,8 @@ observations. The [implementation plan](docs/NATURAL_LANGUAGE_ANSWERS_PLAN.md)
 and offline family ledger retain the remaining acceptance work; complete
 dataset-family coverage has not been established.
 
-The frontend now includes **Detailed scan** for large drawings. It uses automatic
+The frontend uses **Detailed scan** by default for drawing questions, without a
+mode checkbox. It requires the Gemini image provider. It uses automatic
 panel selection, native overlapping tiles and source-bound reconciliation through
 the [callable detail tools](image_api/DETAIL_TOOLS.md). These operations are
 integrated with the fetched capability router: it selects
@@ -100,7 +101,7 @@ as routing dispatches it, before its candidate response finishes.
 Install the API extra and start the service:
 
 ```sh
-.venv/bin/python -m pip install -e '.[api,preprocess,test]'
+.venv/bin/python -m pip install -e '.[api,preprocess,test,vision]'
 .venv/bin/python -m uvicorn image_api.app:app --host 127.0.0.1 --port 8000
 ```
 

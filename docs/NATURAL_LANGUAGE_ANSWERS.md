@@ -50,6 +50,11 @@ existing tool's explicit maximum remains twelve, plus routing. Native arithmetic
 and wording use zero external calls. Failures and unknown usage stay in the ledger.
 Question-wide token/spend limits still need measured live baselines.
 
+The drawing UI always requests Detailed scan. The common answer coordinator uses
+the same automatic panel selection and native tile mode as the existing detail
+client, including door reading resolution and bounded optional OpenCV window
+checks. Native PDF answers can finish before visual analysis is needed.
+
 The answer panel shows every part and qualification above the existing evidence
 interfaces. Links select drawing regions or original IFC objects. Structured
 values, members and calculations paginate without truncating export. DXF exports

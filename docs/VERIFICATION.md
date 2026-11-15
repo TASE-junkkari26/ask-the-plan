@@ -1307,6 +1307,70 @@ synthetic drawings. They establish integration behavior, not real-dataset render
 fidelity, candidate accuracy or inference cost. Windows and physical mobile-device
 behavior were not tested in this pass.
 
+## Raster hardening and fresh validation — 15 November 2026
+
+Windows, Python 3.14.10, Node 24.22.3. The workbench now always requests Detailed
+scan. Only fitted-door detail requests receive higher image-reading resolution;
+other targets retain the default payload. The layout prompt avoids independent
+legend detection for object inventories. No shared contracts or IFC operations
+changed. See the [full failure review](../experiments/image_questions/RASTER_HARDENING_20261115.md).
+
+- Original/final paired 50: 39/50 → 40/50 reference-count matches, one repaired
+  and zero regressed; nominal cost $0.804803 → $0.764502.
+- Further 40 distinct source drawings, excluded from that first set: 25/40 →
+  25/40, one repaired door and one lost window match. The window request's
+  model-visible inputs were unchanged, consistent with stochastic variation.
+- Combined: 64/90 → 65/90; nominal cost $1.319817 → $1.316042, effectively flat.
+  These are candidate-count comparisons, not final-answer/localization scores
+  or proof of broad accuracy improvement. All baseline/new-set mismatches were
+  source-reviewed; duplicate native records and scope/grain conflicts remain
+  separate from genuine misses and false positives.
+- Two detector prompt rewrites and unrestricted higher resolution were rejected
+  after regressions; explicit diagnostic repeats retained every outcome.
+- The illustrated double-leaf doorway's box now covers both leaves. Its count
+  remains 11 against supplied 12; no leaf was artificially added. A live check
+  through the user's frontend proxy and restarted backend returned HTTP 200 in
+  7.86 seconds with the complete double-door box.
+- 162 focused Python transport/detail/reconciliation/routing/benchmark tests,
+  126 frontend tests and the frontend production build passed. Existing optional
+  Three/WebGPU export and large-chunk warnings remain. Documentation links and
+  diff whitespace checks passed. No Linux runtime or browser interaction test
+  is claimed. The detached frontend/backend were left running.
+
+Local ignored evidence: `experiments/runs/raster-hardening-20261115/`, including
+frozen code, source-bound inputs, provider requests/replies, every repeat, usage,
+audits and per-question scores. No model received supplied reference answers.
+
+
+## OpenCV raster proof of concept — 15 November 2026
+
+Windows/Python 3.14.10, NumPy 2.5.4, OpenCV-headless 4.14.0.94.
+See [OpenCV window checks](OPENCV_WINDOW_CHECKS.md) for installation, inference
+budgets and evidence limitations. All inference used Hydrogen-low; no stronger
+model or training was used.
+
+The first 12-case strip-rescue comparison had 4/12 count matches in both runs,
+14 → 35 model calls and nominal cost $0.180746 → $0.346957. Source review found
+false garage-door windows and repeated/clipped observations. The proposer is
+integrated but off by default; later safeguards prevent clipped-instance
+inflation and extra follow-up cascades, without claiming an improved score.
+
+The retained default is a narrower CPU contradiction check. On 98 saved window
+boxes from the earlier 90 drawings, it flagged three boxes on one drawing;
+agent review found solid wall in all three. In a replay of the saved detector
+output, only one new Hydrogen verification ran and explicitly rejected one
+false window. The candidate count changed 12 → 11, retaining partial status
+and other unresolved flags. This is a causal single-case precision fix, not
+a fresh accuracy benchmark or a completeness claim. That call used 1,978 input
+and 493 output/thinking tokens (about $0.0067 at the recorded nominal tariff).
+
+184 focused Python tests passed, including 22 OpenCV/orchestration checks.
+Dependency consistency, Markdown links and diff whitespace passed. No frontend
+source/contract changed in this pass; the earlier frontend build remains the
+applicable check. Linux and browser interaction were not tested. Backend was
+restarted with CPU window checks enabled and strip rescue disabled; frontend,
+backend health and frontend API proxy were checked and left running.
+
 ## 2D zoom range and rapid button clicks — 15 November 2026
 
 Checked on Linux with Node 24.22.3, npm 11.19.1 and headless Firefox 160.0.
@@ -1358,3 +1422,49 @@ accuracy/cost evaluation remain unfinished. Structural audits and successful
 source extraction cannot establish source absence or close an answerable-family
 implementation gap. No paid corpus evaluation or all-question accuracy result is
 claimed.
+
+## Raster hardening merge verification — 15 November 2026
+
+Merged the raster hardening work with fetched `origin/main` at `0a6fd1f`, retaining
+its interface copy and zoom fixes while keeping Detailed scan always enabled.
+On Windows with Python 3.14.10 and Node 24.22.3, all 184 focused Python tests and
+126 frontend tests passed. The production build, dependency consistency check,
+local Markdown link check and diff whitespace check passed. The build required
+normal filesystem permissions after the restricted sandbox denied Vite access;
+existing optional WebGPU export and large-chunk warnings remain. No additional
+live inference, browser interaction or Linux runtime verification was performed.
+
+## Natural-language answer and raster hardening merge — 15 November 2026
+
+Integrated the common answer implementation with `origin/main` at `8b9bb96`,
+preserving the raster hardening changes, the always-enabled Detailed scan UI,
+original source/evidence bindings and both optional dependency extras. The answer
+coordinator now explicitly uses native `tiles` mode, matching the existing detail
+client. Verification histories from both branches remain intact above.
+
+Checked on Linux with Python 3.12.3, Node 24.22.3, NumPy 2.5.4 and the optional
+`opencv-python-headless` 4.14.0.94 wheel. The final combined tree passed:
+
+- The full mocked Python suite: **731 tests run, no failures, one optional
+  preview-model test skipped**. The installed full corpus does not satisfy that
+  preview test's exact path. All optional OpenCV fixture tests ran. Before the
+  vision wheel was installed, the same suite passed with ten additional skips.
+- Two added HTTP regressions exercise the common answer route with native tiles:
+  door detail retains `ultra_high` image reading resolution; a window contradiction
+  receives its bounded membership check, both attempts appear in the common
+  ledger, and a rejected sole candidate never becomes an exact zero answer.
+- All **19 frontend test modules**, TypeScript, production build, and server-render
+  smoke checks passed. Existing optional WebGPU export and large-chunk warnings
+  remain. Dependency consistency, all 18 generated schemas, family-ledger
+  freshness, Markdown links/anchors and diff whitespace checks passed.
+- A local Firefox 160 smoke check confirmed synthetic import, source registration
+  reuse, real handoff display, answer/evidence selection, complete export, partial
+  compound outcomes, empty-versus-zero handling, cancellation and the 390-pixel
+  layout. Every drawing submission requested `detail: true` with no mode checkbox.
+  These browser checks used mocked HTTP responses; they are not live inference
+  or dataset accuracy checks. Owned Vite and Firefox processes were stopped.
+
+The Python run used `IFC_API_PROVIDER=nemotron` to keep the existing provider
+fixtures independent of local credentials/settings, with normal worker/loopback
+permissions. No paid inference or source-answer accuracy evaluation was performed
+for the merge. The common answer guide's remaining acceptance gaps still apply.

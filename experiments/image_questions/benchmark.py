@@ -162,19 +162,19 @@ class RecordingGeminiClient(AsyncGeminiClient):
         self.run_dir = run_dir
         self.number = 0
 
-    async def generate_candidates(self, question, *, system, image, schema):
+    async def generate_candidates(self, question, *, system, image, schema, resolution=None):
         self.number += 1
         target = self.run_dir / "provider" / f"P{self.number:03d}"
         target.mkdir(parents=True, exist_ok=False)
         write_json(target / "request.json", {
-            "question": question, "system": system, "schema": schema,
+            "question": question, "system": system, "schema": schema, "resolution": resolution,
             "image_sha256": digest(Path(image)), "image_bytes": Path(image).stat().st_size,
             "settings": self.settings.model_dump(mode="json", exclude={"api_key"}),
             "store": False, "retries": 0, "started_at": now(),
         })
         started = time.perf_counter()
         try:
-            reply = await super().generate_candidates(question, system=system, image=image, schema=schema)
+            reply = await super().generate_candidates(question, system=system, image=image, schema=schema, resolution=resolution)
             write_json(target / "response.json", asdict(reply))
             return reply
         except GeminiError as exc:

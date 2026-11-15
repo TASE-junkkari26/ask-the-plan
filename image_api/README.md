@@ -2,7 +2,7 @@
 
 The [callable detail tools](DETAIL_TOOLS.md) add automatic panel proposals,
 native region/tile detection, overlap reconciliation and bounded reinspection.
-The frontend's Detailed scan uses them; the original candidate endpoint remains
+The frontend always uses Detailed scan for drawing questions; the original candidate endpoint remains
 available for a single full-image call.
 
 An internal Python HTTP service for locating question-relevant objects in one

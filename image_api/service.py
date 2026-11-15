@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from copy import copy
 from dataclasses import dataclass
 from pathlib import Path
@@ -179,6 +180,31 @@ def _gemini_response_schema() -> dict:
     return schema
 
 
+_DOOR_COUNT_PREFIX = re.compile(
+    r"^(?:how\s+many\s+doors|kuinka\s+monta\s+ovea|montako\s+ovea|"
+    r"wie\s+viele\s+türen|combien\s+de\s+portes|quante\s+porte|"
+    r"hur\s+många\s+dörrar|hvor\s+mange\s+døre|hoeveel\s+deuren|mitu\s+ust|ile\s+drzwi)\b",
+    re.IGNORECASE,
+)
+
+
+def _detail_resolution(question: str, context: dict | None) -> Literal["ultra_high"] | None:
+    """Spend additional image tokens only on a declared or clear door-count task.
+
+    The small-image fast path has no layout classification. Its narrow lead-in
+    hint reads only the question, never source labels or drawing text; other
+    requested categories keep their existing image-resolution behavior.
+    """
+    if context is None:
+        return None
+    target = context.get("target_kind", "other")
+    if target == "door":
+        return "ultra_high"
+    if target == "other" and _DOOR_COUNT_PREFIX.match(question.strip()):
+        return "ultra_high"
+    return None
+
+
 class GeminiCandidateProvider:
     def __init__(self, client: AsyncGeminiClient, *, detail_context: dict | None = None):
         self.client = client
@@ -196,8 +222,10 @@ class GeminiCandidateProvider:
             instruction = Path(__file__).with_name("detail_prompt.txt").read_text(encoding="utf-8")
             system += "\n" + instruction + "\nHost crop context:\n" + json.dumps(self.detail_context, ensure_ascii=False)
         try:
+            resolution = _detail_resolution(question, self.detail_context)
             reply = await self.client.generate_candidates(
-                question, system=system, image=image.path, schema=_gemini_response_schema())
+                question, system=system, image=image.path, schema=_gemini_response_schema(),
+                **({"resolution": resolution} if resolution is not None else {}))
         except GeminiRequestTooLarge:
             raise ApiError(413, "prepared_request_too_large",
                            "The prepared image and question exceed Gemini's inline request limit. Use a smaller image.") from None
@@ -223,7 +251,7 @@ class GeminiCandidateProvider:
                                                "limitations": raw.limitations})
             return _ProviderResult(
                 batch=batch, requested_model=self.client.settings.model, returned_model=reply.model,
-                prompt_version="gemini-detail-v2" if self.detail_context is not None else "gemini-candidate-v1",
+                prompt_version="gemini-detail-v3" if self.detail_context is not None else "gemini-candidate-v1",
                 prompt_tokens=reply.usage.prompt_tokens if reply.usage else None,
                 completion_tokens=reply.usage.completion_tokens if reply.usage else None,
             )

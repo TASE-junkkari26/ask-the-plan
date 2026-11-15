@@ -102,7 +102,7 @@ def install_answer_routes(app, settings, *, prepare, analyze, stream_response):
             if detail and request.app.state.detail_tools is None:
                 raise ApiError(503, 'detail_not_configured', 'Detailed scan requires the Gemini image provider on the backend.')
             budget.check(2)
-            options = DetailOptions(max_calls=min(9, max(1, budget.attempts_remaining - 1)))
+            options = DetailOptions(mode='tiles', max_calls=min(9, max(1, budget.attempts_remaining - 1)))
             content = await asyncio.to_thread(session.display_path.read_bytes)
             request.state.analysis_deadline = budget.deadline
             async with prepare(request, (content, text, options), 'detail' if detail else None) as prepared:

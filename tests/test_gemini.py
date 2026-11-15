@@ -141,9 +141,10 @@ class GeminiClientTests(unittest.IsolatedAsyncioTestCase):
         self.image.write_bytes(PNG)
         self.settings = GeminiSettings(api_key=TEST_KEY)
 
-    async def make_request(self, handler, *, settings=None, question="Find doors", system="Instructions", schema=SCHEMA):
+    async def make_request(self, handler, *, settings=None, question="Find doors", system="Instructions", schema=SCHEMA,
+                           resolution=None):
         async with AsyncGeminiClient(settings or self.settings, transport=httpx.MockTransport(handler)) as client:
-            return await client.generate_candidates(question, system=system, image=self.image, schema=schema)
+            return await client.generate_candidates(question, system=system, image=self.image, schema=schema, resolution=resolution)
 
     async def test_exact_native_request_and_combined_usage(self):
         requests = []
@@ -176,6 +177,31 @@ class GeminiClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(reply.usage.thought_tokens, 19)
         self.assertEqual(reply.usage.completion_tokens, 26)
         self.assertNotIn("private thought", repr(reply))
+
+    async def test_explicit_resolution_is_serialized_on_image_only(self):
+        for resolution in ("low", "medium", "high", "ultra_high"):
+            with self.subTest(resolution=resolution):
+                requests = []
+                def handler(request):
+                    requests.append(json.loads(request.content))
+                    return httpx.Response(200, json=interaction())
+                await self.make_request(handler, resolution=resolution)
+                self.assertEqual(len(requests), 1)
+                body = requests[0]
+                self.assertEqual(body["input"][1]["resolution"], resolution)
+                self.assertNotIn("resolution", body["input"][0])
+                self.assertNotIn("resolution", body["generation_config"])
+                self.assertEqual(body["input"][1]["data"], base64.b64encode(PNG).decode("ascii"))
+
+    async def test_invalid_resolution_never_sends_a_request(self):
+        requests = []
+        def handler(request):
+            requests.append(request)
+            return httpx.Response(200, json=interaction())
+        for resolution in ("", "HIGH", "original", True, 1, [], {}):
+            with self.subTest(resolution=resolution), self.assertRaises(GeminiError):
+                await self.make_request(handler, resolution=resolution)
+        self.assertEqual(requests, [])
 
     async def test_partial_or_missing_usage_is_nullable(self):
         for usage in (None, {}, {"total_input_tokens": 8}, {"total_output_tokens": 2}, {"total_thought_tokens": 0}):

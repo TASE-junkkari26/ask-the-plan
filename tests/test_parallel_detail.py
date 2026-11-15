@@ -80,7 +80,7 @@ class ParallelAttributionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_shared_recorder_limits_calls_and_keeps_case_identity(self):
         active=peak=0
-        async def generate(client,question,*,system,image,schema):
+        async def generate(client,question,*,system,image,schema,resolution=None):
             nonlocal active,peak
             active+=1
             peak=max(peak,active)
@@ -98,7 +98,7 @@ class ParallelAttributionTests(unittest.IsolatedAsyncioTestCase):
             async def one(index):
                 token=bench.CASE_ID.set(f"Q{index:03d}")
                 try:
-                    return await (first if index%2 else second).generate_candidates("question",system="instructions",image=image,schema={"type":"object"})
+                    return await (first if index%2 else second).generate_candidates("question",system="instructions",image=image,schema={"type":"object"},resolution="ultra_high")
                 finally:
                     bench.CASE_ID.reset(token)
             try:
@@ -112,6 +112,7 @@ class ParallelAttributionTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(len(requests),6)
             self.assertEqual({r["case_id"] for r in requests},{f"Q{i:03d}" for i in range(1,7)})
             self.assertTrue(all("api_key" not in r["settings"] for r in requests))
+            self.assertTrue(all(r["resolution"]=="ultra_high" for r in requests))
 
     async def test_cancelled_call_retains_terminal_audit_record(self):
         async def generate(client,*args,**kwargs):

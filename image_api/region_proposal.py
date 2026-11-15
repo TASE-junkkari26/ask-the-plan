@@ -19,7 +19,7 @@ from gemini import AsyncGeminiClient, GeminiError, GeminiRequestTooLarge
 from .errors import ApiError
 from .images import PreparedImage
 
-PROMPT_VERSION = "region-proposal-v2"
+PROMPT_VERSION = "region-proposal-v3"
 TARGET_KINDS = ("door", "window", "toilet", "shower", "bathtub", "bath_fixture", "room", "floor", "schedule_row", "other")
 Coordinate = Annotated[float, Field(ge=0, le=1000, allow_inf_nan=False, strict=True)]
 Nonblank = Annotated[str, Field(min_length=1, max_length=500, strict=True)]

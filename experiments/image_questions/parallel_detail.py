@@ -125,16 +125,16 @@ class ParallelRecorder(AsyncGeminiClient):
         self.run_dir=run_dir
         self.registry=registry if registry is not None else {"number":0,"slots":asyncio.Semaphore(provider_workers)}
 
-    async def generate_candidates(self,question,*,system,image,schema):
+    async def generate_candidates(self,question,*,system,image,schema,resolution=None):
         async with self.registry["slots"]:
             self.registry["number"]+=1
             target=self.run_dir/"provider"/f"P{self.registry['number']:04d}"
             target.mkdir(parents=True,exist_ok=False)
             shutil.copyfile(image,target/"input.png")
-            write_json(target/"request.json",{"case_id":CASE_ID.get(),"transport":"interactions","question":question,"system":system,"schema":schema,"image_sha256":digest(image),"image_bytes":image.stat().st_size,"started_at":now(),"settings":self.settings.model_dump(mode="json",exclude={"api_key"}),"store":False,"retries":0})
+            write_json(target/"request.json",{"case_id":CASE_ID.get(),"transport":"interactions","question":question,"system":system,"schema":schema,"resolution":resolution,"image_sha256":digest(image),"image_bytes":image.stat().st_size,"started_at":now(),"settings":self.settings.model_dump(mode="json",exclude={"api_key"}),"store":False,"retries":0})
             started=time.perf_counter()
             try:
-                reply=await super().generate_candidates(question,system=system,image=image,schema=schema)
+                reply=await super().generate_candidates(question,system=system,image=image,schema=schema,resolution=resolution)
                 write_json(target/"response.json",asdict(reply))
                 return reply
             except GeminiError as exc:
@@ -201,7 +201,7 @@ async def submit(run_dir,cases,port,deadline,case_workers,options,endpoint):
         await asyncio.gather(*(one(c) for c in cases))
 
 
-def run(repo:Path,run_dir:Path,dataset:Path,port:int,case_workers:int=10,provider_workers:int=12,endpoint:str="/api/v1/tools/detect-detail",routing_mode:str="off",routing_timeout:float=3,analyzer_model=None,routing_threshold=None):
+def run(repo:Path,run_dir:Path,dataset:Path,port:int,case_workers:int=10,provider_workers:int=12,endpoint:str="/api/v1/tools/detect-detail",routing_mode:str="off",routing_timeout:float=3,analyzer_model=None,routing_threshold=None,opencv_windows=None,opencv_window_checks=None):
     if (run_dir/"run-started.json").exists() or (run_dir/"provider").exists():
         raise ValueError("Refusing to repeat/overwrite a started run")
     manifest=json.loads((run_dir/"cases.json").read_text(encoding="utf-8"))
@@ -221,7 +221,12 @@ def run(repo:Path,run_dir:Path,dataset:Path,port:int,case_workers:int=10,provide
     settings=ApiSettings.from_env().model_copy(update=overrides)
     if settings.provider!="gemini":
         raise ValueError("Image provider must be Gemini")
-    options=DetailOptions(mode="tiles",max_calls=9).model_dump(mode="json")
+    extras={}
+    if opencv_windows is not None:
+        extras["opencv_windows"]=opencv_windows
+    if opencv_window_checks is not None:
+        extras["opencv_window_checks"]=opencv_window_checks
+    options=DetailOptions(mode="tiles",max_calls=9,**extras).model_dump(mode="json")
     environment={"snapshot":json.loads((run_dir/"source-snapshot.json").read_text(encoding="utf-8")),"python":sys.version,"platform":platform.platform(),"packages":{name:version(name) for name in ("httpx","fastapi","uvicorn","pydantic","Pillow","numpy")},"api_settings":settings.model_dump(mode="json"),"gemini_settings":GeminiSettings.from_env().model_dump(mode="json",exclude={"api_key"}),"case_concurrency":case_workers,"provider_concurrency":provider_workers,"endpoint":endpoint,"options":options,"retries":0,"pricing":PRICING,"pipeline":"Current detailed HTTP route from frozen source snapshot. Admission/call concurrency changes and request attribution only; no prompt/detection/reconciliation changes."}
     import uvicorn
     registry={"number":0,"slots":asyncio.Semaphore(provider_workers)}
@@ -401,6 +406,10 @@ if __name__=="__main__":
     parser.add_argument("--routing-mode",choices=["off","shadow","auto"],default="off")
     parser.add_argument("--routing-timeout",type=float,default=3)
     parser.add_argument("--routing-threshold",type=float,help="Explicit posthoc experimental gate; never changes backend environment/defaults")
+    parser.add_argument("--opencv-windows",action=argparse.BooleanOptionalAction,default=None,
+                        help="Explicitly enable/disable bounded OpenCV window rescue for paired tests")
+    parser.add_argument("--opencv-window-checks",action=argparse.BooleanOptionalAction,default=None,
+                        help="Explicitly enable/disable one targeted verifier call for strong raster contradictions")
     parser.add_argument("--analyzer-model",choices=["hydrogen","carbon"],help="Explicit manual model comparison; Carbon uses medium thinking, routing must be off")
     args=parser.parse_args()
     repo=args.repo.resolve()
@@ -423,7 +432,7 @@ if __name__=="__main__":
             parser.error("fork requires --previous")
         fork(repo,args.previous.resolve(),run_dir,args.ids.split(",") if args.ids else None)
     elif args.command=="run":
-        run(repo,run_dir,dataset,args.port,args.case_workers,args.provider_workers,args.endpoint,args.routing_mode,args.routing_timeout,args.analyzer_model,args.routing_threshold)
+        run(repo,run_dir,dataset,args.port,args.case_workers,args.provider_workers,args.endpoint,args.routing_mode,args.routing_timeout,args.analyzer_model,args.routing_threshold,args.opencv_windows,args.opencv_window_checks)
     elif args.command=="audit":
         print(json.dumps(audit(run_dir),indent=2))
     else:

@@ -68,7 +68,7 @@ class SerialRecorder(AsyncGeminiClient):
         self.number = 0
         self.serial = asyncio.Semaphore(1)
 
-    async def generate_candidates(self, question, *, system, image, schema):
+    async def generate_candidates(self, question, *, system, image, schema, resolution=None):
         async with self.serial:
             self.number += 1
             target = self.run_dir / "provider" / f"P{self.number:04d}"
@@ -76,13 +76,13 @@ class SerialRecorder(AsyncGeminiClient):
             shutil.copyfile(image, target / "input.png")
             write_json(target / "request.json", {
                 "case_id": self.context["case_id"], "question": question, "system": system,
-                "schema": schema, "image_sha256": digest(image),
+                "schema": schema, "resolution": resolution, "image_sha256": digest(image),
                 "image_bytes": image.stat().st_size, "started_at": now(),
                 "settings": self.settings.model_dump(mode="json", exclude={"api_key"}),
                 "store": False, "retries": 0})
             started = time.perf_counter()
             try:
-                reply = await super().generate_candidates(question, system=system, image=image, schema=schema)
+                reply = await super().generate_candidates(question, system=system, image=image, schema=schema, resolution=resolution)
                 write_json(target / "response.json", asdict(reply))
                 return reply
             except GeminiError as exc:

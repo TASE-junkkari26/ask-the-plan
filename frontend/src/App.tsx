@@ -247,7 +247,6 @@ export default function App() {
   const [language, setLanguage] = useState<Language>('en');
   const t = copy[language];
   const [query, setQuery] = useState('');
-  const [detailedScan, setDetailedScan] = useState(true);
   const [candidateResponse, setCandidateResponse] = useState<{
     result: ImageCandidateResponse;
     question: string;
@@ -486,7 +485,7 @@ export default function App() {
       };
       let answer: AnswerResponse;
       const sourceRequest = { source_id: session.source_id, source_sha256: session.source_sha256,
-        question: questionText, snapshot: sourceSnapshot, detail: detailedScan };
+        question: questionText, snapshot: sourceSnapshot, detail: true };
       try {
         answer = await requestAnswer(sourceRequest, controller.signal, image, onProgress);
       } catch (failure) {
@@ -1503,23 +1502,6 @@ export default function App() {
                   <p className="chat-availability" id="chat-availability">
                     {t.analysisNote}
                   </p>
-                  <label className="detail-scan-option">
-                    <input
-                      type="checkbox"
-                      checked={detailedScan}
-                      onChange={(event) => setDetailedScan(event.target.checked)}
-                      disabled={importing || asking}
-                      aria-describedby="detail-scan-description"
-                    />
-                    <span>
-                      <strong>{language === 'fi' ? 'Tarkka tunnistus' : 'Detailed scan'}</strong>
-                      <span id="detail-scan-description">
-                        {language === 'fi'
-                          ? 'Tutkii alueita; voi lisätä mallikutsuja.'
-                          : 'Inspects regions; may use more model calls.'}
-                      </span>
-                    </span>
-                  </label>
                   <form className="question-form" onSubmit={submit}>
                     <textarea
                       aria-label="Question about the drawing"
