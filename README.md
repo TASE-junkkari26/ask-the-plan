@@ -9,6 +9,90 @@ always use the entire imported IFC model, regardless of viewer filters or sectio
 cuts. Answers should link to their source objects, properties, regions, and
 calculation steps.
 
+## Quick start
+
+Run these commands from the **repository root**. Install **Node.js 22.12+**
+(24 LTS is the tested frontend baseline) and **Python 3.10+** with an available
+IfcOpenShell wheel (3.12 is the reported Linux backend baseline).
+
+### 1. Install dependencies once
+
+Linux:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[api,preprocess,vision]'
+npm run setup:frontend
+test -f .env || cp .env.example .env
+```
+
+Windows PowerShell:
+
+```powershell
+py -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[api,preprocess,vision]"
+npm.cmd run setup:frontend
+if (-not (Test-Path -LiteralPath .env)) { Copy-Item -LiteralPath .env.example -Destination .env }
+```
+
+These commands preserve an existing `.env`. Virtual-environment activation is
+not required; create a separate native environment on each OS.
+
+### 2. Configure the backend
+
+In the root `.env`, update the existing entries below and fill in your Gemini
+API key locally:
+
+```dotenv
+IMAGE_API_PROVIDER=gemini
+IFC_API_PROVIDER=gemini
+GEMINI_API_KEY=
+```
+
+The workbench's **Detailed scan** requires the Gemini image provider. This quick
+start also selects Gemini for IFC planning; to use Nemotron for IFC instead, set
+`IFC_API_PROVIDER=nemotron` and configure `VERDA_INFERENCE_KEY` as described in
+[Configure Nemotron](#configure-nemotron). Keep credentials in the backend `.env`.
+
+### 3. Start both servers
+
+**Terminal 1 — backend** (leave it running):
+
+Linux:
+
+```sh
+.venv/bin/python -m uvicorn image_api.app:app --host 127.0.0.1 --port 8000
+```
+
+Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn image_api.app:app --host 127.0.0.1 --port 8000
+```
+
+**Terminal 2 — frontend**, also from the repository root:
+
+Linux:
+
+```sh
+npm run dev
+```
+
+Windows PowerShell:
+
+```powershell
+npm.cmd run dev
+```
+
+Open the URL printed by Vite, normally <http://127.0.0.1:5173/>, import an IFC,
+image, PDF or DXF file, and ask a question. Backend API documentation is at
+<http://127.0.0.1:8000/docs>. Keep both servers running while using questions or
+DXF previews; `npm run dev` starts the frontend only.
+
+For later launches, repeat **step 3**. Restart the backend after changing `.env`.
+Stop each server with **Ctrl+C** in its terminal. For connection errors, see
+[troubleshooting](image_api/README.md#troubleshoot-the-frontend-connection).
+
 ## Project scope
 
 **A system that works for the supplied dataset's question families is sufficient
