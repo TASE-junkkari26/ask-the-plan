@@ -6,6 +6,35 @@ Built by a team of four at our first hackathon, for Stoa's **Make Blueprints Tal
 
 [Submitted pitch deck](Ask-the-Plan-Pitch.pptx) · [Tech stack and architecture](docs/TECH_STACK.md) · [250-question evaluation](experiments/review_250/RESULTS.md)
 
+## Screenshots
+
+### Floor Plan Analysis
+
+Ask questions about construction drawings and explore the results in the interactive workbench.
+
+<p align="center">
+  <a href="screenshots/floorplan1.png">
+    <img src="screenshots/floorplan1.png" width="49%" alt="Floor plan analysis example 1">
+  </a>
+  <a href="screenshots/floorplan2.png">
+    <img src="screenshots/floorplan2.png" width="49%" alt="Floor plan analysis example 2">
+  </a>
+</p>
+
+### IFC Model Viewer
+
+Explore building information models in an interactive 3D viewer and query their properties using natural language.
+
+<p align="center">
+  <a href="screenshots/ifcscreenshot.png">
+    <img src="screenshots/ifcscreenshot.png" width="85%" alt="IFC model viewer">
+  </a>
+</p>
+
+*Click any screenshot to view it in full resolution.*
+
+
+
 ## What you can do
 
 - **Import a drawing or model.** Open PNG/JPEG and other images, PDFs, DXF layouts, or IFC models.
